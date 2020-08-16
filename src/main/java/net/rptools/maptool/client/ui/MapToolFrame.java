@@ -218,9 +218,11 @@ public class MapToolFrame extends DefaultDockableHolder
       new MTFileFilter("mtmacset", I18N.getText("file.ext.mtmacset"));
   private final FileFilter tableFilter =
       new MTFileFilter("mttable", I18N.getText("file.ext.mttable"));
-
   private final FileFilter dungeonDraftFilter =
       new MTFileFilter("dd2vtt", I18N.getText("file.ext.dungeondraft"));
+  private final FileFilter roll20ModuleFilter =
+          new MTFileFilter("json", I18N.getText("file.ext.roll20json"));
+
   private EditTokenDialog tokenPropertiesDialog;
 
   private final CampaignPanel campaignPanel = new CampaignPanel();
@@ -809,6 +811,15 @@ public class MapToolFrame extends DefaultDockableHolder
    */
   public FileFilter getDungeonDraftFilter() {
     return dungeonDraftFilter;
+  }
+
+  /**
+   * Returns the {@link FileFilter} for roll20-json export files.
+   *
+   * @return the {@link FileFilter} for roll20-json export files.
+   */
+  public FileFilter getRoll20ModuleFilter() {
+    return roll20ModuleFilter;
   }
 
   public JFileChooser getLoadPropsFileChooser() {
