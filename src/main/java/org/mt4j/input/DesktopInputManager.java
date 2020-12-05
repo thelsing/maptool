@@ -14,8 +14,11 @@ import org.mt4j.input.inputData.MTInputEvent;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragProcessor;
+import org.mt4j.input.inputProcessors.componentProcessors.panProcessor.PanProcessorTwoFingers;
+import org.mt4j.input.inputProcessors.componentProcessors.rotateProcessor.RotateProcessor;
 import org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor.TapAndHoldProcessor;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapProcessor;
+import org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor.ZoomProcessor;
 import org.mt4j.input.inputProcessors.globalProcessors.InputRetargeter;
 import org.mt4j.input.inputSources.MouseInputSource;
 import org.mt4j.input.inputSources.TuioInputSource;
@@ -52,9 +55,12 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 		super(app, registerDefaultSources);
 
 		inputProcessorSupport = new ComponentInputProcessorSupport(app, this);
-		//inputProcessorSupport.registerInputProcessor(new TapProcessor(app));
-		//inputProcessorSupport.registerInputProcessor(new TapAndHoldProcessor(app));
+		inputProcessorSupport.registerInputProcessor(new TapProcessor(app));
+		inputProcessorSupport.registerInputProcessor(new TapAndHoldProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new DragProcessor(app));
+		inputProcessorSupport.registerInputProcessor(new PanProcessorTwoFingers(app));
+		inputProcessorSupport.registerInputProcessor(new ZoomProcessor(app));
+		//inputProcessorSupport.registerInputProcessor(new RotateProcessor(app));
 
 		registerDefaultGlobalInputProcessors();
 

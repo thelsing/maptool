@@ -425,18 +425,6 @@ public abstract class AbstractCursorProcessor extends AbstractComponentProcessor
 	 * Gets the intersection point of a cursor and a specified component.
 	 * Can return null if the cursor doesent intersect the component.
 	 *
-	 * @param app the app
-	 * @param c the c
-	 * @return the intersection
-	 */
-	public Vector3D getIntersection(Object app, InputCursor c){
-		return GestureUtils.getIntersection(app, c.getTarget(), c);
-	}
-	
-	/**
-	 * Gets the intersection point of a cursor and a specified component.
-	 * Can return null if the cursor doesent intersect the component.
-	 *
 	 * @param component the component
 	 * @param c the c
 	 * @return the intersection

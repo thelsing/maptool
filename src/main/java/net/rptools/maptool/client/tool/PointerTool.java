@@ -63,8 +63,11 @@ import org.mt4j.input.GestureEventSupport;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.panProcessor.PanEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.rotateProcessor.RotateEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor.TapAndHoldEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor.ZoomEvent;
 import org.mt4j.util.math.Vector3D;
 
 /**
@@ -470,6 +473,55 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         Vector3D to = de.getTo();
         g.drawLine((int)from.x, (int)from.y, (int)to.x, (int)to.y);
       }
+    }
+    if(ge instanceof PanEvent)
+    {
+      PanEvent pe = (PanEvent) ge;
+      Vector3D to = pe.getFirstCursor().getPosition();
+      Graphics g = MapTool.getFrame().getGraphics();
+      if(pe.getId() == MTGestureEvent.GESTURE_STARTED || pe.getId() == MTGestureEvent.GESTURE_ENDED)
+      {
+        if(pe.getId() != MTGestureEvent.GESTURE_ENDED)
+          g.setColor(Color.YELLOW);
+        else
+          g.setColor(Color.GREEN);
+        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
+      }
+      else {
+        g.setColor(Color.YELLOW);
+        Vector3D trans =  pe.getTranslationVector();
+        g.drawLine((int)to.x, (int)to.y, (int)(to.x+trans.x), (int)(to.y+trans.y));
+
+      }
+    }
+    if(ge instanceof ZoomEvent)
+    {
+      ZoomEvent pe = (ZoomEvent) ge;
+      Vector3D to = pe.getFirstCursor().getPosition();
+      Vector3D from = pe.getSecondCursor().getPosition();
+      Graphics g = MapTool.getFrame().getGraphics();
+      if(pe.getId() == MTGestureEvent.GESTURE_STARTED || pe.getId() == MTGestureEvent.GESTURE_ENDED)
+      {
+        if(pe.getId() != MTGestureEvent.GESTURE_ENDED)
+          g.setColor(Color.YELLOW);
+        else
+          g.setColor(Color.GREEN);
+        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
+        g.fillOval((int)from.x - 20, (int)from.y -20, 40, 40);
+      }
+      else {
+        g.setColor(Color.YELLOW);
+        Graphics2D g2 = (Graphics2D)g;
+        //Font font = new Font("Serif", Font.PLAIN, 48);
+        //g2.setFont(font);
+        g2.drawString(Float.toString(pe.getCamZoomAmount()), to.x, to.y);
+
+      }
+    }
+    if(ge instanceof RotateEvent)
+    {
+      RotateEvent re = (RotateEvent)ge;
+      System.out.println(Float.toString(re.getRotationDegrees()));
     }
     return true;
   }
