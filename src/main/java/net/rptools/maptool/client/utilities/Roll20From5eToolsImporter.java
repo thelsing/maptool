@@ -89,11 +89,21 @@ public class Roll20From5eToolsImporter {
             JsonObject mapAttributes = map.getAsJsonObject("attributes");
 
             JsonArray graphics = map.getAsJsonArray("graphics");
+
             JsonArray paths = map.getAsJsonArray("paths");
 
-            String mapName = mapAttributes.get("name").getAsString().replaceAll(":", "");
+            String mapName = mapAttributes.get("name").getAsString()
+                    .replaceAll("’","").replaceAll(":", "")
+                    .replaceAll("'","").trim();
 
             JsonObject background = findMapGraphics(graphics);
+
+            if(background == null) {
+                MapTool.showInformation("No map graphic for " + mapName);
+                continue;
+            }
+            String backgroundId = background.get("id").getAsString();
+
             double backgroundWidth = background.get("width").getAsDouble();
             double gridWidth = mapAttributes.get("width").getAsDouble();
             int pixelsPerCell = (int) (backgroundWidth / gridWidth);
@@ -101,7 +111,15 @@ public class Roll20From5eToolsImporter {
             String backGroundImageFile = getImageFromGraphics(background);
 
             Path imagePath = Paths.get(moduleDir, mapName, backGroundImageFile);
-            BufferedImage backGroundImage = ImageIO.read(imagePath.toFile());
+            BufferedImage backGroundImage = null;
+            try {
+                backGroundImage = ImageIO.read(imagePath.toFile());
+            }
+            catch (Exception e)
+            {
+                MapTool.showError(mapName + " " +e.toString());
+                continue;
+            }
 
 
             Asset asset = new Asset(mapName, backGroundImage);
@@ -116,14 +134,18 @@ public class Roll20From5eToolsImporter {
             if (dialog.getStatus() == MapPropertiesDialog.Status.OK) {
                 MapTool.addZone(zone);
             }
+            else
+                return;
 
-            placeTokens(zone, moduleDir, mapName, graphics);
+            placeTokens(zone, backgroundId, moduleDir, mapName, graphics);
 
             // Handle Walls
 
             for (JsonElement p : paths)
                 RenderPath(p.getAsJsonObject(), zone);
         }
+
+        MapTool.showInformation("Done.");
     }
 
     private void RenderPath(JsonObject path, Zone zone) {
@@ -139,14 +161,20 @@ public class Roll20From5eToolsImporter {
     }
 
     private JsonObject findMapGraphics(JsonArray graphics) throws IOException {
+        JsonObject map = null;
+        double mapWidth = 0;
+
         for(JsonElement e : graphics)
         {
             JsonObject g  = e.getAsJsonObject();
             String layer = g.get("layer").getAsString();
-            if(layer.equals("map"))
-                return g;
+            double width = g.get("width").getAsDouble();
+            if(layer.equals("map") && width > mapWidth) {
+                map = g;
+                mapWidth = width;
+            }
         }
-        throw new IOException("no map graphics found");
+        return map;
     }
 
     private String getImageFromGraphics(JsonObject graphic) throws URISyntaxException, MalformedURLException {
@@ -184,17 +212,19 @@ public class Roll20From5eToolsImporter {
         return Optional.empty();
     }
 
-    private void placeTokens(Zone zone, String moduleDir, String mapDir, JsonArray graphics) throws Exception {
+    private void placeTokens(Zone zone, String backgroundId, String moduleDir, String mapDir, JsonArray graphics) throws Exception {
         for (JsonElement ele : graphics) {
             JsonObject graphic = ele.getAsJsonObject();
 
             String layer = graphic.get("layer").getAsString();
-            if(layer.equals("map"))
-                continue;
+
 
             String img = getImageFromGraphics(graphic);
             String name = graphic.get("name").getAsString();
             String id = graphic.get("id").getAsString();
+
+            if(layer.equals("map") && id.equals(backgroundId))
+                continue;
 
             double width = graphic.get("width").getAsDouble();
             double height = graphic.get("height").getAsDouble();
@@ -205,7 +235,15 @@ public class Roll20From5eToolsImporter {
                 name = id;
 
             Path imagePath = Paths.get(moduleDir, mapDir, img);
-            BufferedImage image = ImageIO.read(imagePath.toFile());
+            System.out.println(imagePath.toString());
+            BufferedImage image = null;
+            try {
+                image = ImageIO.read(imagePath.toFile());
+            }
+            catch (Exception e)
+            {
+                continue;
+            }
 
             Asset asset = new Asset(name, image);
             if(!AssetManager.hasAsset(asset))
@@ -219,6 +257,8 @@ public class Roll20From5eToolsImporter {
                 token.setLayer(Layer.GM);
             else if(layer.equals("objects") && graphic.get("represents").getAsString().isEmpty())
                 token.setLayer(Layer.OBJECT);
+            else if(layer.equals("map"))
+                token.setLayer(Layer.BACKGROUND);
             else {
                 token.setLayer(Layer.TOKEN);
                 token.setSnapToGrid(true);

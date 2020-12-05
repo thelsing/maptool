@@ -2811,7 +2811,7 @@ public class AppActions {
                         try {
                             new Roll20From5eToolsImporter(file).importJson();
                         } catch (Exception ioException) {
-                            MapTool.showError("dungeondraft.import.ioError", ioException);
+                            MapTool.showError(ioException.toString());
                         }
                     }
                 }

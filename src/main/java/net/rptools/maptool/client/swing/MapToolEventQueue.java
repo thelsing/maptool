@@ -47,6 +47,7 @@ public class MapToolEventQueue extends EventQueue {
   @Override
   protected void dispatchEvent(AWTEvent event) {
     try {
+      System.out.println(event.toString());
       if (event instanceof MouseWheelEvent) {
         MouseWheelEvent mwe = (MouseWheelEvent) event;
         if (AppUtil.MAC_OS_X && mwe.isShiftDown()) {

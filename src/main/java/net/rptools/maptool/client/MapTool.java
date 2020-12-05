@@ -111,6 +111,11 @@ import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.appender.FileAppender;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.apache.logging.log4j.core.config.Configurator;
+import org.mt4j.input.DesktopInputManager;
+import org.mt4j.input.InputManager;
+import org.mt4j.input.SwingHitTestInfoProvider;
+import org.mt4j.input.inputProcessors.globalProcessors.InputRetargeter;
+//import org.mt4j.input.inputProcessors.globalProcessors.CursorTracer;
 
 /** */
 public class MapTool {
@@ -167,6 +172,7 @@ public class MapTool {
   private static ClientMethodHandler handler;
   private static JMenuBar menuBar;
   private static MapToolFrame clientFrame;
+  private static DesktopInputManager inputManager;
   private static NoteFrame profilingNoteFrame;
   private static LogConsoleFrame logConsoleFrame;
   private static MapToolServer server;
@@ -623,6 +629,10 @@ public class MapTool {
     }
   }
 
+  private static void setInputManager(DesktopInputManager manager) {
+    inputManager = manager;
+  }
+
   /**
    * For Multi-monitor support, allows you to move the frame to a specific monitor. It will also set
    * the height, width and x, y position of the frame.
@@ -691,6 +701,7 @@ public class MapTool {
     handler = new ClientMethodHandler();
 
     setClientFrame(new MapToolFrame(menuBar));
+    setInputManager(new DesktopInputManager(getFrame()));
 
     serverCommand = new ServerCommandClientImpl();
 
@@ -1241,6 +1252,10 @@ public class MapTool {
 
   public static MapToolFrame getFrame() {
     return clientFrame;
+  }
+
+  public static DesktopInputManager getInputManager() {
+    return inputManager;
   }
 
   private static final void configureJide() {

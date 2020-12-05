@@ -464,7 +464,7 @@ public class MapToolFrame extends DefaultDockableHolder
     glassPaneComposite.add(dragImageGlassPane, constraints);
 
     setGlassPane(glassPane);
-    // setGlassPane(glassPaneComposite);
+    //setGlassPane(glassPaneComposite);
 
     glassPaneComposite.setVisible(true);
 

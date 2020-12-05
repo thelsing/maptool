@@ -20,10 +20,7 @@ import java.awt.geom.AffineTransform;
 import java.util.Set;
 import javax.swing.*;
 import net.rptools.lib.swing.SwingUtil;
-import net.rptools.maptool.client.AppState;
-import net.rptools.maptool.client.AppUtil;
-import net.rptools.maptool.client.MapTool;
-import net.rptools.maptool.client.ScreenPoint;
+import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.ui.Tool;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.model.CellPoint;
@@ -83,8 +80,12 @@ public abstract class DefaultTool extends Tool
   // Mouse
   @Override
   public void mousePressed(MouseEvent e) {
+    mousePressedAt(new MtMouseEvent(e));
+  }
+
+  public void mousePressedAt(MtMouseEvent e)  {
     // Potential map dragging
-    if (SwingUtilities.isRightMouseButton(e)) {
+    if (e.isRightMouseButton()) {
       setDragStart(e.getX(), e.getY());
     }
   }
@@ -102,11 +103,16 @@ public abstract class DefaultTool extends Tool
 
   @Override
   public void mouseReleased(MouseEvent e) {
-    if (isDraggingMap && isRightMouseButton(e)) {
+    mouseReleasedAt(new MtMouseEvent(e));
+  }
+
+  public void mouseReleasedAt(MtMouseEvent e){
+    if (isDraggingMap && e.isRightMouseButton()) {
       renderer.maybeForcePlayersView();
     }
     // Cleanup
     isDraggingMap = false;
+    System.out.println("draggingMap: false");
   }
 
   /** @param isDraggingMap whether the user drags the map */
@@ -164,6 +170,10 @@ public abstract class DefaultTool extends Tool
 
   @Override
   public void mouseDragged(MouseEvent e) {
+    mouseDraggedAt(new MtMouseEvent(e));
+  }
+
+  public void mouseDraggedAt(MtMouseEvent e) {
     int mX = e.getX();
     int mY = e.getY();
     CellPoint cellUnderMouse = renderer.getCellAt(new ScreenPoint(mX, mY));
@@ -173,7 +183,7 @@ public abstract class DefaultTool extends Tool
       MapTool.getFrame().getCoordinateStatusBar().clear();
     }
     // MAP MOVEMENT
-    if (isRightMouseButton(e)) {
+    if (e.isRightMouseButton()) {
 
       mapDX += mX - dragStartX;
       mapDY += mY - dragStartY;
@@ -333,10 +343,4 @@ public abstract class DefaultTool extends Tool
     else return SwingUtilities.isRightMouseButton(event);
   }
 
-  /*
-   * Nothing do here for now...
-   */
-  public boolean isMiddleMouseButton(MouseEvent event) {
-    return SwingUtilities.isMiddleMouseButton(event);
-  }
 }

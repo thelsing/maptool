@@ -26,6 +26,7 @@ import java.awt.font.TextLayout;
 import java.awt.geom.Area;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.io.Console;
 import java.io.IOException;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
@@ -34,6 +35,7 @@ import java.util.*;
 import java.util.List;
 import java.util.Map.Entry;
 import javax.swing.*;
+import TUIO.*;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.lib.swing.SwingUtil;
@@ -41,6 +43,7 @@ import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.tool.LayerSelectionDialog.LayerSelectionListener;
 import net.rptools.maptool.client.ui.*;
+import net.rptools.maptool.client.ui.drawpanel.DrawablesPanel;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneOverlay;
@@ -55,6 +58,14 @@ import net.rptools.maptool.util.StringUtil;
 import net.rptools.maptool.util.TokenUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.mt4j.input.ComponentInputProcessorSupport;
+import org.mt4j.input.GestureEventSupport;
+import org.mt4j.input.inputProcessors.IGestureEventListener;
+import org.mt4j.input.inputProcessors.MTGestureEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor.TapAndHoldEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
+import org.mt4j.util.math.Vector3D;
 
 /**
  * This is the pointer tool from the top-level of the toolbar. It allows tokens to be selected and
@@ -62,7 +73,7 @@ import org.apache.logging.log4j.Logger;
  * the NumPad keys, and it handles positioning the Speech and Thought bubbles when the Spacebar is
  * held down (possibly in combination with Shift or Ctrl).
  */
-public class PointerTool extends DefaultTool implements ZoneOverlay {
+public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEventListener {
   private static final long serialVersionUID = 8606021718606275084L;
   private static final Logger log = LogManager.getLogger(PointerTool.class);
 
@@ -113,6 +124,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
     } catch (IOException ioe) {
       ioe.printStackTrace();
     }
+
     htmlRenderer.setBackground(new Color(0, 0, 0, 200));
     htmlRenderer.setForeground(Color.black);
     htmlRenderer.setOpaque(false);
@@ -311,6 +323,157 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
     repaint();
   }
 
+ /*
+  private int activeTuiCursors = 0;
+  private int firstCursorId = -1;
+  private int firstCurX = 0;
+  private int firstCurY = 0;
+
+  public synchronized void addTuioCursor(TuioCursor tcur) {
+    activeTuiCursors +=1;
+    if(activeTuiCursors == 1 || firstCursorId == -1) {
+      firstCursorId = tcur.getCursorID();
+    }
+
+
+    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
+    int height = panel.getHeight();
+    int width = panel.getWidth();
+    Graphics g = panel.getGraphics();
+    int x = (int)(tcur.getX() * width);
+    int y = (int)(tcur.getY() * height);
+
+
+    g.setColor(Color.WHITE);
+    g.fillOval(x, y, 10, 10);
+    g.setColor(Color.BLACK);
+    g.drawOval(x, y, 10, 10);
+
+    System.out.println("addTuioCursor");
+    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
+    if(firstCursorId == tcur.getCursorID())
+    {
+      firstCurX = x;
+      firstCurY = y;
+    }
+    else
+    {
+      event.setX(firstCurX);
+      event.setY(firstCurY);
+    }
+
+    mousePressedAt(event);
+  }
+
+  @Override
+  public synchronized void updateTuioCursor(TuioCursor tcur) {
+    if(activeTuiCursors == 1 || firstCursorId == -1) {
+      firstCursorId = tcur.getCursorID();
+    }
+    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
+    int height = panel.getHeight();
+    int width = panel.getWidth();
+    int x = (int)(tcur.getX() * width);
+    int y = (int)(tcur.getY() * height);
+    System.out.println("updateTuioCursor");
+    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
+    if(firstCursorId == tcur.getCursorID())
+    {
+      firstCurX = x;
+      firstCurY = y;
+    }
+    else
+    {
+      event.setX(firstCurX);
+      event.setY(firstCurY);
+    }
+    mouseDraggedAt(event);
+  }
+
+  @Override
+  public synchronized void removeTuioCursor(TuioCursor tcur) {
+    if(activeTuiCursors == 1 || firstCursorId == -1) {
+      firstCursorId = tcur.getCursorID();
+    }
+    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
+    int height = panel.getHeight();
+    int width = panel.getWidth();
+
+    int x = (int)(tcur.getX() * width);
+    int y = (int)(tcur.getY() * height);
+    System.out.println("removeTuioCursor");
+    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
+    if(firstCursorId == tcur.getCursorID())
+    {
+      firstCurX = x;
+      firstCurY = y;
+    }
+    else
+    {
+      event.setX(firstCurX);
+      event.setY(firstCurY);
+    }
+    mouseReleasedAt(event);
+    activeTuiCursors -= 1;
+  }
+*/
+
+
+  @Override
+  public boolean processGestureEvent(MTGestureEvent ge) {
+    if(ge instanceof TapEvent)
+    {
+      TapEvent tap = (TapEvent) ge;
+      System.out.println("Tap " + tap.getTapID() );
+      Vector3D p = tap.getLocationOnScreen();
+      Graphics g = MapTool.getFrame().getGraphics();
+      if(tap.isTapCanceled())
+        g.setColor(Color.RED);
+      if(tap.isTapDown())
+        g.setColor(Color.YELLOW);
+      if(tap.isTapped())
+        g.setColor(Color.GREEN);
+      if(tap.isDoubleTap())
+        g.setColor(Color.BLUE);
+      g.fillOval((int)p.x - 20, (int)p.y -20, 40, 40);
+    }
+    if(ge instanceof TapAndHoldEvent)
+    {
+      TapAndHoldEvent th = (TapAndHoldEvent)ge;
+
+      Vector3D p = th.getLocationOnScreen();
+      Graphics g = MapTool.getFrame().getGraphics();
+      if(th.isHoldComplete())
+        g.setColor(Color.GREEN);
+      else if(th.getId() != MTGestureEvent.GESTURE_ENDED)
+        g.setColor(Color.YELLOW);
+      else
+        g.setColor(Color.RED);
+      g.fillOval((int)p.x - 20, (int)p.y -20, 40, 40);
+    }
+    if(ge instanceof DragEvent)
+    {
+      DragEvent de = (DragEvent) ge;
+      Graphics g = MapTool.getFrame().getGraphics();
+      if(de.getId() == MTGestureEvent.GESTURE_STARTED || de.getId() == MTGestureEvent.GESTURE_ENDED)
+      {
+        if(de.getId() != MTGestureEvent.GESTURE_ENDED)
+          g.setColor(Color.YELLOW);
+        else
+          g.setColor(Color.GREEN);
+        Vector3D to = de.getTo();
+        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
+      }
+      else {
+        g.setColor(Color.YELLOW);
+        Vector3D from = de.getFrom();
+        Vector3D to = de.getTo();
+        g.drawLine((int)from.x, (int)from.y, (int)to.x, (int)to.y);
+      }
+    }
+    return true;
+  }
+
   private class TokenStackPanel {
     private static final int PADDING = 4;
 
@@ -334,36 +497,50 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
           gridSize + PADDING * 2 + fm.getHeight() + 10);
     }
 
-    public void handleMouseReleased(MouseEvent event) {}
+    public void handleMouseReleased(MouseEvent event) {
+      handleMouseReleasedAt(new MtMouseEvent(event));
+    }
+
+    private void handleMouseReleasedAt(MtMouseEvent e) {}
 
     /**
      * Handles right click (popup menu) and double left click (token editor).
      *
-     * @param event the mouse event.
+     * @param e the mouse event.
      */
-    public void handleMousePressed(MouseEvent event) {
-      if (event.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(event)) {
-        Token token = getTokenAt(event.getX(), event.getY());
+    public void handleMousePressed(MouseEvent e) {
+      handleMousePressedAt(new MtMouseEvent(e));
+    }
+
+    private void handleMousePressedAt(MtMouseEvent e) {
+      int x = e.getX();
+      int y = e.getY();
+      int clickcount = e.getClickCount();
+      boolean isLMB = e.isLeftMouseButton();
+      boolean isRMB = e.isRightMouseButton();
+
+      if (clickcount == 2 && isLMB) {
+        Token token = getTokenAt(x, y);
         if (token == null || !AppUtil.playerOwns(token)) {
           return;
         }
         tokenUnderMouse = token;
         MapTool.getFrame().showTokenPropertiesDialog(tokenUnderMouse, renderer);
       }
-      if (SwingUtilities.isRightMouseButton(event)) {
-        Token token = getTokenAt(event.getX(), event.getY());
+      if (isRMB) {
+        Token token = getTokenAt(x, y);
         if (token == null || !AppUtil.playerOwns(token)) {
           return;
         }
         tokenUnderMouse = token;
         Set<GUID> selectedSet = new HashSet<GUID>();
         selectedSet.add(token.getId());
-        new TokenPopupMenu(selectedSet, event.getX(), event.getY(), renderer, tokenUnderMouse)
+        new TokenPopupMenu(selectedSet, x, y, renderer, tokenUnderMouse)
             .showPopup(renderer);
       }
     }
 
-    public void handleMouseMotionEvent(MouseEvent event) {
+    public void handleMouseMotionEvent(MtMouseEvent event) {
       Token token = getTokenAt(event.getX(), event.getY());
       if (token == null || !AppUtil.playerOwns(token)) {
         return;
@@ -440,20 +617,29 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
   // Mouse
   @Override
   public void mousePressed(MouseEvent e) {
-    super.mousePressed(e);
+    mousePressedAt(new MtMouseEvent(e));
+  }
 
+  @Override
+  public void  mousePressedAt(MtMouseEvent e) {
+    super.mousePressedAt(e);
     mouseButtonDown = true;
+    int x = e.getX();
+    int y = e.getY();
+    int clickcount = e.getClickCount();
+    boolean isLMB = e.isLeftMouseButton();
+    boolean isShift = e.isShiftDown();
 
     if (isShowingHover) {
       isShowingHover = false;
       hoverTokenBounds = null;
       hoverTokenNotes = null;
-      markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
+      markerUnderMouse = renderer.getMarkerAt(x, y);
       repaint();
     }
     if (isShowingTokenStackPopup) {
-      if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        tokenStackPanel.handleMousePressed(e);
+      if (tokenStackPanel.contains(x, y)) {
+        tokenStackPanel.handleMousePressedAt(e);
         return;
       } else {
         isShowingTokenStackPopup = false;
@@ -468,22 +654,22 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
     if (isDraggingToken) {
       return;
     }
-    dragStartX = e.getX(); // These same two lines are in super.mousePressed(). Why do them
+    dragStartX = x; // These same two lines are in super.mousePressed(). Why do them
     // here?
-    dragStartY = e.getY();
+    dragStartY = y;
 
     // Properties
-    if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+    if (clickcount == 2 && isLMB) {
       mouseButtonDown = false;
       List<Token> tokenList = renderer.getTokenStackAt(mouseX, mouseY);
       if (tokenList != null) {
         // Stack
         renderer.clearSelectedTokens();
-        showTokenStackPopup(tokenList, e.getX(), e.getY());
+        showTokenStackPopup(tokenList, x, y);
         renderer.updateAfterSelection();
       } else {
         // Single
-        Token token = renderer.getTokenAt(e.getX(), e.getY());
+        Token token = renderer.getTokenAt(x, y);
         if (token != null) {
           if (!AppUtil.playerOwns(token)) {
             return;
@@ -494,12 +680,15 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
       return;
     }
     // SELECTION
-    Token token = renderer.getTokenAt(e.getX(), e.getY());
-    if (token != null && !isDraggingToken && SwingUtilities.isLeftMouseButton(e)) {
+    Token token = renderer.getTokenAt(x, y);
+    if(token != tokenUnderMouse)
+      tokenUnderMouse = token;
+
+    if (token != null && !isDraggingToken && isLMB) {
       // Don't select if it's already being moved by someone
       isNewTokenSelected = false;
       if (!renderer.isTokenMoving(token)) {
-        if (SwingUtil.isShiftDown(e)) {
+        if (isShift) {
           // if shift, we invert the selection of the token
           if (renderer.getSelectedTokenSet().contains(token.getId())) {
             renderer.deselectToken(token.getId());
@@ -515,7 +704,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
           renderer.updateAfterSelection();
         }
         // ZonePoint dragged to
-        ZonePoint pos = new ScreenPoint(e.getX(), e.getY()).convertToZone(renderer);
+        ZonePoint pos = new ScreenPoint(x, y).convertToZone(renderer);
 
         // Offset specific to the token
         Point tokenOffset = token.getDragOffset(getZone());
@@ -525,10 +714,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
         dragOffsetY = pos.y - tokenOffset.y;
       }
     } else {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (isLMB) {
         // Starting a bound box selection
         isDrawingSelectionBox = true;
-        selectionBoundBox = new Rectangle(e.getX(), e.getY(), 0, 0);
+        selectionBoundBox = new Rectangle(x, y, 0, 0);
       } else {
         if (tokenUnderMouse != null) {
           isNewTokenSelected = true;
@@ -539,12 +728,17 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
 
   @Override
   public void mouseReleased(MouseEvent e) {
+    mouseReleasedAt(new MtMouseEvent(e));
+  }
+
+  @Override
+  public void mouseReleasedAt(MtMouseEvent e) {
     mouseButtonDown = false;
     // System.out.println("mouseReleased " + e.toString());
 
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        tokenStackPanel.handleMouseReleased(e);
+        tokenStackPanel.handleMouseReleasedAt(e);
         return;
       } else {
         isShowingTokenStackPopup = false;
@@ -555,13 +749,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
     // Jamz: We have to capture here as isLeftMouseButton is also true during drag
     // Jamz: Also, changed to right button which is easier to click during drag
     // WAYPOINT
-    if (SwingUtilities.isRightMouseButton(e) && isDraggingToken) {
+    if (e.isRightMouseButton() && isDraggingToken) {
       setWaypoint();
       setDraggingMap(false); // We no longer drag the map. Fixes bug #616
       return;
     }
 
-    if (SwingUtilities.isLeftMouseButton(e)) {
+    if (e.isLeftMouseButton()) {
       try {
         // MARKER
         renderer.setCursor(
@@ -584,7 +778,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
         if (isDrawingSelectionBox) {
           isDrawingSelectionBox = false;
 
-          if (!SwingUtil.isShiftDown(e)) {
+          if (!e.isShiftDown()) {
             renderer.clearSelectedTokens();
           }
           renderer.selectTokens(selectionBoundBox);
@@ -599,7 +793,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
           stopTokenDrag();
         } else {
           // IF SELECTING MULTIPLE, SELECT SINGLE TOKEN
-          if (SwingUtilities.isLeftMouseButton(e) && !SwingUtil.isShiftDown(e)) {
+          if (e.isLeftMouseButton() && !e.isShiftDown()) {
             Token token = renderer.getTokenAt(e.getX(), e.getY());
             // Only if it isn't already being moved
             if (renderer.isSubsetSelected(token) && !renderer.isTokenMoving(token)) {
@@ -616,20 +810,11 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
       return;
     }
 
-    // Jamz: This doesn't seem to work for me, looks like Mouse 1 is always returned along with
-    // Mouse 3 so it's caught above...
-    // And Middle button? That's a pain to click while dragging isn't it? How about Right click
-    // during drag?
-    // WAYPOINT
-    if (SwingUtilities.isMiddleMouseButton(e) && isDraggingToken) {
-      setWaypoint();
-    }
-
     // POPUP MENU
-    if (SwingUtilities.isRightMouseButton(e) && !isDraggingToken && !isDraggingMap()) {
+    if (e.isRightMouseButton() && !isDraggingToken && !isDraggingMap()) {
       if (tokenUnderMouse != null
           && !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
-        if (!SwingUtil.isShiftDown(e)) {
+        if (!e.isShiftDown()) {
           renderer.clearSelectedTokens();
         }
         renderer.selectToken(tokenUnderMouse.getId());
@@ -663,13 +848,16 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
         return;
       }
     }
-    super.mouseReleased(e);
+    super.mouseReleasedAt(e);
   }
 
   // //
   // MouseMotion
   @Override
   public void mouseMoved(MouseEvent e) {
+    if(renderer != null)
+      return;
+
     if (renderer == null) {
       return;
     }
@@ -741,8 +929,17 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
 
   @Override
   public void mouseDragged(MouseEvent e) {
+    mouseDraggedAt(new MtMouseEvent(e));
+  }
+
+  public void mouseDraggedAt(MtMouseEvent e) {
     mouseX = e.getX();
     mouseY = e.getY();
+
+    if(isDrawingSelectionBox && e.isRightMouseButton()) {
+      isDrawingSelectionBox = false;
+      selectionBoundBox = null;
+    }
 
     if (isShowingTokenStackPopup) {
       isShowingTokenStackPopup = false;
@@ -760,7 +957,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
     if (cellUnderMouse != null) {
       MapTool.getFrame().getCoordinateStatusBar().update(cellUnderMouse.x, cellUnderMouse.y);
     }
-    if (SwingUtilities.isLeftMouseButton(e) && !SwingUtilities.isRightMouseButton(e)) {
+    if (e.isLeftMouseButton() && !e.isRightMouseButton()) {
       if (isDrawingSelectionBox) {
         int x1 = dragStartX;
         int y1 = dragStartY;
@@ -850,7 +1047,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay {
       }
       return;
     }
-    super.mouseDragged(e);
+    super.mouseDraggedAt(e);
   }
 
   public boolean isDraggingToken() {

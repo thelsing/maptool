@@ -38,6 +38,7 @@ import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Grid;
+import org.mt4j.input.inputProcessors.IGestureEventListener;
 
 public abstract class Tool extends JToggleButton implements ActionListener, KeyListener {
 
@@ -81,15 +82,24 @@ public abstract class Tool extends JToggleButton implements ActionListener, KeyL
     if (comp == null) {
       return;
     }
-    if (this instanceof MouseListener) {
-      comp.addMouseListener((MouseListener) this);
+
+    // we don't want to get click and gestures at the same time.
+    if(this instanceof IGestureEventListener)
+      MapTool.getInputManager().addGestureEvtListenerForComponent(comp, (IGestureEventListener) this);
+    else {
+      if (this instanceof MouseWheelListener) {
+        comp.addMouseWheelListener((MouseWheelListener) this);
+      }
+      if (this instanceof MouseListener) {
+        comp.addMouseListener((MouseListener) this);
+      }
     }
     if (this instanceof MouseMotionListener) {
       comp.addMouseMotionListener((MouseMotionListener) this);
     }
-    if (this instanceof MouseWheelListener) {
-      comp.addMouseWheelListener((MouseWheelListener) this);
-    }
+
+
+
     // Keystrokes
     comp.addKeyListener(this);
     comp.setActionMap(createActionMap(keyActionMap));
