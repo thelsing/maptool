@@ -26,7 +26,6 @@ import java.awt.font.TextLayout;
 import java.awt.geom.Area;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
-import java.io.Console;
 import java.io.IOException;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
@@ -35,7 +34,6 @@ import java.util.*;
 import java.util.List;
 import java.util.Map.Entry;
 import javax.swing.*;
-import TUIO.*;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.lib.swing.SwingUtil;
@@ -43,7 +41,6 @@ import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.tool.LayerSelectionDialog.LayerSelectionListener;
 import net.rptools.maptool.client.ui.*;
-import net.rptools.maptool.client.ui.drawpanel.DrawablesPanel;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneOverlay;
@@ -58,8 +55,6 @@ import net.rptools.maptool.util.StringUtil;
 import net.rptools.maptool.util.TokenUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.mt4j.input.ComponentInputProcessorSupport;
-import org.mt4j.input.GestureEventSupport;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragEvent;
@@ -122,12 +117,11 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   public PointerTool() {
     try {
       setIcon(
-          new ImageIcon(
-              ImageUtil.getImage("net/rptools/maptool/client/image/tool/pointer-blue.png")));
+              new ImageIcon(
+                      ImageUtil.getImage("net/rptools/maptool/client/image/tool/pointer-blue.png")));
     } catch (IOException ioe) {
       ioe.printStackTrace();
     }
-
     htmlRenderer.setBackground(new Color(0, 0, 0, 200));
     htmlRenderer.setForeground(Color.black);
     htmlRenderer.setOpaque(false);
@@ -135,22 +129,22 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     htmlRenderer.addStyleSheetRule(".title{font-size: 14pt}");
 
     layerSelectionDialog =
-        new LayerSelectionDialog(
-            new Zone.Layer[] {
-              Zone.Layer.TOKEN, Zone.Layer.GM, Zone.Layer.OBJECT, Zone.Layer.BACKGROUND
-            },
-            new LayerSelectionListener() {
-              public void layerSelected(Layer layer) {
-                if (renderer != null) {
-                  renderer.setActiveLayer(layer);
-                  MapTool.getFrame().setLastSelectedLayer(layer);
+            new LayerSelectionDialog(
+                    new Zone.Layer[] {
+                            Zone.Layer.TOKEN, Zone.Layer.GM, Zone.Layer.OBJECT, Zone.Layer.BACKGROUND
+                    },
+                    new LayerSelectionListener() {
+                      public void layerSelected(Layer layer) {
+                        if (renderer != null) {
+                          renderer.setActiveLayer(layer);
+                          MapTool.getFrame().setLastSelectedLayer(layer);
 
-                  if (layer != Zone.Layer.TOKEN) {
-                    MapTool.getFrame().getToolbox().setSelectedTool(StampTool.class);
-                  }
-                }
-              }
-            });
+                          if (layer != Zone.Layer.TOKEN) {
+                            MapTool.getFrame().getToolbox().setSelectedTool(StampTool.class);
+                          }
+                        }
+                      }
+                    });
   }
 
   @Override
@@ -237,23 +231,23 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     Player p = MapTool.getPlayer();
     if (!p.isGM()
-        && (MapTool.getServerPolicy().isMovementLocked()
+            && (MapTool.getServerPolicy().isMovementLocked()
             || MapTool.getFrame().getInitiativePanel().isMovementLocked(keyToken))) {
       // Not allowed
       return;
     }
 
     renderer.addMoveSelectionSet(
-        p.getName(),
-        tokenBeingDragged.getId(),
-        renderer.getOwnedTokens(renderer.getSelectedTokenSet()),
-        false);
-    MapTool.serverCommand()
-        .startTokenMove(
             p.getName(),
-            renderer.getZone().getId(),
             tokenBeingDragged.getId(),
-            renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
+            renderer.getOwnedTokens(renderer.getSelectedTokenSet()),
+            false);
+    MapTool.serverCommand()
+            .startTokenMove(
+                    p.getName(),
+                    renderer.getZone().getId(),
+                    tokenBeingDragged.getId(),
+                    renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
 
     isDraggingToken = true;
   }
@@ -287,7 +281,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     if (MapTool.isPersonalServer()) {
       ownerReveal =
-          hasOwnerReveal = noOwnerReveal = AppPreferences.getAutoRevealVisionOnGMMovement();
+              hasOwnerReveal = noOwnerReveal = AppPreferences.getAutoRevealVisionOnGMMovement();
     } else {
       ownerReveal = MapTool.getServerPolicy().isAutoRevealOnMovement();
       hasOwnerReveal = isGM && MapTool.getServerPolicy().isAutoRevealOnMovement();
@@ -326,105 +320,144 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     repaint();
   }
 
- /*
-  private int activeTuiCursors = 0;
-  private int firstCursorId = -1;
-  private int firstCurX = 0;
-  private int firstCurY = 0;
+  private class TokenStackPanel {
+    private static final int PADDING = 4;
 
-  public synchronized void addTuioCursor(TuioCursor tcur) {
-    activeTuiCursors +=1;
-    if(activeTuiCursors == 1 || firstCursorId == -1) {
-      firstCursorId = tcur.getCursorID();
+    private List<Token> tokenList;
+    private final List<TokenLocation> tokenLocationList = new ArrayList<TokenLocation>();
+
+    private int x;
+    private int y;
+
+    public void show(List<Token> tokenList, int x, int y) {
+      this.tokenList = tokenList;
+      this.x = x - TokenStackPanel.PADDING - getSize().width / 2;
+      this.y = y - TokenStackPanel.PADDING - getSize().height / 2;
     }
 
-
-    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
-    int height = panel.getHeight();
-    int width = panel.getWidth();
-    Graphics g = panel.getGraphics();
-    int x = (int)(tcur.getX() * width);
-    int y = (int)(tcur.getY() * height);
-
-
-    g.setColor(Color.WHITE);
-    g.fillOval(x, y, 10, 10);
-    g.setColor(Color.BLACK);
-    g.drawOval(x, y, 10, 10);
-
-    System.out.println("addTuioCursor");
-    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
-    if(firstCursorId == tcur.getCursorID())
-    {
-      firstCurX = x;
-      firstCurY = y;
-    }
-    else
-    {
-      event.setX(firstCurX);
-      event.setY(firstCurY);
+    public Dimension getSize() {
+      int gridSize = (int) renderer.getScaledGridSize();
+      FontMetrics fm = getFontMetrics(getFont());
+      return new Dimension(
+              tokenList.size() * (gridSize + PADDING) + PADDING,
+              gridSize + PADDING * 2 + fm.getHeight() + 10);
     }
 
-    mousePressedAt(event);
+    public void handleMouseReleased(MouseEvent event) {}
+
+    /**
+     * Handles right click (popup menu) and double left click (token editor).
+     *
+     * @param event the mouse event.
+     */
+    public void handleMousePressed(MouseEvent event) {
+      if (event.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(event)) {
+        Token token = getTokenAt(event.getX(), event.getY());
+        if (token == null || !AppUtil.playerOwns(token)) {
+          return;
+        }
+        tokenUnderMouse = token;
+        MapTool.getFrame().showTokenPropertiesDialog(tokenUnderMouse, renderer);
+      }
+      if (SwingUtilities.isRightMouseButton(event)) {
+        Token token = getTokenAt(event.getX(), event.getY());
+        if (token == null || !AppUtil.playerOwns(token)) {
+          return;
+        }
+        tokenUnderMouse = token;
+        Set<GUID> selectedSet = new HashSet<GUID>();
+        selectedSet.add(token.getId());
+        new TokenPopupMenu(selectedSet, event.getX(), event.getY(), renderer, tokenUnderMouse)
+                .showPopup(renderer);
+      }
+    }
+
+    public void handleMouseMotionEvent(MouseEvent event) {
+      Token token = getTokenAt(event.getX(), event.getY());
+      if (token == null || !AppUtil.playerOwns(token)) {
+        return;
+      }
+      renderer.clearSelectedTokens();
+      boolean selected = renderer.selectToken(token.getId());
+      renderer.updateAfterSelection();
+
+      if (selected) {
+        Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
+        if (!(tool instanceof PointerTool)) {
+          return;
+        }
+        tokenUnderMouse = token;
+        ((PointerTool) tool).startTokenDrag(token);
+      }
+    }
+
+    public void paint(Graphics g) {
+      Dimension size = getSize();
+      int gridSize = (int) renderer.getScaledGridSize();
+
+      FontMetrics fm = g.getFontMetrics();
+
+      // Background
+      ((Graphics2D) g)
+              .setPaint(
+                      new GradientPaint(x, y, Color.white, x + size.width, y + size.height, Color.gray));
+      g.fillRect(x, y, size.width, size.height);
+
+      // Border
+      AppStyle.border.paintAround((Graphics2D) g, x, y, size.width - 1, size.height - 1);
+
+      // Images
+      tokenLocationList.clear();
+      for (int i = 0; i < tokenList.size(); i++) {
+        Token token = tokenList.get(i);
+
+        BufferedImage image = ImageManager.getImage(token.getImageAssetId(), renderer);
+
+        Dimension imgSize = new Dimension(image.getWidth(), image.getHeight());
+        SwingUtil.constrainTo(imgSize, gridSize);
+
+        Rectangle bounds =
+                new Rectangle(
+                        x + PADDING + i * (gridSize + PADDING), y + PADDING, imgSize.width, imgSize.height);
+        g.drawImage(image, bounds.x, bounds.y, bounds.width, bounds.height, renderer);
+
+        GraphicsUtil.drawBoxedString(
+                (Graphics2D) g,
+                token.getName(),
+                bounds.x + bounds.width / 2,
+                bounds.y + bounds.height + fm.getAscent());
+
+        tokenLocationList.add(new TokenLocation(bounds, token));
+      }
+    }
+
+    public Token getTokenAt(int x, int y) {
+      for (TokenLocation location : tokenLocationList) {
+        if (location.getBounds().contains(x, y)) {
+          return location.getToken();
+        }
+      }
+      return null;
+    }
+
+    public boolean contains(int x, int y) {
+      return new Rectangle(this.x, this.y, getSize().width, getSize().height).contains(x, y);
+    }
   }
 
-  @Override
-  public synchronized void updateTuioCursor(TuioCursor tcur) {
-    if(activeTuiCursors == 1 || firstCursorId == -1) {
-      firstCursorId = tcur.getCursorID();
-    }
-    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
-    int height = panel.getHeight();
-    int width = panel.getWidth();
-    int x = (int)(tcur.getX() * width);
-    int y = (int)(tcur.getY() * height);
-    System.out.println("updateTuioCursor");
-    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
-    if(firstCursorId == tcur.getCursorID())
-    {
-      firstCurX = x;
-      firstCurY = y;
-    }
-    else
-    {
-      event.setX(firstCurX);
-      event.setY(firstCurY);
-    }
-    mouseDraggedAt(event);
-  }
 
-  @Override
-  public synchronized void removeTuioCursor(TuioCursor tcur) {
-    if(activeTuiCursors == 1 || firstCursorId == -1) {
-      firstCursorId = tcur.getCursorID();
-    }
-    ZoneRenderer panel = MapTool.getFrame().getCurrentZoneRenderer();
-    int height = panel.getHeight();
-    int width = panel.getWidth();
-
-    int x = (int)(tcur.getX() * width);
-    int y = (int)(tcur.getY() * height);
-    System.out.println("removeTuioCursor");
-    MtMouseEvent event = new MtMouseEvent(x, y, activeTuiCursors);
-    if(firstCursorId == tcur.getCursorID())
-    {
-      firstCurX = x;
-      firstCurY = y;
-    }
-    else
-    {
-      event.setX(firstCurX);
-      event.setY(firstCurY);
-    }
-    mouseReleasedAt(event);
-    activeTuiCursors -= 1;
-  }
-*/
-
-
-  @Override
+  //@Override
   public boolean processGestureEvent(MTGestureEvent ge) {
-    if(ge instanceof TapEvent)
+    if(ge instanceof PanEvent)
+      processPanEvent((PanEvent)ge);
+    else if(ge instanceof ZoomEvent)
+      processZoomEvent((ZoomEvent)ge);
+    else if(ge instanceof RotateEvent)
+      processRotateEvent((RotateEvent)ge);
+    else if(ge instanceof TapEvent)
+      processTapEvent((TapEvent)ge);
+
+    /*if(ge instanceof TapEvent)
     {
       TapEvent tap = (TapEvent) ge;
       System.out.println("Tap " + tap.getTapID() );
@@ -474,224 +507,119 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         g.drawLine((int)from.x, (int)from.y, (int)to.x, (int)to.y);
       }
     }
-    if(ge instanceof PanEvent)
-    {
-      PanEvent pe = (PanEvent) ge;
-      Vector3D to = pe.getFirstCursor().getPosition();
-      Graphics g = MapTool.getFrame().getGraphics();
-      if(pe.getId() == MTGestureEvent.GESTURE_STARTED || pe.getId() == MTGestureEvent.GESTURE_ENDED)
-      {
-        if(pe.getId() != MTGestureEvent.GESTURE_ENDED)
-          g.setColor(Color.YELLOW);
-        else
-          g.setColor(Color.GREEN);
-        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
-      }
-      else {
-        g.setColor(Color.YELLOW);
-        Vector3D trans =  pe.getTranslationVector();
-        g.drawLine((int)to.x, (int)to.y, (int)(to.x+trans.x), (int)(to.y+trans.y));
-
-      }
-    }
-    if(ge instanceof ZoomEvent)
-    {
-      ZoomEvent pe = (ZoomEvent) ge;
-      Vector3D to = pe.getFirstCursor().getPosition();
-      Vector3D from = pe.getSecondCursor().getPosition();
-      Graphics g = MapTool.getFrame().getGraphics();
-      if(pe.getId() == MTGestureEvent.GESTURE_STARTED || pe.getId() == MTGestureEvent.GESTURE_ENDED)
-      {
-        if(pe.getId() != MTGestureEvent.GESTURE_ENDED)
-          g.setColor(Color.YELLOW);
-        else
-          g.setColor(Color.GREEN);
-        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
-        g.fillOval((int)from.x - 20, (int)from.y -20, 40, 40);
-      }
-      else {
-        g.setColor(Color.YELLOW);
-        Graphics2D g2 = (Graphics2D)g;
-        //Font font = new Font("Serif", Font.PLAIN, 48);
-        //g2.setFont(font);
-        g2.drawString(Float.toString(pe.getCamZoomAmount()), to.x, to.y);
-
-      }
-    }
-    if(ge instanceof RotateEvent)
-    {
-      RotateEvent re = (RotateEvent)ge;
-      System.out.println(Float.toString(re.getRotationDegrees()));
-    }
+*/
     return true;
   }
 
-  private class TokenStackPanel {
-    private static final int PADDING = 4;
+  private void processTapEvent(TapEvent te) {
+    if(!te.isTapped() && !te.isDoubleTap())
+      return;
 
-    private List<Token> tokenList;
-    private final List<TokenLocation> tokenLocationList = new ArrayList<TokenLocation>();
+    // So that keystrokes end up in the right place
+    renderer.requestFocusInWindow();
+    if (isDraggingMap() || isDraggingToken)
+      return;
 
-    private int x;
-    private int y;
+    Point p = te.getLocationOn(renderer);
 
-    public void show(List<Token> tokenList, int x, int y) {
-      this.tokenList = tokenList;
-      this.x = x - TokenStackPanel.PADDING - getSize().width / 2;
-      this.y = y - TokenStackPanel.PADDING - getSize().height / 2;
+    Token marker = renderer.getMarkerAt(p.x, p.y);
+    List<Token> tokenList = renderer.getTokenStackAt(p.x, p.y);
+    Token token = renderer.getTokenAt(p.x, p.y);
+
+    setSelectedMarker(marker);
+    setSelectedToken(token);
+
+    if(te.isDoubleTap() && tokenList != null) {
+        // Stack
+        renderer.clearSelectedTokens();
+        showTokenStackPopup(tokenList, p.x, p.y);
+        renderer.updateAfterSelection();
+    }
+    repaintZone();
+  }
+
+  private void setSelectedToken(Token token) {
+    if (renderer.isTokenMoving(token))
+      return;
+
+    if(token == tokenUnderMouse) {
+      if(AppUtil.playerOwns(token))
+        MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
     }
 
-    public Dimension getSize() {
-      int gridSize = (int) renderer.getScaledGridSize();
-      FontMetrics fm = getFontMetrics(getFont());
-      return new Dimension(
-          tokenList.size() * (gridSize + PADDING) + PADDING,
-          gridSize + PADDING * 2 + fm.getHeight() + 10);
-    }
-
-    public void handleMouseReleased(MouseEvent event) {
-      handleMouseReleasedAt(new MtMouseEvent(event));
-    }
-
-    private void handleMouseReleasedAt(MtMouseEvent e) {}
-
-    /**
-     * Handles right click (popup menu) and double left click (token editor).
-     *
-     * @param e the mouse event.
-     */
-    public void handleMousePressed(MouseEvent e) {
-      handleMousePressedAt(new MtMouseEvent(e));
-    }
-
-    private void handleMousePressedAt(MtMouseEvent e) {
-      int x = e.getX();
-      int y = e.getY();
-      int clickcount = e.getClickCount();
-      boolean isLMB = e.isLeftMouseButton();
-      boolean isRMB = e.isRightMouseButton();
-
-      if (clickcount == 2 && isLMB) {
-        Token token = getTokenAt(x, y);
-        if (token == null || !AppUtil.playerOwns(token)) {
-          return;
-        }
-        tokenUnderMouse = token;
-        MapTool.getFrame().showTokenPropertiesDialog(tokenUnderMouse, renderer);
-      }
-      if (isRMB) {
-        Token token = getTokenAt(x, y);
-        if (token == null || !AppUtil.playerOwns(token)) {
-          return;
-        }
-        tokenUnderMouse = token;
-        Set<GUID> selectedSet = new HashSet<GUID>();
-        selectedSet.add(token.getId());
-        new TokenPopupMenu(selectedSet, x, y, renderer, tokenUnderMouse)
-            .showPopup(renderer);
-      }
-    }
-
-    public void handleMouseMotionEvent(MtMouseEvent event) {
-      Token token = getTokenAt(event.getX(), event.getY());
-      if (token == null || !AppUtil.playerOwns(token)) {
-        return;
-      }
-      renderer.clearSelectedTokens();
-      boolean selected = renderer.selectToken(token.getId());
+    statSheet = null;
+    tokenUnderMouse = token;
+    renderer.clearSelectedTokens();
+    if(token != null) {
+      renderer.selectToken(token.getId());
       renderer.updateAfterSelection();
+    }
+    renderer.setMouseOver(tokenUnderMouse);
+  }
 
-      if (selected) {
-        Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
-        if (!(tool instanceof PointerTool)) {
-          return;
-        }
-        tokenUnderMouse = token;
-        ((PointerTool) tool).startTokenDrag(token);
-      }
+  private void setSelectedMarker(Token marker) {
+    markerUnderMouse = marker;
+    if(marker == null)
+      hideMarkerPopup();
+    else
+      showMarkerPopup();
+  }
+
+  private void showMarkerPopup() {
+    isShowingHover = true;
+    hoverTokenBounds = renderer.getMarkerBounds(markerUnderMouse);
+    hoverTokenNotes = createHoverNote(markerUnderMouse);
+    if (hoverTokenBounds == null) {
+      // Uhhhh, where's the token ?
+      isShowingHover = false;
+    }
+  }
+
+  private void hideMarkerPopup() {
+    if(!isShowingHover)
+      return;
+
+    isShowingHover = false;
+    hoverTokenBounds = null;
+    hoverTokenNotes = null;
+    markerUnderMouse = null;
+  }
+
+  private void processRotateEvent(RotateEvent ge) {
+    //rotateSelectedToken(ge.getRotationDegrees() > 0, false, false);
+  }
+
+  private void processZoomEvent(ZoomEvent ge) {
+    Vector3D center = ge.getCenterPoint();
+    zoomMap((int)center.x, (int)center.y, ge.getCamZoomAmount() < 0);
+  }
+
+  private void processPanEvent(PanEvent pe) {
+    if(pe.isStart()) {
+      setDraggingMap(true);
+    } else if(pe.isEnd()) {
+      setDraggingMap(false);
     }
 
-    public void paint(Graphics g) {
-      Dimension size = getSize();
-      int gridSize = (int) renderer.getScaledGridSize();
+     Vector3D trans = pe.getTranslationVector();
+     if(trans == null)
+       return;
 
-      FontMetrics fm = g.getFontMetrics();
-
-      // Background
-      ((Graphics2D) g)
-          .setPaint(
-              new GradientPaint(x, y, Color.white, x + size.width, y + size.height, Color.gray));
-      g.fillRect(x, y, size.width, size.height);
-
-      // Border
-      AppStyle.border.paintAround((Graphics2D) g, x, y, size.width - 1, size.height - 1);
-
-      // Images
-      tokenLocationList.clear();
-      for (int i = 0; i < tokenList.size(); i++) {
-        Token token = tokenList.get(i);
-
-        BufferedImage image = ImageManager.getImage(token.getImageAssetId(), renderer);
-
-        Dimension imgSize = new Dimension(image.getWidth(), image.getHeight());
-        SwingUtil.constrainTo(imgSize, gridSize);
-
-        Rectangle bounds =
-            new Rectangle(
-                x + PADDING + i * (gridSize + PADDING), y + PADDING, imgSize.width, imgSize.height);
-        g.drawImage(image, bounds.x, bounds.y, bounds.width, bounds.height, renderer);
-
-        GraphicsUtil.drawBoxedString(
-            (Graphics2D) g,
-            token.getName(),
-            bounds.x + bounds.width / 2,
-            bounds.y + bounds.height + fm.getAscent());
-
-        tokenLocationList.add(new TokenLocation(bounds, token));
-      }
-    }
-
-    public Token getTokenAt(int x, int y) {
-      for (TokenLocation location : tokenLocationList) {
-        if (location.getBounds().contains(x, y)) {
-          return location.getToken();
-        }
-      }
-      return null;
-    }
-
-    public boolean contains(int x, int y) {
-      return new Rectangle(this.x, this.y, getSize().width, getSize().height).contains(x, y);
-    }
+     moveMapBy((int) trans.x, (int) trans.y);
   }
 
   // //
   // Mouse
   @Override
   public void mousePressed(MouseEvent e) {
-    mousePressedAt(new MtMouseEvent(e));
-  }
+    super.mousePressed(e);
 
-  @Override
-  public void  mousePressedAt(MtMouseEvent e) {
-    super.mousePressedAt(e);
     mouseButtonDown = true;
-    int x = e.getX();
-    int y = e.getY();
-    int clickcount = e.getClickCount();
-    boolean isLMB = e.isLeftMouseButton();
-    boolean isShift = e.isShiftDown();
 
-    if (isShowingHover) {
-      isShowingHover = false;
-      hoverTokenBounds = null;
-      hoverTokenNotes = null;
-      markerUnderMouse = renderer.getMarkerAt(x, y);
-      repaint();
-    }
+    hideMarkerPopup();
     if (isShowingTokenStackPopup) {
-      if (tokenStackPanel.contains(x, y)) {
-        tokenStackPanel.handleMousePressedAt(e);
+      if (tokenStackPanel.contains(e.getX(), e.getY())) {
+        tokenStackPanel.handleMousePressed(e);
         return;
       } else {
         isShowingTokenStackPopup = false;
@@ -706,22 +634,22 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (isDraggingToken) {
       return;
     }
-    dragStartX = x; // These same two lines are in super.mousePressed(). Why do them
+    dragStartX = e.getX(); // These same two lines are in super.mousePressed(). Why do them
     // here?
-    dragStartY = y;
+    dragStartY = e.getY();
 
     // Properties
-    if (clickcount == 2 && isLMB) {
+    if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
       mouseButtonDown = false;
       List<Token> tokenList = renderer.getTokenStackAt(mouseX, mouseY);
       if (tokenList != null) {
         // Stack
         renderer.clearSelectedTokens();
-        showTokenStackPopup(tokenList, x, y);
+        showTokenStackPopup(tokenList, e.getX(), e.getY());
         renderer.updateAfterSelection();
       } else {
         // Single
-        Token token = renderer.getTokenAt(x, y);
+        Token token = renderer.getTokenAt(e.getX(), e.getY());
         if (token != null) {
           if (!AppUtil.playerOwns(token)) {
             return;
@@ -732,15 +660,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       return;
     }
     // SELECTION
-    Token token = renderer.getTokenAt(x, y);
-    if(token != tokenUnderMouse)
-      tokenUnderMouse = token;
+    Token token = renderer.getTokenAt(e.getX(), e.getY());
 
-    if (token != null && !isDraggingToken && isLMB) {
+    if (token != null && !isDraggingToken && SwingUtilities.isLeftMouseButton(e)) {
       // Don't select if it's already being moved by someone
       isNewTokenSelected = false;
       if (!renderer.isTokenMoving(token)) {
-        if (isShift) {
+        if (SwingUtil.isShiftDown(e)) {
           // if shift, we invert the selection of the token
           if (renderer.getSelectedTokenSet().contains(token.getId())) {
             renderer.deselectToken(token.getId());
@@ -756,7 +682,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           renderer.updateAfterSelection();
         }
         // ZonePoint dragged to
-        ZonePoint pos = new ScreenPoint(x, y).convertToZone(renderer);
+        ZonePoint pos = new ScreenPoint(e.getX(), e.getY()).convertToZone(renderer);
 
         // Offset specific to the token
         Point tokenOffset = token.getDragOffset(getZone());
@@ -766,10 +692,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         dragOffsetY = pos.y - tokenOffset.y;
       }
     } else {
-      if (isLMB) {
+      if (SwingUtilities.isLeftMouseButton(e)) {
         // Starting a bound box selection
         isDrawingSelectionBox = true;
-        selectionBoundBox = new Rectangle(x, y, 0, 0);
+        selectionBoundBox = new Rectangle(e.getX(), e.getY(), 0, 0);
       } else {
         if (tokenUnderMouse != null) {
           isNewTokenSelected = true;
@@ -778,19 +704,14 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     }
   }
 
-  @Override
+  //@Override
   public void mouseReleased(MouseEvent e) {
-    mouseReleasedAt(new MtMouseEvent(e));
-  }
-
-  @Override
-  public void mouseReleasedAt(MtMouseEvent e) {
     mouseButtonDown = false;
     // System.out.println("mouseReleased " + e.toString());
 
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        tokenStackPanel.handleMouseReleasedAt(e);
+        tokenStackPanel.handleMouseReleased(e);
         return;
       } else {
         isShowingTokenStackPopup = false;
@@ -801,36 +722,30 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     // Jamz: We have to capture here as isLeftMouseButton is also true during drag
     // Jamz: Also, changed to right button which is easier to click during drag
     // WAYPOINT
-    if (e.isRightMouseButton() && isDraggingToken) {
+    if (SwingUtilities.isRightMouseButton(e) && isDraggingToken) {
       setWaypoint();
       setDraggingMap(false); // We no longer drag the map. Fixes bug #616
       return;
     }
 
-    if (e.isLeftMouseButton()) {
+    if (SwingUtilities.isLeftMouseButton(e)) {
       try {
         // MARKER
+        markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
         renderer.setCursor(
-            Cursor.getPredefinedCursor(
-                markerUnderMouse != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+                Cursor.getPredefinedCursor(
+                        markerUnderMouse != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
         if (tokenUnderMouse == null
-            && markerUnderMouse != null
-            && !isShowingHover
-            && !isDraggingToken) {
-          isShowingHover = true;
-          hoverTokenBounds = renderer.getMarkerBounds(markerUnderMouse);
-          hoverTokenNotes = createHoverNote(markerUnderMouse);
-          if (hoverTokenBounds == null) {
-            // Uhhhh, where's the token ?
-            isShowingHover = false;
-          }
-          repaint();
+                && markerUnderMouse != null
+                && !isShowingHover
+                && !isDraggingToken) {
+          showMarkerPopup();
         }
         // SELECTION BOUND BOX
         if (isDrawingSelectionBox) {
           isDrawingSelectionBox = false;
 
-          if (!e.isShiftDown()) {
+          if (!SwingUtil.isShiftDown(e)) {
             renderer.clearSelectedTokens();
           }
           renderer.selectTokens(selectionBoundBox);
@@ -845,7 +760,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           stopTokenDrag();
         } else {
           // IF SELECTING MULTIPLE, SELECT SINGLE TOKEN
-          if (e.isLeftMouseButton() && !e.isShiftDown()) {
+          if (SwingUtilities.isLeftMouseButton(e) && !SwingUtil.isShiftDown(e)) {
             Token token = renderer.getTokenAt(e.getX(), e.getY());
             // Only if it isn't already being moved
             if (renderer.isSubsetSelected(token) && !renderer.isTokenMoving(token)) {
@@ -862,11 +777,20 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       return;
     }
 
+    // Jamz: This doesn't seem to work for me, looks like Mouse 1 is always returned along with
+    // Mouse 3 so it's caught above...
+    // And Middle button? That's a pain to click while dragging isn't it? How about Right click
+    // during drag?
+    // WAYPOINT
+    if (SwingUtilities.isMiddleMouseButton(e) && isDraggingToken) {
+      setWaypoint();
+    }
+
     // POPUP MENU
-    if (e.isRightMouseButton() && !isDraggingToken && !isDraggingMap()) {
+    if (SwingUtilities.isRightMouseButton(e) && !isDraggingToken && !isDraggingMap()) {
       if (tokenUnderMouse != null
-          && !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
-        if (!e.isShiftDown()) {
+              && !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
+        if (!SwingUtil.isShiftDown(e)) {
           renderer.clearSelectedTokens();
         }
         renderer.selectToken(tokenUnderMouse.getId());
@@ -877,7 +801,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         if (tokenUnderMouse.isStamp()) {
           new StampPopupMenu(
                   renderer.getSelectedTokenSet(), e.getX(), e.getY(), renderer, tokenUnderMouse)
-              .showPopup(renderer);
+                  .showPopup(renderer);
         } else if (AppUtil.playerOwns(tokenUnderMouse)) {
           // FIXME Every once in awhile we get a report on the forum of the following
           // exception:
@@ -895,21 +819,18 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           // monitor?
           new TokenPopupMenu(
                   renderer.getSelectedTokenSet(), e.getX(), e.getY(), renderer, tokenUnderMouse)
-              .showPopup(renderer);
+                  .showPopup(renderer);
         }
         return;
       }
     }
-    super.mouseReleasedAt(e);
+    super.mouseReleased(e);
   }
 
   // //
   // MouseMotion
-  @Override
+  //@Override
   public void mouseMoved(MouseEvent e) {
-    if(renderer != null)
-      return;
-
     if (renderer == null) {
       return;
     }
@@ -920,7 +841,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (isShowingPointer) {
       ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
       Pointer pointer =
-          MapTool.getFrame().getPointerOverlay().getPointer(MapTool.getPlayer().getName());
+              MapTool.getFrame().getPointerOverlay().getPointer(MapTool.getPlayer().getName());
       if (pointer != null) {
         pointer.setX(zp.x);
         pointer.setY(zp.y);
@@ -979,19 +900,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     }
   }
 
-  @Override
+  //@Override
   public void mouseDragged(MouseEvent e) {
-    mouseDraggedAt(new MtMouseEvent(e));
-  }
-
-  public void mouseDraggedAt(MtMouseEvent e) {
     mouseX = e.getX();
     mouseY = e.getY();
-
-    if(isDrawingSelectionBox && e.isRightMouseButton()) {
-      isDrawingSelectionBox = false;
-      selectionBoundBox = null;
-    }
 
     if (isShowingTokenStackPopup) {
       isShowingTokenStackPopup = false;
@@ -1009,7 +921,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (cellUnderMouse != null) {
       MapTool.getFrame().getCoordinateStatusBar().update(cellUnderMouse.x, cellUnderMouse.y);
     }
-    if (e.isLeftMouseButton() && !e.isRightMouseButton()) {
+    if (SwingUtilities.isLeftMouseButton(e) && !SwingUtilities.isRightMouseButton(e)) {
       if (isDrawingSelectionBox) {
         int x1 = dragStartX;
         int y1 = dragStartY;
@@ -1030,7 +942,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         return;
       }
       if (tokenUnderMouse == null
-          || !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
+              || !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
         return;
       }
       if (isDraggingToken) {
@@ -1099,7 +1011,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       }
       return;
     }
-    super.mouseDraggedAt(e);
+    super.mouseDragged(e);
   }
 
   public boolean isDraggingToken() {
@@ -1120,8 +1032,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     zonePoint.translate(-dragOffsetX, -dragOffsetY);
     // For snapped dragging
     if (tokenBeingDragged.isSnapToGrid()
-        && grid.getCapabilities().isSnapToGridSupported()
-        && AppPreferences.getTokensSnapWhileDragging()) {
+            && grid.getCapabilities().isSnapToGridSupported()
+            && AppPreferences.getTokensSnapWhileDragging()) {
       // Convert the zone point to a cell point and back to force the snap to grid on drag
       zonePoint = grid.convert(grid.convert(zonePoint));
     }
@@ -1146,13 +1058,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     renderer.updateMoveSelectionSet(tokenBeingDragged.getId(), zonePoint);
     MapTool.serverCommand()
-        .updateTokenMove(
-            renderer.getZone().getId(), tokenBeingDragged.getId(), zonePoint.x, zonePoint.y);
+            .updateTokenMove(
+                    renderer.getZone().getId(), tokenBeingDragged.getId(), zonePoint.x, zonePoint.y);
     return true;
   }
 
   private boolean validateMove(
-      Token leadToken, Set<GUID> tokenSet, ZonePoint point, int dirx, int diry) {
+          Token leadToken, Set<GUID> tokenSet, ZonePoint point, int dirx, int diry) {
     if (MapTool.getPlayer().isGM()) {
       return true;
     }
@@ -1163,7 +1075,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       Area zoneFog = zone.getExposedArea();
       if (zoneFog == null) zoneFog = new Area();
       boolean useTokenExposedArea =
-          MapTool.getServerPolicy().isUseIndividualFOW() && zone.getVisionType() != VisionType.OFF;
+              MapTool.getServerPolicy().isUseIndividualFOW() && zone.getVisionType() != VisionType.OFF;
       int deltaX = point.x - leadToken.getX();
       int deltaY = point.y - leadToken.getY();
       Grid grid = zone.getGrid();
@@ -1196,8 +1108,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
         Rectangle tokenSize = token.getBounds(zone);
         Rectangle destination =
-            new Rectangle(
-                tokenSize.x + deltaX, tokenSize.y + deltaY, tokenSize.width, tokenSize.height);
+                new Rectangle(
+                        tokenSize.x + deltaX, tokenSize.y + deltaY, tokenSize.width, tokenSize.height);
         isBlocked = !grid.validateMove(token, destination, dirx, diry, tokenFog);
       }
     }
@@ -1253,7 +1165,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
             bounds.height = intervalX * (dx + 1) / 3 - intervalX * dx / 3;
 
             if (!MapTool.getServerPolicy().isUseIndividualFOW()
-                || zone.getVisionType() == VisionType.OFF) {
+                    || zone.getVisionType() == VisionType.OFF) {
               if (fow.contains(bounds)) {
                 counter++;
               }
@@ -1359,209 +1271,209 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     actionMap.put(AppActions.COPY_TOKENS.getKeyStroke(), AppActions.COPY_TOKENS);
     actionMap.put(AppActions.PASTE_TOKENS.getKeyStroke(), AppActions.PASTE_TOKENS);
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_R, AppActions.menuShortcut),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_R, AppActions.menuShortcut),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            // TODO: Combine all this crap with the Stamp tool
-            if (renderer.getSelectedTokenSet().isEmpty()) {
-              return;
-            }
-            Toolbox toolbox = MapTool.getFrame().getToolbox();
+              public void actionPerformed(ActionEvent e) {
+                // TODO: Combine all this crap with the Stamp tool
+                if (renderer.getSelectedTokenSet().isEmpty()) {
+                  return;
+                }
+                Toolbox toolbox = MapTool.getFrame().getToolbox();
 
-            FacingTool tool = (FacingTool) toolbox.getTool(FacingTool.class);
-            tool.init(
-                renderer.getZone().getToken(renderer.getSelectedTokenSet().iterator().next()),
-                renderer.getSelectedTokenSet());
+                FacingTool tool = (FacingTool) toolbox.getTool(FacingTool.class);
+                tool.init(
+                        renderer.getZone().getToken(renderer.getSelectedTokenSet().iterator().next()),
+                        renderer.getSelectedTokenSet());
 
-            toolbox.setSelectedTool(FacingTool.class);
-          }
-        });
+                toolbox.setSelectedTool(FacingTool.class);
+              }
+            });
 
     // TODO: Optimize this by making it non anonymous
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), ToolHelper.getDeleteTokenAction());
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, true), new StopPointerActionListener());
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, true), new StopPointerActionListener());
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK, true),
-        new StopPointerActionListener());
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK, true),
+            new StopPointerActionListener());
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.SHIFT_MASK, true),
-        new StopPointerActionListener());
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.SHIFT_MASK, true),
+            new StopPointerActionListener());
     actionMap.put(
-        KeyStroke.getKeyStroke(
-            KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK + ActionEvent.SHIFT_MASK, true),
-        new StopPointerActionListener(true));
+            KeyStroke.getKeyStroke(
+                    KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK + ActionEvent.SHIFT_MASK, true),
+            new StopPointerActionListener(true));
 
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, false),
-        new PointerActionListener(Pointer.Type.ARROW));
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, false),
+            new PointerActionListener(Pointer.Type.ARROW));
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK, false),
-        new PointerActionListener(Pointer.Type.SPEECH_BUBBLE));
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK, false),
+            new PointerActionListener(Pointer.Type.SPEECH_BUBBLE));
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.SHIFT_MASK, false),
-        new PointerActionListener(Pointer.Type.THOUGHT_BUBBLE));
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, ActionEvent.SHIFT_MASK, false),
+            new PointerActionListener(Pointer.Type.THOUGHT_BUBBLE));
     actionMap.put(
-        KeyStroke.getKeyStroke(
-            KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK + ActionEvent.SHIFT_MASK, false),
-        new PointerActionListener(Pointer.Type.LOOK_HERE));
+            KeyStroke.getKeyStroke(
+                    KeyEvent.VK_SPACE, ActionEvent.CTRL_MASK + ActionEvent.SHIFT_MASK, false),
+            new PointerActionListener(Pointer.Type.LOOK_HERE));
 
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_D, 0),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_D, 0),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            if (!isDraggingToken) {
-              return;
-            }
-            // Stop
-            stopTokenDrag();
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                if (!isDraggingToken) {
+                  return;
+                }
+                // Stop
+                stopTokenDrag();
+              }
+            });
     // Other NumPad keys are handled by individual grid types
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD5, 0),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD5, 0),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            if (!isDraggingToken) {
-              return;
-            }
-            // Stop
-            stopTokenDrag();
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                if (!isDraggingToken) {
+                  return;
+                }
+                // Stop
+                stopTokenDrag();
+              }
+            });
     int size = 1;
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD7, 0), new MovementKey(this, -size, -size));
+            KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD7, 0), new MovementKey(this, -size, -size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD8, 0), new MovementKey(this, 0, -size));
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD9, 0), new MovementKey(this, size, -size));
+            KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD9, 0), new MovementKey(this, size, -size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD4, 0), new MovementKey(this, -size, 0));
     // actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD5, 0), new MovementKey(this, 0,
     // 0));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD6, 0), new MovementKey(this, size, 0));
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD1, 0), new MovementKey(this, -size, size));
+            KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD1, 0), new MovementKey(this, -size, size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD2, 0), new MovementKey(this, 0, size));
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD3, 0), new MovementKey(this, size, size));
+            KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD3, 0), new MovementKey(this, size, size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), new MovementKey(this, -size, 0));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), new MovementKey(this, size, 0));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), new MovementKey(this, 0, -size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), new MovementKey(this, 0, size));
 
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            handleKeyRotate(-1, false); // clockwise
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                handleKeyRotate(-1, false); // clockwise
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(
-            KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(
+                    KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            handleKeyRotate(-1, true); // clockwise
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                handleKeyRotate(-1, true); // clockwise
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            handleKeyRotate(1, false); // counter-clockwise
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                handleKeyRotate(1, false); // counter-clockwise
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(
-            KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(
+                    KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            handleKeyRotate(1, true); // counter-clockwise
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                handleKeyRotate(1, true); // counter-clockwise
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_T, 0),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_T, 0),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            renderer.cycleSelectedToken(1);
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                renderer.cycleSelectedToken(1);
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.SHIFT_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.SHIFT_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            renderer.cycleSelectedToken(-1);
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                renderer.cycleSelectedToken(-1);
+              }
+            });
 
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_I, AppActions.menuShortcut),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_I, AppActions.menuShortcut),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            if (MapTool.getPlayer().isGM()
-                || MapTool.getServerPolicy().getPlayersCanRevealVision()) {
-              FogUtil.exposeVisibleArea(
-                  renderer, renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
-            }
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                if (MapTool.getPlayer().isGM()
+                        || MapTool.getServerPolicy().getPlayersCanRevealVision()) {
+                  FogUtil.exposeVisibleArea(
+                          renderer, renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
+                }
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_O, AppActions.menuShortcut | InputEvent.SHIFT_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_O, AppActions.menuShortcut | InputEvent.SHIFT_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            // Only let the GM's do this
-            if (MapTool.getPlayer().isGM()) {
-              FogUtil.exposePCArea(renderer);
-            }
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                // Only let the GM's do this
+                if (MapTool.getPlayer().isGM()) {
+                  FogUtil.exposePCArea(renderer);
+                }
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_F, AppActions.menuShortcut | InputEvent.SHIFT_DOWN_MASK),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_F, AppActions.menuShortcut | InputEvent.SHIFT_DOWN_MASK),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            // Only let the GM's do this
-            if (MapTool.getPlayer().isGM()) {
-              FogUtil.exposeAllOwnedArea(renderer);
-            }
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                // Only let the GM's do this
+                if (MapTool.getPlayer().isGM()) {
+                  FogUtil.exposeAllOwnedArea(renderer);
+                }
+              }
+            });
     actionMap.put(
-        KeyStroke.getKeyStroke(KeyEvent.VK_P, AppActions.menuShortcut),
-        new AbstractAction() {
-          private static final long serialVersionUID = 1L;
+            KeyStroke.getKeyStroke(KeyEvent.VK_P, AppActions.menuShortcut),
+            new AbstractAction() {
+              private static final long serialVersionUID = 1L;
 
-          public void actionPerformed(ActionEvent e) {
-            if (MapTool.getPlayer().isGM()
-                || MapTool.getServerPolicy().getPlayersCanRevealVision()) {
-              FogUtil.exposeLastPath(
-                  renderer, renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
-            }
-          }
-        });
+              public void actionPerformed(ActionEvent e) {
+                if (MapTool.getPlayer().isGM()
+                        || MapTool.getServerPolicy().getPlayersCanRevealVision()) {
+                  FogUtil.exposeLastPath(
+                          renderer, renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
+                }
+              }
+            });
   }
 
   /**
@@ -1679,7 +1591,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     renderer.toggleMoveSelectionSetWaypoint(tokenBeingDragged.getId(), p);
     MapTool.serverCommand()
-        .toggleTokenMoveWaypoint(renderer.getZone().getId(), tokenBeingDragged.getId(), p);
+            .toggleTokenMoveWaypoint(renderer.getZone().getId(), tokenBeingDragged.getId(), p);
   }
 
   // //
@@ -1709,13 +1621,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         // TODO: Snap player view back when done?
         if (MapTool.getPlayer().isGM() & type.equals(Pointer.Type.LOOK_HERE)) {
           MapTool.serverCommand()
-              .enforceZoneView(
-                  renderer.getZone().getId(),
-                  zp.x,
-                  zp.y,
-                  renderer.getScale(),
-                  renderer.getWidth(),
-                  renderer.getHeight());
+                  .enforceZoneView(
+                          renderer.getZone().getId(),
+                          zp.x,
+                          zp.y,
+                          renderer.getScale(),
+                          renderer.getWidth(),
+                          renderer.getHeight());
         }
         MapTool.serverCommand().showPointer(MapTool.getPlayer().getName(), pointer);
       }
@@ -1793,23 +1705,23 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .25f));
         g.setPaint(AppStyle.selectionBoxFill);
         g.fillRoundRect(
-            selectionBoundBox.x,
-            selectionBoundBox.y,
-            selectionBoundBox.width,
-            selectionBoundBox.height,
-            10,
-            10);
+                selectionBoundBox.x,
+                selectionBoundBox.y,
+                selectionBoundBox.width,
+                selectionBoundBox.height,
+                10,
+                10);
         g.setComposite(composite);
       }
       g.setColor(AppStyle.selectionBoxOutline);
       g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
       g.drawRoundRect(
-          selectionBoundBox.x,
-          selectionBoundBox.y,
-          selectionBoundBox.width,
-          selectionBoundBox.height,
-          10,
-          10);
+              selectionBoundBox.x,
+              selectionBoundBox.y,
+              selectionBoundBox.width,
+              selectionBoundBox.height,
+              10,
+              10);
 
       g.setStroke(stroke);
     }
@@ -1818,12 +1730,12 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     }
     // Statsheet
     if (tokenUnderMouse != null
-        && !isDraggingToken
-        && AppUtil.tokenIsVisible(
+            && !isDraggingToken
+            && AppUtil.tokenIsVisible(
             renderer.getZone(), tokenUnderMouse, new PlayerView(MapTool.getPlayer().getRole()))) {
       if (AppPreferences.getPortraitSize() > 0
-          && (SwingUtil.isShiftDown(keysDown) == AppPreferences.getShowStatSheetModifier())
-          && (tokenOnStatSheet == null
+              && (SwingUtil.isShiftDown(keysDown) == AppPreferences.getShowStatSheetModifier())
+              && (tokenOnStatSheet == null
               || !tokenOnStatSheet.equals(tokenUnderMouse)
               || statSheet == null)) {
         tokenOnStatSheet = tokenUnderMouse;
@@ -1833,23 +1745,23 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         if (AppPreferences.getShowPortrait()) {
           // Portrait
           MD5Key portraitId =
-              tokenUnderMouse.getPortraitImage() != null
-                  ? tokenUnderMouse.getPortraitImage()
-                  : tokenUnderMouse.getImageAssetId();
+                  tokenUnderMouse.getPortraitImage() != null
+                          ? tokenUnderMouse.getPortraitImage()
+                          : tokenUnderMouse.getImageAssetId();
           image =
-              ImageManager.getImage(
-                  portraitId,
-                  new ImageObserver() {
-                    public boolean imageUpdate(
-                        Image img, int infoflags, int x, int y, int width, int height) {
-                      // The image was loading, so now rebuild the portrait panel with the
-                      // real
-                      // image
-                      statSheet = null;
-                      renderer.repaint();
-                      return true;
-                    }
-                  });
+                  ImageManager.getImage(
+                          portraitId,
+                          new ImageObserver() {
+                            public boolean imageUpdate(
+                                    Image img, int infoflags, int x, int y, int width, int height) {
+                              // The image was loading, so now rebuild the portrait panel with the
+                              // real
+                              // image
+                              statSheet = null;
+                              renderer.repaint();
+                              return true;
+                            }
+                          });
 
           imgSize = new Dimension(image.getWidth(), image.getHeight());
 
@@ -1865,18 +1777,18 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
         // Stats
         int maxStatsWidth =
-            viewSize.width
-                - lm
-                - rm * 2
-                - imgSize.width
-                - PADDING * 3
-                - STATSHEET_EXTERIOR_PADDING * 2;
+                viewSize.width
+                        - lm
+                        - rm * 2
+                        - imgSize.width
+                        - PADDING * 3
+                        - STATSHEET_EXTERIOR_PADDING * 2;
         Map<String, String> propertyMap = new LinkedHashMap<String, String>();
         Map<String, Integer> propertyLineCount = new LinkedHashMap<String, Integer>();
         LinkedList<TextLayout> lineLayouts = new LinkedList<TextLayout>();
         if (AppPreferences.getShowStatSheet()) {
           for (TokenProperty property :
-              MapTool.getCampaign().getTokenPropertyList(tokenUnderMouse.getPropertyType())) {
+                  MapTool.getCampaign().getTokenPropertyList(tokenUnderMouse.getPropertyType())) {
             if (property.isShowOnStatSheet()) {
               if (property.isGMOnly() && !MapTool.getPlayer().isGM()) {
                 continue;
@@ -1894,7 +1806,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
               resolver.initialize();
               resolver.setAutoPrompt(false);
               Object propertyValue =
-                  tokenUnderMouse.getEvaluatedProperty(resolver, property.getName());
+                      tokenUnderMouse.getEvaluatedProperty(resolver, property.getName());
               resolver.flush();
               if (propertyValue != null) {
                 if (propertyValue.toString().length() > 0) {
@@ -1946,8 +1858,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
                   int paragraphEnd = paragraph.getEndIndex();
                   // Make and initialize LineBreakMeasurer
                   LineBreakMeasurer lineMeasurer =
-                      new LineBreakMeasurer(
-                          paragraph, BreakIterator.getLineInstance(), fontRenderContext);
+                          new LineBreakMeasurer(
+                                  paragraph, BreakIterator.getLineInstance(), fontRenderContext);
                   lineMeasurer.setPosition(paragraphStart);
                   // Get each line from the measurer and find the widest one;
                   while (lineMeasurer.getPosition() < paragraphEnd) {
@@ -1973,10 +1885,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           // Create the space for the image
           int width = imgSize.width + (statSize != null ? statSize.width + rm : 0) + lm + rm;
           int height =
-              Math.max(imgSize.height, (statSize != null ? statSize.height + bm : 0))
-                  + tm
-                  + bm
-                  + PADDING * 2;
+                  Math.max(imgSize.height, (statSize != null ? statSize.height + bm : 0))
+                          + tm
+                          + bm
+                          + PADDING * 2;
           statSheet = new BufferedImage(width, height, BufferedImage.BITMASK);
           Graphics2D statsG = statSheet.createGraphics();
           statsG.setClip(new Rectangle(0, 0, width, height));
@@ -1986,19 +1898,19 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           // Draw the stats first, right aligned
           if (statSize != null) {
             Rectangle bounds =
-                new Rectangle(
-                    width - statSize.width - rm,
-                    statSize.height == height ? 0 : height - statSize.height - bm,
-                    statSize.width,
-                    statSize.height);
-            statsG.setPaint(
-                new TexturePaint(
-                    AppStyle.panelTexture,
                     new Rectangle(
-                        0,
-                        0,
-                        AppStyle.panelTexture.getWidth(),
-                        AppStyle.panelTexture.getHeight())));
+                            width - statSize.width - rm,
+                            statSize.height == height ? 0 : height - statSize.height - bm,
+                            statSize.width,
+                            statSize.height);
+            statsG.setPaint(
+                    new TexturePaint(
+                            AppStyle.panelTexture,
+                            new Rectangle(
+                                    0,
+                                    0,
+                                    AppStyle.panelTexture.getWidth(),
+                                    AppStyle.panelTexture.getHeight())));
             statsG.fill(bounds);
             AppStyle.miniMapBorder.paintAround(statsG, bounds);
             AppStyle.shadowBorder.paintWithin(statsG, bounds);
@@ -2009,16 +1921,16 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
               // Box
               statsG.setColor(new Color(249, 241, 230, 140));
               statsG.fillRect(
-                  bounds.x,
-                  y - keyFM.getAscent(),
-                  bounds.width - PADDING / 2,
-                  rowHeight * propertyLineCount.get(entry.getKey()));
+                      bounds.x,
+                      y - keyFM.getAscent(),
+                      bounds.width - PADDING / 2,
+                      rowHeight * propertyLineCount.get(entry.getKey()));
               statsG.setColor(new Color(175, 163, 149));
               statsG.drawRect(
-                  bounds.x,
-                  y - keyFM.getAscent(),
-                  bounds.width - PADDING / 2,
-                  rowHeight * propertyLineCount.get(entry.getKey()));
+                      bounds.x,
+                      y - keyFM.getAscent(),
+                      bounds.width - PADDING / 2,
+                      rowHeight * propertyLineCount.get(entry.getKey()));
 
               // Draw Key
               statsG.setColor(Color.black);
@@ -2037,16 +1949,16 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
                   int paragraphEnd = paragraph.getEndIndex();
                   // Make and initialize LineBreakMeasurer
                   LineBreakMeasurer lineMeasurer =
-                      new LineBreakMeasurer(
-                          paragraph, BreakIterator.getLineInstance(), fontRenderContext);
+                          new LineBreakMeasurer(
+                                  paragraph, BreakIterator.getLineInstance(), fontRenderContext);
                   lineMeasurer.setPosition(paragraphStart);
                   // Get each line from the measurer and find the widest one;
                   while (lineMeasurer.getPosition() < paragraphEnd) {
                     TextLayout layout = lineMeasurer.nextLayout(layoutWidth);
                     layout.draw(
-                        statsG,
-                        bounds.x + bounds.width - PADDING - layout.getPixelBounds(null, 0, 0).width,
-                        y);
+                            statsG,
+                            bounds.x + bounds.width - PADDING - layout.getPixelBounds(null, 0, 0).width,
+                            y);
                     y += rowHeight;
                   }
                 } else {
@@ -2067,39 +1979,39 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           // Draw the portrait
           if (AppPreferences.getShowPortrait()) {
             Rectangle bounds =
-                new Rectangle(lm, height - imgSize.height - bm, imgSize.width, imgSize.height);
+                    new Rectangle(lm, height - imgSize.height - bm, imgSize.width, imgSize.height);
 
             statsG.setPaint(
-                new TexturePaint(
-                    AppStyle.panelTexture,
-                    new Rectangle(
-                        0,
-                        0,
-                        AppStyle.panelTexture.getWidth(),
-                        AppStyle.panelTexture.getHeight())));
+                    new TexturePaint(
+                            AppStyle.panelTexture,
+                            new Rectangle(
+                                    0,
+                                    0,
+                                    AppStyle.panelTexture.getWidth(),
+                                    AppStyle.panelTexture.getHeight())));
             statsG.fill(bounds);
             statsG.setRenderingHint(
-                RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             statsG.drawImage(image, bounds.x, bounds.y, imgSize.width, imgSize.height, this);
             AppStyle.miniMapBorder.paintAround(statsG, bounds);
             AppStyle.shadowBorder.paintWithin(statsG, bounds);
 
             // Label
             GraphicsUtil.drawBoxedString(
-                statsG, tokenUnderMouse.getName(), bounds.width / 2 + lm, height - 15);
+                    statsG, tokenUnderMouse.getName(), bounds.width / 2 + lm, height - 15);
           } else if (AppPreferences.getShowStatSheet() && statSize != null) {
             // Label
             Rectangle bounds =
-                new Rectangle(
-                    lm,
-                    statSize.height,
-                    statSize.width + keyFM.getAscent() / 2 + PADDING / 2,
-                    statSize.height);
+                    new Rectangle(
+                            lm,
+                            statSize.height,
+                            statSize.width + keyFM.getAscent() / 2 + PADDING / 2,
+                            statSize.height);
             GraphicsUtil.drawBoxedString(
-                statsG,
-                tokenUnderMouse.getName(),
-                bounds.width / 2 + lm,
-                height - statSize.height - PADDING * 3);
+                    statsG,
+                    tokenUnderMouse.getName(),
+                    bounds.width / 2 + lm,
+                    height - statSize.height - PADDING * 3);
           }
 
           statsG.dispose();
@@ -2110,26 +2022,26 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     // Jamz: Statsheet was still showing on drag, added other tests to hide statsheet as well
     if (statSheet != null && !isDraggingToken && !mouseButtonDown) {
       g.drawImage(
-          statSheet,
-          STATSHEET_EXTERIOR_PADDING,
-          viewSize.height - statSheet.getHeight() - STATSHEET_EXTERIOR_PADDING,
-          this);
+              statSheet,
+              STATSHEET_EXTERIOR_PADDING,
+              viewSize.height - statSheet.getHeight() - STATSHEET_EXTERIOR_PADDING,
+              this);
     }
 
     // Hovers
     if (isShowingHover) {
       // Anchor next to the token
       Dimension size =
-          htmlRenderer.setText(
-              hoverTokenNotes,
-              (int) (renderer.getWidth() * .75),
-              (int) (renderer.getHeight() * .75));
+              htmlRenderer.setText(
+                      hoverTokenNotes,
+                      (int) (renderer.getWidth() * .75),
+                      (int) (renderer.getHeight() * .75));
       Point location =
-          new Point(
-              hoverTokenBounds.getBounds().x
-                  + hoverTokenBounds.getBounds().width / 2
-                  - size.width / 2,
-              hoverTokenBounds.getBounds().y);
+              new Point(
+                      hoverTokenBounds.getBounds().x
+                              + hoverTokenBounds.getBounds().width / 2
+                              - size.width / 2,
+                      hoverTokenBounds.getBounds().y);
 
       // Anchor in the bottom left corner
       location.x = 4 + PADDING;
@@ -2155,10 +2067,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       // g.fillRect(location.x, location.y, size.width, size.height);
       // g.setComposite(composite);
       g.setPaint(
-          new TexturePaint(
-              AppStyle.panelTexture,
-              new Rectangle(
-                  0, 0, AppStyle.panelTexture.getWidth(), AppStyle.panelTexture.getHeight())));
+              new TexturePaint(
+                      AppStyle.panelTexture,
+                      new Rectangle(
+                              0, 0, AppStyle.panelTexture.getWidth(), AppStyle.panelTexture.getHeight())));
       g.fillRect(location.x, location.y, size.width, size.height);
 
       // Content
@@ -2204,18 +2116,18 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       BufferedImage image = ImageManager.getImageAndWait(marker.getPortraitImage());
       Dimension imgSize = new Dimension(image.getWidth(), image.getHeight());
       if (imgSize.width > AppConstants.NOTE_PORTRAIT_SIZE
-          || imgSize.height > AppConstants.NOTE_PORTRAIT_SIZE) {
+              || imgSize.height > AppConstants.NOTE_PORTRAIT_SIZE) {
         SwingUtil.constrainTo(imgSize, AppConstants.NOTE_PORTRAIT_SIZE);
       }
       builder.append("</td><td valign=top>");
       builder
-          .append("<img src='asset://")
-          .append(marker.getPortraitImage())
-          .append("' width=")
-          .append(imgSize.width)
-          .append(" height=")
-          .append(imgSize.height)
-          .append("></tr></table>");
+              .append("<img src='asset://")
+              .append(marker.getPortraitImage())
+              .append("' width=")
+              .append(imgSize.width)
+              .append(" height=")
+              .append(imgSize.height)
+              .append("></tr></table>");
     }
     String notes = builder.toString();
     notes = notes.replaceAll("\n", "<br>");

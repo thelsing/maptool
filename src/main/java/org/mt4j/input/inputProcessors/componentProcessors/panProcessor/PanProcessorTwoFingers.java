@@ -224,18 +224,24 @@ public class PanProcessorTwoFingers extends AbstractCursorProcessor {
 	 * @return the new translation
 	 */
 	private Vector3D getNewTranslation(Component comp, InputCursor movingCursor, InputCursor otherCursor){
+		if(movingCursor.getEventCount() < 2 || otherCursor.getEventCount() < 2)
+			return new Vector3D(0, 0);
+
+		return movingCursor.getPosition().getSubtracted(movingCursor.getPreviousEvent().getPosition());
+/*
 		Vector3D fromFirstFinger = movingCursor.getPreviousEvent().getPosition();
 		
-		Vector3D fromSecondFinger = otherCursor.getCurrentEvent().getPosition();
+		Vector3D fromSecondFinger = otherCursor.getPreviousEvent().getPosition();
 
 		
 		Vector3D oldMiddlePoint = getMiddlePointBetweenFingers(fromSecondFinger, fromFirstFinger);
 		
 		Vector3D toFirstFinger = movingCursor.getPosition();
+		Vector3D toSecondFinger = otherCursor.getPosition();
 		
-		Vector3D newMiddlePoint = getMiddlePointBetweenFingers(toFirstFinger ,  fromSecondFinger);
+		Vector3D newMiddlePoint = getMiddlePointBetweenFingers(toSecondFinger ,  toFirstFinger);
 		Vector3D distance = newMiddlePoint.getSubtracted(oldMiddlePoint);
-		return distance;
+		return distance;*/
 	}
 	
 	

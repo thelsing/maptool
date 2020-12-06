@@ -20,6 +20,7 @@ package org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor;
 import org.mt4j.input.inputData.InputCursor;
 import org.mt4j.input.inputProcessors.IInputProcessor;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
+import org.mt4j.util.math.Vector3D;
 
 import java.awt.*;
 
@@ -35,7 +36,9 @@ public class ZoomEvent extends MTGestureEvent {
 	
 	/** The second cursor. */
 	private InputCursor secondCursor;
-	
+
+	private Vector3D centerPoint;
+
 	/** The cam zoom amount. */
 	private float camZoomAmount;
 	
@@ -55,6 +58,13 @@ public class ZoomEvent extends MTGestureEvent {
 		this.firstCursor = firstCursor;
 		this.secondCursor = secondCursor;
 		this.camZoomAmount = camZoomAmount;
+		this.centerPoint = getMiddlePointBetweenFingers(firstCursor.getPosition(), secondCursor.getPosition());
+	}
+
+	private Vector3D getMiddlePointBetweenFingers(Vector3D firstFinger, Vector3D secondFinger){
+		Vector3D bla = secondFinger.getSubtracted(firstFinger); //= direction vector of 1. to 2. finger
+		bla.scaleLocal(0.5f); //take the half
+		return (new Vector3D(firstFinger.getX() + bla.getX(), firstFinger.getY() + bla.getY(), firstFinger.getZ() + bla.getZ()));
 	}
 
 	/**
@@ -84,4 +94,5 @@ public class ZoomEvent extends MTGestureEvent {
 		return secondCursor;
 	}
 
+	public Vector3D getCenterPoint() { return centerPoint; }
 }

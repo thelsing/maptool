@@ -102,5 +102,23 @@ public abstract class MTGestureEvent extends MTInputEvent {
 		this.id = id;
 	}
 
+	public boolean isStart() {
+		return id == GESTURE_STARTED;
+	}
 
+	public boolean isUpdate() {
+		return id == GESTURE_UPDATED;
+	}
+
+	public boolean isEnd() {
+		return id == GESTURE_ENDED;
+	}
+
+	public  boolean isCancel() {
+		return id == GESTURE_CANCELED;
+	}
+
+	public boolean isResume() {
+		return id == GESTURE_RESUMED;
+	}
 }

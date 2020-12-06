@@ -54,13 +54,15 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 
 		super(app, registerDefaultSources);
 
+		componentToGestureListener = new HashMap<Component, IGestureEventListener[]>();
+
 		inputProcessorSupport = new ComponentInputProcessorSupport(app, this);
 		inputProcessorSupport.registerInputProcessor(new TapProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new TapAndHoldProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new DragProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new PanProcessorTwoFingers(app));
 		inputProcessorSupport.registerInputProcessor(new ZoomProcessor(app));
-		//inputProcessorSupport.registerInputProcessor(new RotateProcessor(app));
+		inputProcessorSupport.registerInputProcessor(new RotateProcessor(app));
 
 		registerDefaultGlobalInputProcessors();
 
@@ -70,8 +72,6 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 		if (listener == null) {
 			return;
 		}
-
-		this.lazyInitializeMap();
 
 		IGestureEventListener[] array = this.componentToGestureListener.get(component);
 
@@ -98,15 +98,6 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 	}
 
 	/**
-	 * Checks if the map is null and then lazily initializes it.
-	 */
-	private void lazyInitializeMap(){
-		if (componentToGestureListener == null){
-			componentToGestureListener = new HashMap<Component, IGestureEventListener[]>();
-		}
-	}
-
-	/**
 	 * Removes a IGestureEventListener to the listener map.
 	 * Throws no error if the listener isnt found.
 	 *
@@ -117,9 +108,6 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 		if (listener == null || component == null) {
 			return;
 		}
-
-		this.lazyInitializeMap();
-
 		if (this.componentToGestureListener != null) {
 			IGestureEventListener[] array = this.componentToGestureListener.get(component);
 			if (array != null) {

@@ -93,12 +93,10 @@ public abstract class Tool extends JToggleButton implements ActionListener, KeyL
       if (this instanceof MouseListener) {
         comp.addMouseListener((MouseListener) this);
       }
+      if (this instanceof MouseMotionListener) {
+        comp.addMouseMotionListener((MouseMotionListener) this);
+      }
     }
-    if (this instanceof MouseMotionListener) {
-      comp.addMouseMotionListener((MouseMotionListener) this);
-    }
-
-
 
     // Keystrokes
     comp.addKeyListener(this);

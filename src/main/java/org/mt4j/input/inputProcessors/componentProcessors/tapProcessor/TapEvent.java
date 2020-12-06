@@ -79,6 +79,15 @@ public class TapEvent extends MTGestureEvent {
 		return clickPoint;
 	}
 
+	public Point getLocationOn(Component component)
+	{
+		Point cpos = component.getLocationOnScreen();
+		Point p = new Point();
+		p.x = (int)clickPoint.x - cpos.x;
+		p.y = (int)clickPoint.y - cpos.y;
+		return p;
+	}
+
 	/**
 	 * Gets the cursor.
 	 * 

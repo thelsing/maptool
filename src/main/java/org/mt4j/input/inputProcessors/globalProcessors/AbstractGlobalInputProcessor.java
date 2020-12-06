@@ -138,38 +138,5 @@ public abstract class AbstractGlobalInputProcessor implements IinputSourceListen
 			listener.processInputEvent(ie);
 		}
 	}
-	
-	////
-	/**
-	 * Gets the intersection point of a cursor and a specified component.
-	 * Can return null if the cursor doesent intersect the component.
-	 *
-	 * @param app the app
-	 * @param c the c
-	 * @return the intersection
-	 */
-	public Vector3D getIntersection(Object app, InputCursor c){
-		return GestureUtils.getIntersection(app, c.getTarget(), c);
-	}
-	
-	/**
-	 * Gets the intersection point of a cursor and a specified component.
-	 * Can return null if the cursor doesent intersect the component.
-	 *
-	 * @param app the app
-	 * @param component the component
-	 * @param c the c
-	 * @return the intersection
-	 */
-	public Vector3D getIntersection(JFrame app, Component component, InputCursor c){
-		return GestureUtils.getIntersection(app, component, c);
-	}
-	
-	public Vector3D getPlaneIntersection(Object app, Vector3D planeNormal, Vector3D pointInPlane, InputCursor c){
-		return GestureUtils.getPlaneIntersection(app, planeNormal, pointInPlane, c);
-	}
-	///////////
-	
 
-	
 }

@@ -121,8 +121,8 @@ public class MouseInputSource extends AbstractInputSource implements AWTEventLis
     private Point pointFromEvent(MouseEvent e)
     {
         Point p = new Point();
-        p.x = e.getXOnScreen() - frame.getX();;
-        p.y = e.getYOnScreen() - frame.getY();
+        p.x = e.getXOnScreen();// - frame.getX();;
+        p.y = e.getYOnScreen();// - frame.getY();
         return p;
 
         //Point glassPanePoint = e.getPoint();

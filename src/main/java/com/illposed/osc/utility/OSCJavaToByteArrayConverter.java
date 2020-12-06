@@ -36,7 +36,6 @@ public class OSCJavaToByteArrayConverter {
 
 	/**
 	 * Creation date: (2/23/2001 2:43:25 AM)
-	 * @param anArray java.lang.Object[]
 	 *
 	 */
 	public void appendNullCharToAlignStream() {
@@ -126,7 +125,7 @@ public class OSCJavaToByteArrayConverter {
 
 	/**
 	 * Creation date: (2/23/2001 2:43:25 AM)
-	 * @param aClass Class
+	 * @param c Class
 	 */
 	public void writeType(Class c) {
 		// A big ol' case statement -- what's polymorphism mean, again?
@@ -163,7 +162,7 @@ public class OSCJavaToByteArrayConverter {
 
 	/**
 	 * Creation date: (2/23/2001 2:43:25 AM)
-	 * @param anArray java.lang.Object[]
+	 * @param array java.lang.Object[]
 	 */
 	public void writeTypesArray(Object[] array) {
 		// A big ol' case statement in a for loop -- what's polymorphism mean, again?
