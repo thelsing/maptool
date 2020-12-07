@@ -23,6 +23,7 @@ import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.util.math.Vector3D;
 
 import java.awt.*;
+import java.awt.geom.Area;
 
 
 /**
@@ -86,6 +87,13 @@ public class TapEvent extends MTGestureEvent {
 		p.x = (int)clickPoint.x - cpos.x;
 		p.y = (int)clickPoint.y - cpos.y;
 		return p;
+	}
+
+	public boolean hits(Component component)
+	{
+		Point p = component.getLocationOnScreen();
+		return p.x <= clickPoint.x && clickPoint.x <= p.x + component.getWidth()
+				&& p.y <= clickPoint.y && clickPoint.y <= p.y + component.getHeight();
 	}
 
 	/**

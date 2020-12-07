@@ -431,8 +431,9 @@ public abstract class AbstractCursorProcessor extends AbstractComponentProcessor
 	 */
 	public boolean hasIntersection(Component component, InputCursor c){
 		Vector3D pos = c.getPosition();
-		return component.getX() <= pos.x && pos.x <= component.getX() + component.getWidth()
-				&& component.getY() <= pos.y && pos.y <= component.getY() + component.getHeight();
+		Point p = component.getLocationOnScreen();
+		return p.x <= pos.x && pos.x <= p.x + component.getWidth()
+				&& p.y <= pos.y && pos.y <= p.y + component.getHeight();
 	}
 	
 

@@ -57,10 +57,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
-import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.panProcessor.PanEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.rotateProcessor.RotateEvent;
-import org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor.TapAndHoldEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor.ZoomEvent;
 import org.mt4j.util.math.Vector3D;
@@ -88,6 +86,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   private boolean isShowingHover;
   private Area hoverTokenBounds;
   private String hoverTokenNotes;
+  private Dimension hoverSize;
+  private Point hoverLocation;
 
   // Track token interactions to hide statsheets when doing other stuff
   private boolean mouseButtonDown = false;
@@ -448,6 +448,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
   //@Override
   public boolean processGestureEvent(MTGestureEvent ge) {
+    if(MapTool.getFrame().getToolbox().getSelectedTool() != this)
+      return false;
     if(ge instanceof PanEvent)
       processPanEvent((PanEvent)ge);
     else if(ge instanceof ZoomEvent)
@@ -457,22 +459,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     else if(ge instanceof TapEvent)
       processTapEvent((TapEvent)ge);
 
-    /*if(ge instanceof TapEvent)
-    {
-      TapEvent tap = (TapEvent) ge;
-      System.out.println("Tap " + tap.getTapID() );
-      Vector3D p = tap.getLocationOnScreen();
-      Graphics g = MapTool.getFrame().getGraphics();
-      if(tap.isTapCanceled())
-        g.setColor(Color.RED);
-      if(tap.isTapDown())
-        g.setColor(Color.YELLOW);
-      if(tap.isTapped())
-        g.setColor(Color.GREEN);
-      if(tap.isDoubleTap())
-        g.setColor(Color.BLUE);
-      g.fillOval((int)p.x - 20, (int)p.y -20, 40, 40);
-    }
+    /*
     if(ge instanceof TapAndHoldEvent)
     {
       TapAndHoldEvent th = (TapAndHoldEvent)ge;
@@ -522,29 +509,37 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     Point p = te.getLocationOn(renderer);
 
-    Token marker = renderer.getMarkerAt(p.x, p.y);
-    List<Token> tokenList = renderer.getTokenStackAt(p.x, p.y);
-    Token token = renderer.getTokenAt(p.x, p.y);
+    if(handledByHover(p))
+      return;
 
-    setSelectedMarker(marker);
-    setSelectedToken(token);
+    selectMarker(p);
+    selectTokenAt(p);
 
-    if(te.isDoubleTap() && tokenList != null) {
-        // Stack
-        renderer.clearSelectedTokens();
-        showTokenStackPopup(tokenList, p.x, p.y);
-        renderer.updateAfterSelection();
-    }
     repaintZone();
   }
 
-  private void setSelectedToken(Token token) {
+  private boolean handledByHover(Point p) {
+    if(!isShowingHover)
+      return  false;
+
+
+ //   if( hoverLocation.x <= p.x && p.x <= hoverLocation.x + hoverSize.width
+ //       && hoverLocation.y <= p.y && p.y <= hoverLocation.y + hoverSize.height) {
+    if(htmlRenderer.contains(p)) {
+      htmlRenderer.clickAt(p);
+      return true;
+    }
+    return false;
+  }
+
+  private void selectTokenAt(Point p) {
+    Token token = renderer.getTokenAt(p.x, p.y);
     if (renderer.isTokenMoving(token))
       return;
 
     if(token == tokenUnderMouse) {
-      if(AppUtil.playerOwns(token))
-        MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
+      handleTapOnSelectedToken(token);
+      return;
     }
 
     statSheet = null;
@@ -557,9 +552,20 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     renderer.setMouseOver(tokenUnderMouse);
   }
 
-  private void setSelectedMarker(Token marker) {
-    markerUnderMouse = marker;
-    if(marker == null)
+  private void handleTapOnSelectedToken(Token token) {
+    if(token == null)
+      return;
+
+    List<Token> tokenList = renderer.getTokenStackAt(token.getX(), token.getY());
+    if(tokenList == null && AppUtil.playerOwns(token))
+      MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
+    else
+      showTokenStackPopup(tokenList, token.getX(), token.getY());
+  }
+
+  private void selectMarker(Point p) {
+    markerUnderMouse = renderer.getMarkerAt(p.x, p.y);
+    if(markerUnderMouse == null)
       hideMarkerPopup();
     else
       showMarkerPopup();
@@ -2031,34 +2037,34 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     // Hovers
     if (isShowingHover) {
       // Anchor next to the token
-      Dimension size =
+      hoverSize =
               htmlRenderer.setText(
                       hoverTokenNotes,
                       (int) (renderer.getWidth() * .75),
                       (int) (renderer.getHeight() * .75));
-      Point location =
+      hoverLocation =
               new Point(
                       hoverTokenBounds.getBounds().x
                               + hoverTokenBounds.getBounds().width / 2
-                              - size.width / 2,
+                              - hoverSize.width / 2,
                       hoverTokenBounds.getBounds().y);
 
       // Anchor in the bottom left corner
-      location.x = 4 + PADDING;
-      location.y = viewSize.height - size.height - 4 - PADDING;
+      hoverLocation.x = 4 + PADDING;
+      hoverLocation.y = viewSize.height - hoverSize.height - 4 - PADDING;
 
       // Keep it on screen
-      if (location.x + size.width > viewSize.width) {
-        location.x = viewSize.width - size.width;
+      if (hoverLocation.x + hoverSize.width > viewSize.width) {
+        hoverLocation.x = viewSize.width - hoverSize.width;
       }
-      if (location.x < 4) {
-        location.x = 4;
+      if (hoverLocation.x < 4) {
+        hoverLocation.x = 4;
       }
-      if (location.y + size.height > viewSize.height - 4) {
-        location.y = viewSize.height - size.height - 4;
+      if (hoverLocation.y + hoverSize.height > viewSize.height - 4) {
+        hoverLocation.y = viewSize.height - hoverSize.height - 4;
       }
-      if (location.y < 4) {
-        location.y = 4;
+      if (hoverLocation.y < 4) {
+        hoverLocation.y = 4;
       }
 
       // Background
@@ -2071,14 +2077,15 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
                       AppStyle.panelTexture,
                       new Rectangle(
                               0, 0, AppStyle.panelTexture.getWidth(), AppStyle.panelTexture.getHeight())));
-      g.fillRect(location.x, location.y, size.width, size.height);
+      g.fillRect(hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
 
       // Content
-      htmlRenderer.render(g, location.x, location.y);
+      htmlRenderer.render(g, hoverLocation.x, hoverLocation.y);
+      htmlRenderer.setBounds(hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
 
       // Border
-      AppStyle.miniMapBorder.paintAround(g, location.x, location.y, size.width, size.height);
-      AppStyle.shadowBorder.paintWithin(g, location.x, location.y, size.width, size.height);
+      AppStyle.miniMapBorder.paintAround(g, hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
+      AppStyle.shadowBorder.paintWithin(g, hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
       // AppStyle.border.paintAround(g, location.x, location.y,
       // size.width, size.height);
     }

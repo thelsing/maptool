@@ -14,59 +14,103 @@
  */
 package net.rptools.maptool.client.swing;
 
-import java.awt.Dimension;
-import java.awt.Graphics;
+import org.mt4j.input.inputProcessors.IGestureEventListener;
+import org.mt4j.input.inputProcessors.MTGestureEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
+
+import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.util.ArrayList;
+import java.util.Collections;
 import javax.swing.CellRendererPane;
 import javax.swing.JComponent;
 import javax.swing.JTextPane;
-import javax.swing.text.Document;
+import javax.swing.text.*;
+import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.StyleSheet;
 
 public class HTMLPanelRenderer extends JTextPane {
-  private static final long serialVersionUID = -7535450508528232780L;
+    private static final long serialVersionUID = -7535450508528232780L;
 
-  private final CellRendererPane rendererPane = new CellRendererPane();
-  private final StyleSheet styleSheet;
-  private Dimension size;
+    private final CellRendererPane rendererPane = new CellRendererPane();
+    private final StyleSheet styleSheet;
+    private Dimension size;
 
-  public HTMLPanelRenderer() {
-    setContentType("text/html");
-    setEditable(false);
-    setDoubleBuffered(false);
+    public HTMLPanelRenderer() {
+        setContentType("text/html");
+        setEditable(false);
+        setDoubleBuffered(false);
 
-    styleSheet = ((HTMLDocument) getDocument()).getStyleSheet();
-    styleSheet.addRule("body { font-family: sans-serif; font-size: 11pt}");
-    rendererPane.add(this);
-    Document document = getDocument();
+        styleSheet = ((HTMLDocument) getDocument()).getStyleSheet();
+        styleSheet.addRule("body { font-family: sans-serif; font-size: 11pt}");
+        rendererPane.add(this);
+        Document document = getDocument();
 
-    // Use a little bit of black magic to get our images to display correctly
-    // TODO: Need a way to flush this cache
-    HTMLPanelImageCache imageCache = new HTMLPanelImageCache();
-    document.putProperty("imageCache", imageCache);
-  }
+        // Use a little bit of black magic to get our images to display correctly
+        // TODO: Need a way to flush this cache
+        HTMLPanelImageCache imageCache = new HTMLPanelImageCache();
+        document.putProperty("imageCache", imageCache);
+    }
 
-  public void addStyleSheetRule(String rule) {
-    styleSheet.addRule(rule);
-  }
+    public void addStyleSheetRule(String rule) {
+        styleSheet.addRule(rule);
+    }
 
-  public void attach(JComponent c) {
-    c.add(rendererPane);
-  }
+    public void attach(JComponent c) {
+        c.add(rendererPane);
+    }
 
-  public void detach(JComponent c) {
-    c.remove(rendererPane);
-  }
+    public void detach(JComponent c) {
+        c.remove(rendererPane);
+    }
 
-  public Dimension setText(String t, int maxWidth, int maxHeight) {
-    setText(t);
-    setSize(maxWidth, maxHeight);
-    size = getPreferredSize();
-    size.width = Math.min(size.width, maxWidth);
-    return size;
-  }
+    public Dimension setText(String t, int maxWidth, int maxHeight) {
+        setText(t);
+        setSize(maxWidth, maxHeight);
+        size = getPreferredSize();
+        size.width = Math.min(size.width, maxWidth);
+        return size;
+    }
 
-  public void render(Graphics g, int x, int y) {
-    rendererPane.paintComponent(g, this, null, x, y, size.width, size.height);
-  }
+    public void render(Graphics g, int x, int y) {
+        rendererPane.paintComponent(g, this, null, x, y, size.width, size.height);
+    }
+
+    @Override
+    public boolean contains(Point p) {
+        return super.contains(p.x - getX(), p.y - getY());
+    }
+
+    public void clickAt(Point p) {
+        Point localPoint = new Point(p.x - getX(), p.y - getY());
+        Desktop desktop = java.awt.Desktop.getDesktop();
+        Document doc = getDocument();
+        int pos = viewToModel2D(localPoint);
+
+        if (pos >= 0) {
+            HTMLDocument hdoc = (HTMLDocument) doc;
+            HTMLDocument.RunElement el = (HTMLDocument.RunElement) hdoc.getCharacterElement(pos);
+
+            String href = null;
+            for(Object name : Collections.list(el.getAttributeNames())) {
+                Object value = el.getAttribute(name);
+                if(!(value instanceof SimpleAttributeSet))
+                    continue;
+
+                SimpleAttributeSet attributes = (SimpleAttributeSet) value;
+                href = (String)attributes.getAttribute(HTML.Attribute.HREF);
+            }
+
+            if (href != null) {
+                try {
+                    java.net.URI uri = new java.net.URI(href);
+                    desktop.browse(uri);
+                } catch (Exception ev) {
+                    System.err.println(ev.getMessage());
+                }
+            }
+        }
+    }
 }
