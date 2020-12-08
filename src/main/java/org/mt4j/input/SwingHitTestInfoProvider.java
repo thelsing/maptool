@@ -1,17 +1,17 @@
 package org.mt4j.input;
 
-import org.mt4j.input.IHitTestInfoProvider;
+import org.locationtech.jts.util.Debug;
 
 import javax.swing.*;
 import java.awt.*;
 
 public class SwingHitTestInfoProvider implements IHitTestInfoProvider {
-    JFrame top;
+    JFrame mainFrame;
 
-    public SwingHitTestInfoProvider(JFrame top)
+    public SwingHitTestInfoProvider(JFrame mainFrame)
     {
 
-        this.top = top;
+        this.mainFrame = mainFrame;
     }
 
     @Override
@@ -19,17 +19,25 @@ public class SwingHitTestInfoProvider implements IHitTestInfoProvider {
         Point p = new Point();
         p.x = (int)x;
         p.y = (int)y;
-        Component c = null;
 
-        if (top.isShowing()) {
-            if (top instanceof RootPaneContainer)
-                c =
-                        ((RootPaneContainer) top).getLayeredPane().findComponentAt(
-                                SwingUtilities.convertPoint(top, p, ((RootPaneContainer) top).getLayeredPane()));
-            else
-                c = ((Container) top).findComponentAt(p);
+        Component topComponent = mainFrame;
+        Window[] windows = mainFrame.getOwnedWindows();
+        for(Window window: windows)
+        {
+            if(!window.isShowing())
+                continue;
+
+            if(window instanceof Dialog && ((Dialog)window).isModal() || window.isActive() || window.isAlwaysOnTop())
+            {
+                topComponent = window;
+                break;
+            }
         }
-        Component c2 = SwingUtilities.getDeepestComponentAt(top, p.x, p.y);
+
+        p.x -= topComponent.getX();
+        p.y -= topComponent.getY();
+
+        Component c = SwingUtilities.getDeepestComponentAt(topComponent, p.x, p.y);
 
         return c;
     }
