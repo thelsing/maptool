@@ -154,7 +154,7 @@ public class DragProcessor extends AbstractCursorProcessor {
             return;
         }
 
-        if (getFreeComponentCursors().size() > 0 && this.canLock(getCurrentComponentCursorsArray())) {
+        if (getLock(c)) {
             DragContext newContext = new DragContext(c);
             if (!newContext.isGestureAborted()) {
                 dc = newContext;
@@ -166,7 +166,7 @@ public class DragProcessor extends AbstractCursorProcessor {
                 logger.debug(this.getName() + " we could NOT start gesture - cursors not on component: " + c.getId());
             }
         } else {
-            logger.debug(this.getName() + " still in progress - we dont need the unlocked cursors");
+            logger.debug(this.getName() + " couldn't lock the unlocked cursors");
         }
     }
 

@@ -64,7 +64,7 @@ public class ZoomProcessor extends AbstractCursorProcessor {
 	 */
 	public ZoomProcessor(JFrame graphicsContext, float zoomDetectRadius){
 		this.zoomDetectRadius = zoomDetectRadius;
-		this.setLockPriority(2);
+		this.setLockPriority(1);
 	}
 
 	

@@ -160,6 +160,7 @@ public abstract class AbstractCursorProcessor extends AbstractComponentProcessor
 		case MTGestureEvent.GESTURE_UPDATED:
 			break;
 		case MTGestureEvent.GESTURE_ENDED:
+		case MTGestureEvent.GESTURE_CANCELED:
 			gestureInProgress = false;
 			break;
 		default:

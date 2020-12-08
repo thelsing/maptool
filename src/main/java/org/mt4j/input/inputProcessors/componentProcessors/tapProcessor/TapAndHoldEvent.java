@@ -77,7 +77,9 @@ public class TapAndHoldEvent extends MTGestureEvent {
 	 * @return true, if is hold complete
 	 */
 	public boolean isHoldComplete() {
-		return elapsedTime >= holdTime && getId() == MTGestureEvent.GESTURE_ENDED;
+
+		return elapsedTime >= holdTime
+				&& (getId() == MTGestureEvent.GESTURE_ENDED || getId() == MTGestureEvent.GESTURE_UPDATED);
 	}
 
 

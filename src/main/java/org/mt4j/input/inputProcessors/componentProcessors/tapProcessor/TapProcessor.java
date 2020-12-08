@@ -102,7 +102,7 @@ public class TapProcessor extends AbstractCursorProcessor {
 			Vector3D screenPos = cursor.getPosition();
 
 			if ( hasIntersection(target, cursor)&& Vector3D.distance2D(buttonDownScreenPos, screenPos) <= maxFingerUpDist) {
-				fireTapAndHoldEvent(this, cursor, MTGestureEvent.GESTURE_ENDED, target);
+				fireTapAndHoldEvent(this, cursor, MTGestureEvent.GESTURE_UPDATED, target);
 				fireTapEvent(cursor, MTGestureEvent.GESTURE_CANCELED, TapEvent.TAP_UP);
 			} else {
 				logger.debug("DISTANCE TOO FAR OR NO INTERSECTION");
@@ -186,7 +186,7 @@ public class TapProcessor extends AbstractCursorProcessor {
 		super(stopEventPropagation);
 		this.applet = pa;
 		this.maxFingerUpDist = maxFingerUpDistance;
-		this.setLockPriority(2);
+		this.setLockPriority(3);
 		this.setDebug(true);
 
 		this.holdTime = holdTime;
@@ -248,8 +248,11 @@ public class TapProcessor extends AbstractCursorProcessor {
 
 		TapContext ctx = cursorContextMap.get(m);
 		ctx.cancelHold();
-		if(ctx.holdComplete)
+		if(ctx.holdComplete) {
+			// Hold was completed. The cursor was already unlocked. Send GESTURE_END in case app wants it.
+			fireTapAndHoldEvent(ctx, m, MTGestureEvent.GESTURE_ENDED);
 			return;
+		}
 
 		fireTapAndHoldEvent(ctx, m, MTGestureEvent.GESTURE_CANCELED);
 		this.endTabGesture(ctx, m, positionEvent);

@@ -62,7 +62,7 @@ public class RotateProcessor extends AbstractCursorProcessor {
 		super(stopEventPropagation);
 		this.applet = graphicsContext;
 		this.dragPlaneNormal = new Vector3D(0,0,1);
-		this.setLockPriority(2);
+		this.setLockPriority(1);
 	}
 	
 	

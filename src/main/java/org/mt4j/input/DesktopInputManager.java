@@ -5,9 +5,7 @@ import java.awt.image.MemoryImageSource;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 //import org.mt4j.input.inputSources.KeyboardInputSource;
 import org.mt4j.input.inputData.MTInputEvent;
@@ -30,7 +28,7 @@ import javax.swing.*;
  */
 public class DesktopInputManager extends InputManager implements IMTInputEventListener, IGestureEventListener {
 	private ComponentInputProcessorSupport inputProcessorSupport;
-	private Map<Component, IGestureEventListener[]> componentToGestureListener;
+	private Map<Component, Set<IGestureEventListener>> componentToGestureListener;
 
 	/** The Constant EMPTY. */
 	private static final IGestureEventListener[] EMPTY = {};
@@ -53,7 +51,7 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 
 		super(app, registerDefaultSources);
 
-		componentToGestureListener = new HashMap<Component, IGestureEventListener[]>();
+		componentToGestureListener = new HashMap<Component, Set<IGestureEventListener>>();
 
 		inputProcessorSupport = new ComponentInputProcessorSupport(app, this);
 		inputProcessorSupport.registerInputProcessor(new TapProcessor(app));
@@ -71,29 +69,18 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 			return;
 		}
 
-		IGestureEventListener[] array = this.componentToGestureListener.get(component);
-
-		//Add listener to array
-		int size = (array != null) ? array.length  : 0;
-		IGestureEventListener[] clone = newArray(size + 1);
-		clone[size] = listener;
-		if (array != null) {
-			System.arraycopy(array, 0, clone, 0, size);
+		Set<IGestureEventListener> set = this.componentToGestureListener.get(component);
+		if(set == null)
+		{
+			set = new HashSet<IGestureEventListener>();
+			componentToGestureListener.put(component, set);
 		}
 
-		//Put new listener array into map
-		this.componentToGestureListener.put(component, clone);
+		if(!set.contains(listener))
+			set.add(listener);
+
 	}
-	/**
-	 * Creates a new array of listeners of the specified size.
-	 *
-	 * @param length the length
-	 *
-	 * @return the gestureEvtSender change listener[]
-	 */
-	protected IGestureEventListener[] newArray(int length) {
-		return (0 < length) ? new IGestureEventListener[length] : EMPTY;
-	}
+
 
 	/**
 	 * Removes a IGestureEventListener to the listener map.
@@ -106,30 +93,17 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 		if (listener == null || component == null) {
 			return;
 		}
-		if (this.componentToGestureListener != null) {
-			IGestureEventListener[] array = this.componentToGestureListener.get(component);
-			if (array != null) {
+		if (this.componentToGestureListener == null)
+			return;
 
-				for (int i = 0; i < array.length; i++) {
-					if (listener.equals(array[i])) {
-						int size = array.length - 1;
-						if (size > 0) {
-							IGestureEventListener[] clone = newArray(size);
-							System.arraycopy(array, 0, clone, 0, i);
-							System.arraycopy(array, i + 1, clone, i, size - i);
-							this.componentToGestureListener.put(component, clone);
-						}
-						else {
-							this.componentToGestureListener.remove(component);
-							if (this.componentToGestureListener.isEmpty()) {
-								this.componentToGestureListener = null;
-							}
-						}
-						break;
-					}
-				}
-			}
-		}
+
+		Set<IGestureEventListener> set = componentToGestureListener.get(component);
+		if(set == null)
+			return;
+
+		set.remove(listener);
+		if(set.isEmpty())
+			componentToGestureListener.remove(component);
 	}
 
 	protected void registerDefaultGlobalInputProcessors(){
@@ -255,7 +229,7 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 	 * @param listeners the listeners
 	 * @param event the event
 	 */
-	private void fire(IGestureEventListener[] listeners, MTGestureEvent event) {
+	private void fire(Set<IGestureEventListener> listeners, MTGestureEvent event) {
 		if (listeners != null) {
 			for (IGestureEventListener listener : listeners) {
 				try {
@@ -281,7 +255,7 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 		// Otherwise: Remove them
 		Component component = ge.getTarget();
 		while(component != null) {
-			IGestureEventListener[] listeners = componentToGestureListener.get(component);
+			Set<IGestureEventListener> listeners = componentToGestureListener.get(component);
 			fire(listeners, ge);
 
 			component = component.getParent();

@@ -21,16 +21,23 @@ public class SwingHitTestInfoProvider implements IHitTestInfoProvider {
         p.y = (int)y;
 
         Component topComponent = mainFrame;
-        Window[] windows = mainFrame.getOwnedWindows();
-        for(Window window: windows)
-        {
-            if(!window.isShowing())
+        // the assumption is that only one frame is showing
+        Frame[] frames = Frame.getFrames();
+        for(Frame frame: frames) {
+            if(!frame.isShowing())
                 continue;
 
-            if(window instanceof Dialog && ((Dialog)window).isModal() || window.isActive() || window.isAlwaysOnTop())
-            {
-                topComponent = window;
-                break;
+            topComponent = frame;
+
+            Window[] windows = frame.getOwnedWindows();
+            for (Window window : windows) {
+                if (!window.isShowing())
+                    continue;
+
+                if (window instanceof Dialog && ((Dialog) window).isModal() || window.isActive() || window.isAlwaysOnTop()) {
+                    topComponent = window;
+                    break;
+                }
             }
         }
 

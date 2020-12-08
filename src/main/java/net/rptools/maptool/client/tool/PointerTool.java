@@ -229,7 +229,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   }
 
   public void startTokenDrag(Token keyToken) {
-    if(keyToken == null || renderer.isTokenMoving(keyToken) || tokenPopupMenu != null)
+    if(isDraggingToken || keyToken == null || renderer.isTokenMoving(keyToken)
+            || tokenPopupMenu != null || isDrawingSelectionBox)
       return;
 
     Player p = MapTool.getPlayer();
@@ -495,12 +496,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   private void processDragEvent(DragEvent ge) {
     Point from = ge.getFromOn(renderer);
     Point to = ge.getToOn(renderer);
-    if(ge.isStart() || ge.isResume())
+    if(ge.isResume())
     {
       dragStartX = from.x;
       dragStartY = from.y;
-      handleSelectAt(from, false, false, true);
+      handleSelectAt(from, false, false, tapHoldActive);
       startSelectionBox(from);
+      startTokenDrag(tokenUnderMouse);
     }
     if(ge.isUpdate()) {
       updateSelectionBox(to);
@@ -508,16 +510,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     }
     if(ge.isEnd()) {
       stopTokenDrag();
-      endSelectionBox(true);
+      endSelectionBox(!tapHoldActive);
       SwingUtil.showPointer(renderer);
     }
     repaintZone();
   }
 
    private void updateTokenDrag(Point from, Point to) {
-    if(!isDraggingToken)
-      startTokenDrag(tokenUnderMouse);
-
     if(!isDraggingToken)
       return;
 
@@ -561,7 +560,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   }
 
   private void startSelectionBox(Point from) {
-    if(tokenUnderMouse != null)
+    if(tokenUnderMouse != null || isDrawingSelectionBox || isDraggingToken)
       return;
 
     hideMarkerPopup();
@@ -569,40 +568,57 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     selectionBoundBox = new Rectangle(from.x, from.y, 0, 0);
   }
 
+  private boolean tapHoldActive = false;
   private void processTapAndHoldEvent(TapAndHoldEvent e) {
     if(!e.isHoldComplete())
       return;
 
-    handleSelectAt(e.getLocationOn(renderer), false, true);
-    showTokenPopupAt(e.getLocationOn(renderer));
+    if(e.isUpdate()) {
+      // only one holdEvent at a time
+      if (tapHoldActive)
+        return;
+
+      tapHoldActive = true;
+
+      handleSingleSelectAt(e.getLocationOn(renderer), false);
+      showTokenPopupAt(e.getLocationOn(renderer));
+    } else {
+      tapHoldActive = false;
+    }
   }
 
   private void processTapEvent(TapEvent te) {
     if(!te.isTapped())
       return;
 
-    if(!isDraggingToken)
-      handleSelectAt(te.getLocationOn(renderer), true);
+    if(!isDraggingToken) {
+      if(tapHoldActive)
+        handleMultiSelectAt(te.getLocationOn(renderer), true);
+      else
+        handleSingleSelectAt(te.getLocationOn(renderer), true);
+    }
+    else
+      setWaypoint();
 
     repaintZone();
   }
 
-  private void handleSelectAt(Point p, boolean showDetails)
+  private void handleSingleSelectAt(Point p, boolean showDetails)
   {
-    handleSelectAt(p, showDetails, true, true);
+    handleSelectAt(p, showDetails, true, false);
   }
 
-  private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect)
+  private void handleMultiSelectAt(Point p, boolean showDetails)
   {
-    handleSelectAt(p, showDetails, clearBeforeSelect, false);
+    handleSelectAt(p, showDetails, false, true);
   }
 
-  private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect, boolean clearOnSelectNew) {
+  private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect, boolean multiSelect) {
     if(handledByHover(p))
       return;
 
     selectMarkerAt(p, showDetails);
-    selectTokenAt(p, showDetails, clearBeforeSelect, clearOnSelectNew);
+    selectTokenAt(p, showDetails, clearBeforeSelect, multiSelect);
     return;
   }
 
@@ -617,14 +633,14 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     return false;
   }
 
-  private void selectTokenAt(Point p, boolean showDetails, boolean clearBeforeSelection, boolean clearOnSelectNew) {
+  private void selectTokenAt(Point p, boolean showDetails, boolean clearBeforeSelection, boolean muliSelect) {
     Token token = getTokenFromStack(p);
 
     if(token == null)
       token = renderer.getTokenAt(p.x, p.y);
 
     if(token == null) {
-      setNewCurrentToken(null, clearBeforeSelection, clearOnSelectNew);
+      setNewCurrentToken(null, clearBeforeSelection, muliSelect);
       return;
     }
 
@@ -637,29 +653,44 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       return;
     }
 
-    setNewCurrentToken(token, clearBeforeSelection, clearOnSelectNew);
+    setNewCurrentToken(token, clearBeforeSelection, muliSelect);
     calcTokenDragOffset(token, p.x, p.y);
   }
 
 
-  private void setNewCurrentToken(Token token, boolean clearBeforeSelection, boolean clearOnSelectNew) {
+  private void setNewCurrentToken(Token token, boolean clearBeforeSelection, boolean multiSelectMode) {
     statSheet = null;
-    tokenUnderMouse = token;
-    renderer.setMouseOver(token);
-
-    if(token == null && clearBeforeSelection)
-      renderer.clearSelectedTokens();
+    tokenUnderMouse = null;
+    renderer.setMouseOver(null);
 
     if(clearBeforeSelection)
       renderer.clearSelectedTokens();
 
-    if (token != null && !renderer.getSelectedTokenSet().contains(token.getId())) {
-      if(clearOnSelectNew)
-        renderer.clearSelectedTokens();
-
-      renderer.selectToken(token.getId());
-      renderer.updateAfterSelection();
+    if(token == null) {
+      return;
     }
+
+    if (multiSelectMode) {
+      // if multiselect, we invert the selection of the token
+      if (renderer.getSelectedTokenSet().contains(token.getId())) {
+        renderer.deselectToken(token.getId());
+      } else {
+        renderer.selectToken(token.getId());
+      }
+    }
+    else if (!renderer.getSelectedTokenSet().contains(token.getId())) {
+
+      renderer.clearSelectedTokens();
+      renderer.selectToken(token.getId());
+
+    }
+
+    if (renderer.getSelectedTokenSet().contains(token.getId())) {
+      tokenUnderMouse = token;
+      renderer.setMouseOver(token);
+    }
+
+    renderer.updateAfterSelection();
   }
 
   private void calcTokenDragOffset(Token token, int x, int y) {
@@ -736,6 +767,11 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
   private void processZoomEvent(ZoomEvent ge) {
     Vector3D center = ge.getCenterPoint();
+    System.out.println("Zoom:" + ge.getCamZoomAmount());
+
+    if(Math.abs(ge.getCamZoomAmount()) < 1)
+      return;
+
     zoomMap((int)center.x, (int)center.y, ge.getCamZoomAmount() < 0);
   }
 
@@ -1880,7 +1916,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
             && AppUtil.tokenIsVisible(
             renderer.getZone(), tokenUnderMouse, new PlayerView(MapTool.getPlayer().getRole()))) {
       if (AppPreferences.getPortraitSize() > 0
-              && (SwingUtil.isShiftDown(keysDown) == AppPreferences.getShowStatSheetModifier())
+              //&& (SwingUtil.isShiftDown(keysDown) == AppPreferences.getShowStatSheetModifier())
               && (tokenOnStatSheet == null
               || !tokenOnStatSheet.equals(tokenUnderMouse)
               || statSheet == null)) {

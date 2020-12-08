@@ -84,8 +84,8 @@ public abstract class Tool extends JToggleButton implements ActionListener, KeyL
     }
 
     // we don't want to get click and gestures at the same time.
-    if(this instanceof IGestureEventListener)
-      MapTool.getInputManager().addGestureEvtListenerForComponent(comp, (IGestureEventListener) this);
+    if(this instanceof IGestureEventListener && MapTool.getInputManager() != null)
+       MapTool.getInputManager().addGestureEvtListenerForComponent(comp, (IGestureEventListener) this);
     else {
       if (this instanceof MouseWheelListener) {
         comp.addMouseWheelListener((MouseWheelListener) this);
