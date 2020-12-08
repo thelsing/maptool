@@ -80,6 +80,14 @@ public class DragEvent extends MTGestureEvent {
 		return from;
 	}
 
+	public Point getFromOn(Component component)
+	{
+		Point cpos = component.getLocationOnScreen();
+		Point p = new Point();
+		p.x = (int)from.x - cpos.x;
+		p.y = (int)from.y - cpos.y;
+		return p;
+	}
 	/**
 	 * Gets the to.
 	 * 
@@ -89,6 +97,14 @@ public class DragEvent extends MTGestureEvent {
 		return to;
 	}
 
+	public Point getToOn(Component component)
+	{
+		Point cpos = component.getLocationOnScreen();
+		Point p = new Point();
+		p.x = (int)to.x - cpos.x;
+		p.y = (int)to.y - cpos.y;
+		return p;
+	}
 	/**
 	 * Gets the translation vect.
 	 * 

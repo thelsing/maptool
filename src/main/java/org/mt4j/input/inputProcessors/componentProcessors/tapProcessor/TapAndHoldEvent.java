@@ -15,7 +15,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***********************************************************************/
-package org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor;
+package org.mt4j.input.inputProcessors.componentProcessors.tapProcessor;
 
 import org.mt4j.input.inputData.InputCursor;
 import org.mt4j.input.inputProcessors.IInputProcessor;
@@ -33,18 +33,14 @@ public class TapAndHoldEvent extends MTGestureEvent {
 	
 	/** The cursor. */
 	private InputCursor cursor;
-	
+
 	/** The click point. */
 	private Vector3D clickPoint;
-	
+
 	private int holdTime;
 	
 	private float elapsedTime;
 	
-	private float elapsedTimeNormalized;
-	
-	private boolean holdComplete;
-
 	/**
 	 * Instantiates a new tap and hold event.
 	 * 
@@ -54,14 +50,12 @@ public class TapAndHoldEvent extends MTGestureEvent {
 	 * @param m the m
 	 * @param clickPoint the click point
 	 */
-	public TapAndHoldEvent(IInputProcessor source, int id, Component targetComponent, InputCursor m, boolean holdComplete, Vector3D clickPoint, int holdTime, float elapsedTime, float elapsedTimeNormalized) {
+	public TapAndHoldEvent(IInputProcessor source, int id, Component targetComponent, InputCursor m, Vector3D clickPoint, int holdTime, float elapsedTime) {
 		super(source, id, targetComponent);
 		this.cursor = m;
-		this.holdComplete = holdComplete;
 		this.clickPoint = clickPoint;
 		this.holdTime = holdTime;
 		this.elapsedTime = elapsedTime;
-		this.elapsedTimeNormalized = elapsedTimeNormalized;
 	}
 	
 	
@@ -83,7 +77,7 @@ public class TapAndHoldEvent extends MTGestureEvent {
 	 * @return true, if is hold complete
 	 */
 	public boolean isHoldComplete() {
-		return holdComplete;
+		return elapsedTime >= holdTime && getId() == MTGestureEvent.GESTURE_ENDED;
 	}
 
 
@@ -105,22 +99,31 @@ public class TapAndHoldEvent extends MTGestureEvent {
 	 * @return the elapsed time normalized
 	 */
 	public float getElapsedTimeNormalized() {
-		return elapsedTimeNormalized;
+		return  (float)elapsedTime / (float)holdTime;
 	}
 
 
 	/**
 	 * Gets the click point.
-	 * 
+	 *
 	 * @return the click point
 	 */
 	public Vector3D getLocationOnScreen() {
 		return clickPoint;
 	}
 
+	public Point getLocationOn(Component component)
+	{
+		Point cpos = component.getLocationOnScreen();
+		Point p = new Point();
+		p.x = (int)clickPoint.x - cpos.x;
+		p.y = (int)clickPoint.y - cpos.y;
+		return p;
+	}
+
 	/**
 	 * Gets the cursor.
-	 * 
+	 *
 	 * @return the cursor
 	 */
 	public InputCursor getCursor() {

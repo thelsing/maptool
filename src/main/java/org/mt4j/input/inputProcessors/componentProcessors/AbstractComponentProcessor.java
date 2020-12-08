@@ -215,7 +215,7 @@ public abstract class AbstractComponentProcessor implements IMTInputEventListene
 	 * @param ge the ge
 	 */
 	protected void fireGestureEvent(MTGestureEvent ge) {
-//		/*
+		/*
 		if (debug){
 			switch (ge.getId()) {
 			case MTGestureEvent.GESTURE_STARTED:
@@ -231,10 +231,15 @@ public abstract class AbstractComponentProcessor implements IMTInputEventListene
 				break;
 			}
 		}
-//		 */
+		 */
 		
 		for (IGestureEventListener listener : inputListeners){
-			listener.processGestureEvent(ge);
+			try {
+				listener.processGestureEvent(ge);
+			} catch (Exception e)
+			{
+				logger.error("error in firing Gestureeven in " + getName(), e);
+			}
 		}
 	}
 

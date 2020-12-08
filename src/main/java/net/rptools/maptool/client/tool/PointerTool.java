@@ -34,6 +34,9 @@ import java.util.*;
 import java.util.List;
 import java.util.Map.Entry;
 import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
+
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.lib.swing.SwingUtil;
@@ -57,8 +60,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.panProcessor.PanEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.rotateProcessor.RotateEvent;
+import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapAndHoldEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor.ZoomEvent;
 import org.mt4j.util.math.Vector3D;
@@ -101,6 +106,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   private final HTMLPanelRenderer htmlRenderer = new HTMLPanelRenderer();
   private final Font boldFont = AppStyle.labelFont.deriveFont(Font.BOLD);
   private final LayerSelectionDialog layerSelectionDialog;
+
+  private AbstractTokenPopupMenu tokenPopupMenu;
 
   private BufferedImage statSheet;
   private Token tokenOnStatSheet;
@@ -200,12 +207,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     } catch (Exception e) {
       // If there was an exception just ignore those keystrokes...
       MapTool.showError("exception adding grid-based keys; shouldn't get here!", e); // this
-      // gives
-      // me a
-      // hook
-      // to set
-      // a
-      // breakpoint
+      // gives me a hook to set a breakpoint
     }
   }
 
@@ -227,15 +229,35 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   }
 
   public void startTokenDrag(Token keyToken) {
-    tokenBeingDragged = keyToken;
+    if(keyToken == null || renderer.isTokenMoving(keyToken) || tokenPopupMenu != null)
+      return;
 
     Player p = MapTool.getPlayer();
+
+    Set<GUID> selectedTokenSet = renderer.getOwnedTokens(renderer.getSelectedTokenSet());
+    if (selectedTokenSet.isEmpty())
+      return;
+
+    // Make sure we can do this
+    // Possibly let unowned tokens be moved?
+    if (!MapTool.getPlayer().isGM() && MapTool.getServerPolicy().useStrictTokenManagement()) {
+      for (GUID tokenGUID : selectedTokenSet) {
+        Token token = renderer.getZone().getToken(tokenGUID);
+        if (!token.isOwner(p.getName())) {
+          return;
+        }
+      }
+    }
+
     if (!p.isGM()
             && (MapTool.getServerPolicy().isMovementLocked()
             || MapTool.getFrame().getInitiativePanel().isMovementLocked(keyToken))) {
       // Not allowed
       return;
     }
+
+    tokenBeingDragged = keyToken;
+    hideTokenStackPopup();
 
     renderer.addMoveSelectionSet(
             p.getName(),
@@ -250,10 +272,15 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
                     renderer.getOwnedTokens(renderer.getSelectedTokenSet()));
 
     isDraggingToken = true;
+    if (AppPreferences.getHideMousePointerWhileDragging())
+      SwingUtil.hidePointer(renderer);
   }
 
   /** Complete the drag of the token, and expose FOW */
   public void stopTokenDrag() {
+    if (!isDraggingToken)
+      return;
+
     renderer.commitMoveSelectionSet(tokenBeingDragged.getId()); // TODO: figure out a better way
     isDraggingToken = false;
     isMovingWithKeys = false;
@@ -343,8 +370,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
               gridSize + PADDING * 2 + fm.getHeight() + 10);
     }
 
-    public void handleMouseReleased(MouseEvent event) {}
-
     /**
      * Handles right click (popup menu) and double left click (token editor).
      *
@@ -372,8 +397,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       }
     }
 
-    public void handleMouseMotionEvent(MouseEvent event) {
-      Token token = getTokenAt(event.getX(), event.getY());
+    public void handleMouseMotionAt(Point p) {
+      Token token = getTokenAt(p.x, p.y);
       if (token == null || !AppUtil.playerOwns(token)) {
         return;
       }
@@ -448,6 +473,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
   //@Override
   public boolean processGestureEvent(MTGestureEvent ge) {
+    System.out.println(System.currentTimeMillis() + " " + ge.getClass().getSimpleName() + " " + ge.getIdName());
     if(MapTool.getFrame().getToolbox().getSelectedTool() != this)
       return false;
     if(ge instanceof PanEvent)
@@ -458,73 +484,132 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       processRotateEvent((RotateEvent)ge);
     else if(ge instanceof TapEvent)
       processTapEvent((TapEvent)ge);
+    else if(ge instanceof TapAndHoldEvent)
+      processTapAndHoldEvent((TapAndHoldEvent)ge);
+    else if(ge instanceof DragEvent)
+      processDragEvent((DragEvent)ge);
 
-    /*
-    if(ge instanceof TapAndHoldEvent)
-    {
-      TapAndHoldEvent th = (TapAndHoldEvent)ge;
-
-      Vector3D p = th.getLocationOnScreen();
-      Graphics g = MapTool.getFrame().getGraphics();
-      if(th.isHoldComplete())
-        g.setColor(Color.GREEN);
-      else if(th.getId() != MTGestureEvent.GESTURE_ENDED)
-        g.setColor(Color.YELLOW);
-      else
-        g.setColor(Color.RED);
-      g.fillOval((int)p.x - 20, (int)p.y -20, 40, 40);
-    }
-    if(ge instanceof DragEvent)
-    {
-      DragEvent de = (DragEvent) ge;
-      Graphics g = MapTool.getFrame().getGraphics();
-      if(de.getId() == MTGestureEvent.GESTURE_STARTED || de.getId() == MTGestureEvent.GESTURE_ENDED)
-      {
-        if(de.getId() != MTGestureEvent.GESTURE_ENDED)
-          g.setColor(Color.YELLOW);
-        else
-          g.setColor(Color.GREEN);
-        Vector3D to = de.getTo();
-        g.fillOval((int)to.x - 20, (int)to.y -20, 40, 40);
-      }
-      else {
-        g.setColor(Color.YELLOW);
-        Vector3D from = de.getFrom();
-        Vector3D to = de.getTo();
-        g.drawLine((int)from.x, (int)from.y, (int)to.x, (int)to.y);
-      }
-    }
-*/
     return true;
   }
 
+  private void processDragEvent(DragEvent ge) {
+    Point from = ge.getFromOn(renderer);
+    Point to = ge.getToOn(renderer);
+    if(ge.isStart() || ge.isResume())
+    {
+      dragStartX = from.x;
+      dragStartY = from.y;
+      handleSelectAt(from, false, false, true);
+      startSelectionBox(from);
+    }
+    if(ge.isUpdate()) {
+      updateSelectionBox(to);
+      updateTokenDrag(from, to);
+    }
+    if(ge.isEnd()) {
+      stopTokenDrag();
+      endSelectionBox(true);
+      SwingUtil.showPointer(renderer);
+    }
+    repaintZone();
+  }
+
+   private void updateTokenDrag(Point from, Point to) {
+    if(!isDraggingToken)
+      startTokenDrag(tokenUnderMouse);
+
+    if(!isDraggingToken)
+      return;
+
+    ZonePoint last = renderer.getLastWaypoint(tokenUnderMouse.getId());
+    if (last == null) {
+
+      // Just make a last ZP that is the same.
+      last = new ScreenPoint(from.x, from.y).convertToZone(renderer);
+    }
+    ZonePoint zp = new ScreenPoint(to.x, to.y).convertToZone(renderer);
+
+    int dx = zp.x - last.x;
+    int dy = zp.y - last.y;
+    handleDragToken(zp, dx, dy);
+  }
+
+  private void endSelectionBox(boolean clearBeforeSelecting) {
+    if (!isDrawingSelectionBox)
+      return;
+
+    if (clearBeforeSelecting) {
+      renderer.clearSelectedTokens();
+    }
+    renderer.selectTokens(selectionBoundBox);
+    renderer.updateAfterSelection();
+
+    selectionBoundBox = null;
+    isDrawingSelectionBox = false;
+
+    return;
+  }
+
+  private void updateSelectionBox(Point to) {
+    if (!isDrawingSelectionBox)
+      return;
+
+    selectionBoundBox.x = Math.min(dragStartX, to.x);
+    selectionBoundBox.y = Math.min(dragStartY, to.y);
+    selectionBoundBox.width = Math.abs(dragStartX - to.x);
+    selectionBoundBox.height = Math.abs(dragStartY - to.y);
+  }
+
+  private void startSelectionBox(Point from) {
+    if(tokenUnderMouse != null)
+      return;
+
+    hideMarkerPopup();
+    isDrawingSelectionBox = true;
+    selectionBoundBox = new Rectangle(from.x, from.y, 0, 0);
+  }
+
+  private void processTapAndHoldEvent(TapAndHoldEvent e) {
+    if(!e.isHoldComplete())
+      return;
+
+    handleSelectAt(e.getLocationOn(renderer), false, true);
+    showTokenPopupAt(e.getLocationOn(renderer));
+  }
+
   private void processTapEvent(TapEvent te) {
-    if(!te.isTapped() && !te.isDoubleTap())
+    if(!te.isTapped())
       return;
 
-    // So that keystrokes end up in the right place
-    renderer.requestFocusInWindow();
-    if (isDraggingMap() || isDraggingToken)
-      return;
+    if(!isDraggingToken)
+      handleSelectAt(te.getLocationOn(renderer), true);
 
-    Point p = te.getLocationOn(renderer);
+    repaintZone();
+  }
 
+  private void handleSelectAt(Point p, boolean showDetails)
+  {
+    handleSelectAt(p, showDetails, true, true);
+  }
+
+  private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect)
+  {
+    handleSelectAt(p, showDetails, clearBeforeSelect, false);
+  }
+
+  private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect, boolean clearOnSelectNew) {
     if(handledByHover(p))
       return;
 
-    selectMarker(p);
-    selectTokenAt(p);
-
-    repaintZone();
+    selectMarkerAt(p, showDetails);
+    selectTokenAt(p, showDetails, clearBeforeSelect, clearOnSelectNew);
+    return;
   }
 
   private boolean handledByHover(Point p) {
     if(!isShowingHover)
       return  false;
 
-
- //   if( hoverLocation.x <= p.x && p.x <= hoverLocation.x + hoverSize.width
- //       && hoverLocation.y <= p.y && p.y <= hoverLocation.y + hoverSize.height) {
     if(htmlRenderer.contains(p)) {
       htmlRenderer.clickAt(p);
       return true;
@@ -532,42 +617,96 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     return false;
   }
 
-  private void selectTokenAt(Point p) {
-    Token token = renderer.getTokenAt(p.x, p.y);
+  private void selectTokenAt(Point p, boolean showDetails, boolean clearBeforeSelection, boolean clearOnSelectNew) {
+    Token token = getTokenFromStack(p);
+
+    if(token == null)
+      token = renderer.getTokenAt(p.x, p.y);
+
+    if(token == null) {
+      setNewCurrentToken(null, clearBeforeSelection, clearOnSelectNew);
+      return;
+    }
+
     if (renderer.isTokenMoving(token))
       return;
 
     if(token == tokenUnderMouse) {
-      handleTapOnSelectedToken(token);
+      if(showDetails)
+        handleTapOnCurrentToken(p, token);
       return;
     }
 
+    setNewCurrentToken(token, clearBeforeSelection, clearOnSelectNew);
+    calcTokenDragOffset(token, p.x, p.y);
+  }
+
+
+  private void setNewCurrentToken(Token token, boolean clearBeforeSelection, boolean clearOnSelectNew) {
     statSheet = null;
     tokenUnderMouse = token;
-    renderer.clearSelectedTokens();
-    if(token != null) {
+    renderer.setMouseOver(token);
+
+    if(token == null && clearBeforeSelection)
+      renderer.clearSelectedTokens();
+
+    if(clearBeforeSelection)
+      renderer.clearSelectedTokens();
+
+    if (token != null && !renderer.getSelectedTokenSet().contains(token.getId())) {
+      if(clearOnSelectNew)
+        renderer.clearSelectedTokens();
+
       renderer.selectToken(token.getId());
       renderer.updateAfterSelection();
     }
-    renderer.setMouseOver(tokenUnderMouse);
   }
 
-  private void handleTapOnSelectedToken(Token token) {
+  private void calcTokenDragOffset(Token token, int x, int y) {
+    // ZonePoint dragged to
+    ZonePoint pos = new ScreenPoint(x, y).convertToZone(renderer);
+
+    // Offset specific to the token
+    Point tokenOffset = token.getDragOffset(getZone());
+
+    // Dragging offset for currently selected token
+    dragOffsetX = pos.x - tokenOffset.x;
+    dragOffsetY = pos.y - tokenOffset.y;
+  }
+
+  private void hideTokenStackPopup()
+  {
+    isShowingTokenStackPopup = false;
+  }
+
+  private Token getTokenFromStack(Point p) {
+    if (!isShowingTokenStackPopup)
+      return null;
+
+    if (tokenStackPanel.contains(p.x, p.y)) {
+      return tokenStackPanel.getTokenAt(p.x, p.y);
+    } else {
+        hideTokenStackPopup();
+        return  null;
+    }
+  }
+
+  private void handleTapOnCurrentToken(Point p, Token token) {
     if(token == null)
       return;
 
-    List<Token> tokenList = renderer.getTokenStackAt(token.getX(), token.getY());
-    if(tokenList == null && AppUtil.playerOwns(token))
+    List<Token> tokenList = renderer.getTokenStackAt(p.x, p.y);
+    if((tokenList == null || isShowingTokenStackPopup) && AppUtil.playerOwns(token))
       MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
     else
-      showTokenStackPopup(tokenList, token.getX(), token.getY());
+      showTokenStackPopup(tokenList, p.x, p.y);
   }
 
-  private void selectMarker(Point p) {
+  private void selectMarkerAt(Point p, boolean showAlso) {
     markerUnderMouse = renderer.getMarkerAt(p.x, p.y);
     if(markerUnderMouse == null)
       hideMarkerPopup();
-    else
+    else if(showAlso)
       showMarkerPopup();
   }
 
@@ -640,8 +779,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (isDraggingToken) {
       return;
     }
-    dragStartX = e.getX(); // These same two lines are in super.mousePressed(). Why do them
-    // here?
+    dragStartX = e.getX();
     dragStartY = e.getY();
 
     // Properties
@@ -668,7 +806,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     // SELECTION
     Token token = renderer.getTokenAt(e.getX(), e.getY());
 
-    if (token != null && !isDraggingToken && SwingUtilities.isLeftMouseButton(e)) {
+    if (token != null &&  SwingUtilities.isLeftMouseButton(e)) {
       // Don't select if it's already being moved by someone
       isNewTokenSelected = false;
       if (!renderer.isTokenMoving(token)) {
@@ -680,24 +818,19 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
             renderer.selectToken(token.getId());
           }
           renderer.updateAfterSelection();
-        } else if (!renderer.getSelectedTokenSet().contains(token.getId())) {
+        }
+        else if (!renderer.getSelectedTokenSet().contains(token.getId())) {
           // if not shift and click on non-selected token, switch selection to the token
           isNewTokenSelected = true;
           renderer.clearSelectedTokens();
           renderer.selectToken(token.getId());
           renderer.updateAfterSelection();
         }
-        // ZonePoint dragged to
-        ZonePoint pos = new ScreenPoint(e.getX(), e.getY()).convertToZone(renderer);
 
-        // Offset specific to the token
-        Point tokenOffset = token.getDragOffset(getZone());
-
-        // Dragging offset for currently selected token
-        dragOffsetX = pos.x - tokenOffset.x;
-        dragOffsetY = pos.y - tokenOffset.y;
+        calcTokenDragOffset(token, e.getX(), e.getY());
       }
-    } else {
+    } else
+      {
       if (SwingUtilities.isLeftMouseButton(e)) {
         // Starting a bound box selection
         isDrawingSelectionBox = true;
@@ -717,7 +850,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
 
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        tokenStackPanel.handleMouseReleased(e);
         return;
       } else {
         isShowingTokenStackPopup = false;
@@ -748,18 +880,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           showMarkerPopup();
         }
         // SELECTION BOUND BOX
-        if (isDrawingSelectionBox) {
-          isDrawingSelectionBox = false;
+        endSelectionBox(!SwingUtil.isShiftDown(e));
 
-          if (!SwingUtil.isShiftDown(e)) {
-            renderer.clearSelectedTokens();
-          }
-          renderer.selectTokens(selectionBoundBox);
-          renderer.updateAfterSelection();
-
-          selectionBoundBox = null;
-          return;
-        }
         // DRAG TOKEN COMPLETE
         if (isDraggingToken) {
           SwingUtil.showPointer(renderer);
@@ -803,34 +925,52 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
         renderer.updateAfterSelection();
         isNewTokenSelected = false;
       }
-      if (tokenUnderMouse != null && !renderer.getSelectedTokenSet().isEmpty()) {
-        if (tokenUnderMouse.isStamp()) {
-          new StampPopupMenu(
-                  renderer.getSelectedTokenSet(), e.getX(), e.getY(), renderer, tokenUnderMouse)
-                  .showPopup(renderer);
-        } else if (AppUtil.playerOwns(tokenUnderMouse)) {
-          // FIXME Every once in awhile we get a report on the forum of the following
-          // exception:
-          // java.awt.IllegalComponentStateException: component must be showing on the
-          // screen to
-          // determine its location
-          // It's thrown as a result of the showPopup() call on the next line. For the
-          // life of me, I
-          // can't figure out why the
-          // "renderer" component might not be "showing on the screen"??? Maybe it has
-          // something to
-          // do with a dual-monitor
-          // configuration? Or a monitor added after Java was started and then MT dragged
-          // to that
-          // monitor?
-          new TokenPopupMenu(
-                  renderer.getSelectedTokenSet(), e.getX(), e.getY(), renderer, tokenUnderMouse)
-                  .showPopup(renderer);
-        }
-        return;
-      }
+      if (showTokenPopupAt(e.getPoint())) return;
     }
     super.mouseReleased(e);
+  }
+
+  private boolean showTokenPopupAt(Point p) {
+    if (tokenUnderMouse == null || renderer.getSelectedTokenSet().isEmpty())
+      return false;
+
+    if (tokenUnderMouse.isStamp()) {
+      tokenPopupMenu = new  StampPopupMenu(
+              renderer.getSelectedTokenSet(), p.x, p.y, renderer, tokenUnderMouse);
+    } else if (AppUtil.playerOwns(tokenUnderMouse)) {
+      // FIXME Every once in awhile we get a report on the forum of the following
+      // exception:
+      // java.awt.IllegalComponentStateException: component must be showing on the
+      // screen to
+      // determine its location
+      // It's thrown as a result of the showPopup() call on the next line. For the
+      // life of me, I
+      // can't figure out why the
+      // "renderer" component might not be "showing on the screen"??? Maybe it has
+      // something to
+      // do with a dual-monitor
+      // configuration? Or a monitor added after Java was started and then MT dragged
+      // to that
+      // monitor?
+      tokenPopupMenu = new TokenPopupMenu(
+              renderer.getSelectedTokenSet(), p.x, p.y, renderer, tokenUnderMouse);
+    }
+
+    tokenPopupMenu.addPopupMenuListener(new PopupMenuListener() {
+      @Override
+      public void popupMenuWillBecomeVisible(PopupMenuEvent popupMenuEvent) {}
+
+      @Override
+      public void popupMenuWillBecomeInvisible(PopupMenuEvent popupMenuEvent) {
+        tokenPopupMenu = null;
+      }
+
+      @Override
+      public void popupMenuCanceled(PopupMenuEvent popupMenuEvent) {}
+    });
+
+    tokenPopupMenu.showPopup(renderer);
+    return true;
   }
 
   // //
@@ -914,7 +1054,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (isShowingTokenStackPopup) {
       isShowingTokenStackPopup = false;
       if (tokenStackPanel.contains(mouseX, mouseY)) {
-        tokenStackPanel.handleMouseMotionEvent(e);
+        tokenStackPanel.handleMouseMotionAt(e.getPoint());
         return;
       } else {
         renderer.repaint();

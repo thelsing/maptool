@@ -314,7 +314,8 @@ public class InputCursor{
 			
 			float afterRemoveLockPriority = this.getCurrentLockPriority();
 			//Only send released signal if the priority really was lowered by releasing (there can be more than 1 lock with the same lock priority)
-			if (beforeLockPriority > afterRemoveLockPriority){ 
+			//if (beforeLockPriority > afterRemoveLockPriority)
+			{
 				if (!registeredProcessorsToPriority.isEmpty()){
 					//Get strictly smaller priority gestures than the one releasing, so that the ones with same priority dont get a signal
 					SortedMap<AbstractCursorProcessor, Float> lesserPriorityGestureMap = registeredProcessorsToPriority.headMap(registeredProcessorsToPriority.lastKey());

@@ -16,7 +16,6 @@ import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.dragProcessor.DragProcessor;
 import org.mt4j.input.inputProcessors.componentProcessors.panProcessor.PanProcessorTwoFingers;
 import org.mt4j.input.inputProcessors.componentProcessors.rotateProcessor.RotateProcessor;
-import org.mt4j.input.inputProcessors.componentProcessors.tapAndHoldProcessor.TapAndHoldProcessor;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapProcessor;
 import org.mt4j.input.inputProcessors.componentProcessors.zoomProcessor.ZoomProcessor;
 import org.mt4j.input.inputProcessors.globalProcessors.InputRetargeter;
@@ -58,7 +57,6 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 
 		inputProcessorSupport = new ComponentInputProcessorSupport(app, this);
 		inputProcessorSupport.registerInputProcessor(new TapProcessor(app));
-		inputProcessorSupport.registerInputProcessor(new TapAndHoldProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new DragProcessor(app));
 		inputProcessorSupport.registerInputProcessor(new PanProcessorTwoFingers(app));
 		inputProcessorSupport.registerInputProcessor(new ZoomProcessor(app));
@@ -260,7 +258,11 @@ public class DesktopInputManager extends InputManager implements IMTInputEventLi
 	private void fire(IGestureEventListener[] listeners, MTGestureEvent event) {
 		if (listeners != null) {
 			for (IGestureEventListener listener : listeners) {
-				listener.processGestureEvent(event);
+				try {
+					listener.processGestureEvent(event);
+				} catch (Exception e) {
+					logger.error("Exception in GestureEventhandler", e);
+				}
 			}
 		}
 	}

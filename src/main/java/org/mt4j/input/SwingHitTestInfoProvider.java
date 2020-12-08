@@ -29,6 +29,7 @@ public class SwingHitTestInfoProvider implements IHitTestInfoProvider {
             else
                 c = ((Container) top).findComponentAt(p);
         }
+        Component c2 = SwingUtilities.getDeepestComponentAt(top, p.x, p.y);
 
         return c;
     }

@@ -121,4 +121,23 @@ public abstract class MTGestureEvent extends MTInputEvent {
 	public boolean isResume() {
 		return id == GESTURE_RESUMED;
 	}
+
+	public String getIdName()
+	{
+		switch (id)
+		{
+			case GESTURE_STARTED:
+				return "GESTURE_STARTED";
+			case GESTURE_UPDATED:
+				return "GESTURE_UPDATED";
+			case GESTURE_ENDED:
+				return "GESTURE_ENDED";
+			case GESTURE_CANCELED:
+				return "GESTURE_CANCELED";
+			case GESTURE_RESUMED:
+				return "GESTURE_RESUMED";
+			default:
+				return "UNKNOWN";
+		}
+	}
 }
