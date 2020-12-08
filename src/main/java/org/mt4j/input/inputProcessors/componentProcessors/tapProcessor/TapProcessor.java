@@ -136,7 +136,7 @@ public class TapProcessor extends AbstractCursorProcessor {
 	 * @param pa the pa
 	 */
 	public TapProcessor(JFrame pa) {
-		this(pa, 18.0f);
+		this(pa, 20f);
 	}
 	
 	/**

@@ -508,7 +508,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       updateSelectionBox(to);
       updateTokenDrag(from, to);
     }
-    if(ge.isEnd()) {
+    if(ge.isEnd() || ge.isCancel()) {
       stopTokenDrag();
       endSelectionBox(!tapHoldActive);
       SwingUtil.showPointer(renderer);
@@ -761,7 +761,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     markerUnderMouse = null;
   }
 
+  private float sumRotation = 0;
   private void processRotateEvent(RotateEvent ge) {
+    sumRotation += ge.getRotationDegrees();
+    System.out.println("Rotation:" + ge.getRotationDegrees() + "Sum: " + sumRotation);
     //rotateSelectedToken(ge.getRotationDegrees() > 0, false, false);
   }
 

@@ -36,8 +36,8 @@ public abstract class AbstractComponentProcessor implements IMTInputEventListene
 	protected static final Logger logger = LogManager.getLogger(AbstractComponentProcessor.class.getName());
 	static{
 		logger.setLevel(Level.ERROR);
-//		logger.setLevel(ILogger.WARN);
-//		logger.setLevel(ILogger.DEBUG);
+//		logger.setLevel(Level.WARN);
+//		logger.setLevel(Level.DEBUG);
 	}
 
 	
