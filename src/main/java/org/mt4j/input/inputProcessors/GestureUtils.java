@@ -1,11 +1,6 @@
 package org.mt4j.input.inputProcessors;
 
 import org.mt4j.input.inputData.InputCursor;
-import org.mt4j.util.math.ToolsGeometry;
-import org.mt4j.util.math.Vector3D;
-
-import javax.swing.*;
-import java.awt.*;
 
 public class GestureUtils {
 	

@@ -130,156 +130,9 @@ public class Vector3D {
 		}
 		return copy;
 	}
-    
-    /**
-     * Applies a transformation on the vector
-     * defined by the given tranformation matrix.
-     * 
-     * @param transformMatrix the transform matrix
-     */
-	public void transform(Matrix transformMatrix){
-		transformMatrix.mult(this);
-	}
-	
-	
-	//TODO reicht es den W coord des Vectors auf 0 zu setzen?
-	//FIXME eigentlich sollte man direction vectoren wie normale
-	//transformieren also mit transformNormal, aber so gehts auch meistens..why?
-	/**
-	 * Transforms a direction vector, not a point.
-	 * Ignores the translation part of the matrix
-	 * 
-	 * @param transformMatrix the transform matrix
-	 */
-	public void transformDirectionVector(Matrix transformMatrix){
-		Matrix m = new Matrix(transformMatrix);
-		m.removeTranslationFromMatrix();
-		this.transform(m);
-	}
-	
-	/**
-	 * Transforms a normal or direction vector.
-	 * This is done by multiplying the vector with the
-	 * inverse transpose of the matrix.
-	 * <p>
-	 * <strong>NOTE</strong>: this is not cheap because a new matrix is created (copied)
-	 * inverted and then transposed.<p>
-	 * (If you can supply a precomputed inverted matrix yourself, write
-	 * yourself a method that doesent do the invert() call :))
-	 * 
-	 * @param transformMatrix the transform matrix
-	 */
-	public void transformNormal(Matrix transformMatrix){
-		Matrix inverse = transformMatrix.invert();
-//		this.setW(0);
-		try {
-			Matrix transpose = inverse.transpose();
-			transpose.mult(this,this);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	/**
-	 * Multiplicates all Vector3D of the Vector3D array with the given
-	 * transformation matrix, thus transforming them.
-	 * Make a deepcopy of the vectors first if you dont want the originals being altered!
-	 * 
-	 * @param transformMatrix the transform matrix
-	 * @param points the points
-	 * 
-	 * @return the transformed vector array
-	 */
-	public static Vector3D[] transFormArrayLocal(Matrix transformMatrix, Vector3D[] points){
-		for (Vector3D v : points)
-			v.transform(transformMatrix);
-		return points;
-	}
-	
-	
-	/**
-	 * Translate.
-	 * 
-	 * @param directionVector the direction vector
-	 */
-	public void translate(Vector3D directionVector){
-		this.transform(Matrix.getTranslationMatrix(directionVector.getX(), directionVector.getY(), directionVector.getZ()));
-	}
-	
-	/**
-	 * translates an array of Vector3D by the given amounts in the directionvector.
-	 * 
-	 * @param inputArray the input array
-	 * @param directionVector the direction vector
-	 * 
-	 * @return the vector3 d[]
-	 */
-	public static Vector3D[] translateVectorArray(Vector3D[] inputArray, Vector3D directionVector){
-		return Vector3D.transFormArrayLocal(Matrix.getTranslationMatrix(directionVector.getX(), directionVector.getY(), directionVector.getZ())
-				, inputArray);
-	}
-	
-	
-	/**
-	 * Rotate x.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 */
-	public void rotateX(Vector3D rotationPoint, float degree ){
-		this.transform(Matrix.getXRotationMatrix(rotationPoint, degree));
-	}
-	
-	/**
-	 * rotates the Vector3D array around the rotationpoint by the given degree.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 * @param inputArray the input array
-	 * 
-	 * @return the rotated vector3D array
-	 */
-	public static Vector3D[] rotateXVectorArray(Vector3D[] inputArray, Vector3D rotationPoint, float degree ){
-		return Vector3D.transFormArrayLocal(Matrix.getXRotationMatrix(rotationPoint, degree),inputArray);
-	}
-	
-	
-	
-	/**
-	 * Rotate y.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 */
-	public void rotateY(Vector3D rotationPoint, float degree ){
-		this.transform(Matrix.getYRotationMatrix(rotationPoint, degree));
-	}
-	
-	
-	/**
-	 * rotates the Vector3D array around the rotationpoint by the given degree.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 * @param inputArray the input array
-	 * 
-	 * @return the rotated vector3D array
-	 */
-	public static Vector3D[] rotateYVectorArray(Vector3D[] inputArray, Vector3D rotationPoint, float degree ){
-		return Vector3D.transFormArrayLocal(Matrix.getYRotationMatrix(rotationPoint, degree), inputArray);
-	}
-	
-	
-	/**
-	 * Rotate z.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 */
-	public void rotateZ(Vector3D rotationPoint, float degree ){
-		this.transform(Matrix.getZRotationMatrix(rotationPoint, degree));
-	}
-	
+
+
+
 	
 	/**
 	 * Rotates the vector by the given angle around the X axis.
@@ -331,19 +184,6 @@ public class Vector3D {
 //		*/
 	}
 
-	/**
-	 * rotates the Vector3D array around the rotationpoint by the given degree.
-	 * 
-	 * @param rotationPoint the rotation point
-	 * @param degree the degree
-	 * @param inputArray the input array
-	 * 
-	 * @return the rotated vector3D array
-	 */
-	public static Vector3D[] rotateZVectorArray(Vector3D[] inputArray, Vector3D rotationPoint, float degree ){
-		return Vector3D.transFormArrayLocal(Matrix.getZRotationMatrix(rotationPoint, degree), inputArray);
-	}
-
 	
 	/**
 	 * Scale the vector by factor.
@@ -380,33 +220,7 @@ public class Vector3D {
     	return new Vector3D(this.x * scalar, this.y * scalar, this.z * scalar);
     }
     
-	/**
-	 * scales the Vector3D[] around the scalingpoint by the given factor evenly in the X and Y direction.
-	 * 
-	 * @param inputArray the input array
-	 * @param scalingPoint the scaling point
-	 * @param factor the factor
-	 * 
-	 * @return the resulting vector array
-	 */
-	public static Vector3D[] scaleVectorArray(Vector3D[] inputArray, Vector3D scalingPoint, float factor) {
-		return Vector3D.transFormArrayLocal(Matrix.getScalingMatrix(scalingPoint, factor,factor,factor), inputArray); 
-	}
-	
-	/**
-	 * scales the Vector3D[] around the scalingpoint by the factors given for each dimension.
-	 * 
-	 * @param inputArray the input array
-	 * @param scalingPoint the scaling point
-	 * @param X the x
-	 * @param Y the y
-	 * @param Z the z
-	 * 
-	 * @return the resulting vector array
-	 */
-	public static Vector3D[] scaleVectorArray(Vector3D[] inputArray, Vector3D scalingPoint, float X, float Y, float Z) {
-		return Vector3D.transFormArrayLocal(Matrix.getScalingMatrix(scalingPoint, X, Y, Z), inputArray); 
-	}
+
 	
 	
 	/**
@@ -800,9 +614,32 @@ public class Vector3D {
 //  FIXME this produces an not 0.0 angle for equal vectors sometimes..why?
     public float angleBetween(Vector3D v2) {
         float dot = this.dot(v2);
-        float theta = ToolsMath.acos(dot / (this.length() * v2.length()));
+        float theta = acos(dot / (this.length() * v2.length()));
         return theta;
     }
+
+	/**
+	 * Returns the arc cosine of an angle given in radians.<br>
+	 * Special cases:
+	 * <ul><li>If fValue is smaller than -1, then the result is PI.
+	 * <li>If the argument is greater than 1, then the result is 0.</ul>
+	 *
+	 * @param fValue The angle, in radians.
+	 *
+	 * @return fValue's acos
+	 *
+	 * @see java.lang.Math#acos(double)
+	 */
+	public static float acos(float fValue) {
+		if (-1.0f < fValue) {
+			if (fValue < 1.0f)
+				return (float) Math.acos(fValue);
+
+			return 0.0f;
+		}
+
+		return (float)Math.PI;
+	}
 	
 	/**
 	 * sets a new X coordinate value for the vector.
