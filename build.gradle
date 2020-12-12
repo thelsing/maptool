@@ -150,6 +150,7 @@ repositories {
 
 // In this section you declare the dependencies for your production and test code
 dependencies {
+    implementation 'com.artistech:tuio-lib:1.1.6'
     implementation 'com.samskivert:samskivert:1.9'
     // Jamz: Do NOT update log4j libs without testing with uberjar build, 2.13.0 currently does not work
     // See open issue: https://issues.apache.org/jira/browse/LOG4J2-673

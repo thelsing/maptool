@@ -21,6 +21,7 @@ package org.mt4j.input.inputSources;
 import java.util.HashMap;
 import java.util.Map;
 
+
 import TUIO.*;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
@@ -42,7 +43,7 @@ import javax.swing.*;
  * 
  * @author Christopher Ruff
  */
-public class TuioInputSource extends AbstractInputSource implements TuioListener {	
+public class TuioInputSource extends AbstractInputSource implements TuioListener {
 	private static final Logger logger = LogManager.getLogger(TuioInputSource.class.getName());
 	static{
 		logger.setLevel(Level.INFO);
@@ -185,13 +186,13 @@ public class TuioInputSource extends AbstractInputSource implements TuioListener
 	}
 
 
-	//@Override
+	@Override
 	public void refresh(TuioTime arg0) {
 		
 	}
 	
 	
-	//@Override
+	@Override
 	public void addTuioObject(TuioObject tuioObject) {
 		long session_id = tuioObject.getSessionID();
 		int fiducial_id = tuioObject.getSymbolID();
@@ -214,7 +215,7 @@ public class TuioInputSource extends AbstractInputSource implements TuioListener
 	}
 	
 	
-	//@Override
+	@Override
 	public void updateTuioObject(TuioObject tuioObject) {
 		long session_id = tuioObject.getSessionID();
 		int fiducial_id = tuioObject.getSymbolID();
@@ -239,7 +240,7 @@ public class TuioInputSource extends AbstractInputSource implements TuioListener
 	}
 	
 
-	//@Override
+	@Override
 	public void removeTuioObject(TuioObject tuioObject) {
 //		logger.info("Remove TuioObj tuio object-> sessionID: " +session_id + " fiducialID: " +fiducial_id);
 		long session_id = tuioObject.getSessionID();
@@ -268,9 +269,9 @@ public class TuioInputSource extends AbstractInputSource implements TuioListener
 		}
 	}
 
-	
-	
-	
+
+
+
 //	//@Override
 //	public boolean firesEventType(Class<? extends MTInputEvent> evtClass){
 //		return (	evtClass == MTFingerInputEvt.class 
