@@ -171,9 +171,8 @@ public abstract class DefaultTool extends Tool
     }
     // MAP MOVEMENT
     if (SwingUtilities.isRightMouseButton(e)) {
-
-      setDragStart(mX, mY);
       moveMapBy(mX - dragStartX, mY - dragStartY);
+      setDragStart(mX, mY);
     }
   }
 
@@ -183,6 +182,10 @@ public abstract class DefaultTool extends Tool
 
     if (mapDX * mapDX + mapDY * mapDY > dragThreshold * dragThreshold) {
       isDraggingMap = true;
+    }
+    else
+    {
+      return;
     }
 
     long now = System.currentTimeMillis();
