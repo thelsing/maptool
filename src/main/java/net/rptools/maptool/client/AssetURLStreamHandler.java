@@ -15,6 +15,8 @@
 package net.rptools.maptool.client;
 
 import java.awt.Graphics2D;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -109,6 +111,10 @@ public class AssetURLStreamHandler extends URLStreamHandler {
       byte[] data = null;
       // latch.await();
       BufferedImage img = ImageManager.getImageAndWait(assetId);
+      if(img != null) {
+        return new ByteArrayInputStream(ImageUtil.imageToBytes(img, "png"));
+      }
+
 
       Asset asset = AssetManager.getAsset(assetId);
       if (asset != null && asset.getImage() != null) {
@@ -129,10 +135,20 @@ public class AssetURLStreamHandler extends URLStreamHandler {
               scaleH = img.getHeight() * scaleW / img.getWidth();
               break;
           }
+
+          int w = img.getWidth();
+          int h = img.getHeight();
+          BufferedImage bimg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+          AffineTransform at = new AffineTransform();
+          at.scale(scaleW, scaleH);
+          AffineTransformOp scaleOp =
+                  new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+          bimg = scaleOp.filter(img, bimg);
+          /*
           BufferedImage bimg = new BufferedImage(scaleW, scaleH, BufferedImage.TRANSLUCENT);
           Graphics2D g = bimg.createGraphics();
           g.drawImage(img, 0, 0, scaleW, scaleH, null);
-          g.dispose();
+          g.dispose();*/
           data = ImageUtil.imageToBytes(bimg, "png"); // assume png because translucent.
         } else data = asset.getImage();
       } else {

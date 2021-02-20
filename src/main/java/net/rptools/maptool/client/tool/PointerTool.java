@@ -47,6 +47,7 @@ import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.tool.LayerSelectionDialog.LayerSelectionListener;
 import net.rptools.maptool.client.ui.*;
+import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneOverlay;
@@ -90,19 +91,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   private boolean isMovingWithKeys;
   private Rectangle selectionBoundBox;
 
-  // Hovers
-  private boolean isShowingHover;
-  private Area hoverTokenBounds;
-  private String hoverTokenNotes;
-  private Dimension hoverSize;
-  private Point hoverLocation;
-
   // Track token interactions to hide statsheets when doing other stuff
   private boolean mouseButtonDown = false;
 
   private Token tokenBeingDragged;
   private Token tokenUnderMouse;
   private Token markerUnderMouse;
+
   private int keysDown; // used to record whether Shift/Ctrl/Meta keys are down
 
   private final TokenStackPanel tokenStackPanel = new TokenStackPanel();
@@ -135,8 +130,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     htmlRenderer.setBackground(new Color(0, 0, 0, 200));
     htmlRenderer.setForeground(Color.black);
     htmlRenderer.setOpaque(false);
-    htmlRenderer.addStyleSheetRule("body{color:black}");
-    htmlRenderer.addStyleSheetRule(".title{font-size: 14pt}");
+    //htmlRenderer.addStyleSheetRule("body{color:black}");
+    //htmlRenderer.addStyleSheetRule(".title{font-size: 14pt}");
 
     layerSelectionDialog =
             new LayerSelectionDialog(
@@ -566,7 +561,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if(tokenUnderMouse != null || isDrawingSelectionBox || isDraggingToken)
       return;
 
-    hideMarkerPopup();
     isDrawingSelectionBox = true;
     selectionBoundBox = new Rectangle(from.x, from.y, 0, 0);
   }
@@ -617,23 +611,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   }
 
   private void handleSelectAt(Point p, boolean showDetails, boolean clearBeforeSelect, boolean multiSelect) {
-    if(handledByHover(p))
-      return;
-
-    selectMarkerAt(p, showDetails);
     selectTokenAt(p, showDetails, clearBeforeSelect, multiSelect);
     return;
-  }
-
-  private boolean handledByHover(Point p) {
-    if(!isShowingHover)
-      return  false;
-
-    if(htmlRenderer.contains(p)) {
-      htmlRenderer.clickAt(p);
-      return true;
-    }
-    return false;
   }
 
   private void selectTokenAt(Point p, boolean showDetails, boolean clearBeforeSelection, boolean muliSelect) {
@@ -736,32 +715,25 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       showTokenStackPopup(tokenList, p.x, p.y);
   }
 
-  private void selectMarkerAt(Point p, boolean showAlso) {
-    markerUnderMouse = renderer.getMarkerAt(p.x, p.y);
-    if(markerUnderMouse == null)
-      hideMarkerPopup();
-    else if(showAlso)
-      showMarkerPopup();
-  }
-
-  private void showMarkerPopup() {
-    isShowingHover = true;
-    hoverTokenBounds = renderer.getMarkerBounds(markerUnderMouse);
-    hoverTokenNotes = createHoverNote(markerUnderMouse);
-    if (hoverTokenBounds == null) {
-      // Uhhhh, where's the token ?
-      isShowingHover = false;
+  private void showHover(Token token) {
+    try {
+      HTMLFrameFactory.show(token.getName(), HTMLFrameFactory.FrameType.DIALOG,
+              true, "height="+ MapTool.getFrame().getHeight() * 8 / 10
+                      +";width="+ MapTool.getFrame().getWidth() * 5/10 , createHoverNote(token));
+    } catch (Exception e) {
+      MapTool.showError(e.toString());
     }
   }
 
-  private void hideMarkerPopup() {
-    if(!isShowingHover)
+  private void showHandout(Token token) {
+    var handout = token.getCharsheetImage();
+    if(handout == null)
       return;
 
-    isShowingHover = false;
-    hoverTokenBounds = null;
-    hoverTokenNotes = null;
-    markerUnderMouse = null;
+    AssetViewerDialog dialog = new AssetViewerDialog(
+            token.getName(), handout);
+    dialog.pack();
+    dialog.setVisible(true);
   }
 
   private float sumRotation = 0;
@@ -800,10 +772,8 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
   @Override
   public void mousePressed(MouseEvent e) {
     super.mousePressed(e);
-
     mouseButtonDown = true;
 
-    hideMarkerPopup();
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
         tokenStackPanel.handleMousePressed(e);
@@ -836,11 +806,13 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
       } else {
         // Single
         Token token = renderer.getTokenAt(e.getX(), e.getY());
+        if(token == null)
+          token = renderer.getMarkerAt(e.getX(), e.getY());
         if (token != null) {
           if (!AppUtil.playerOwns(token)) {
-            return;
+            showHandout(token);
           }
-          MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
+          showHover(token);
         }
       }
       return;
@@ -911,16 +883,11 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     if (SwingUtilities.isLeftMouseButton(e)) {
       try {
         // MARKER
-        markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
+        var markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
         renderer.setCursor(
                 Cursor.getPredefinedCursor(
                         markerUnderMouse != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-        if (tokenUnderMouse == null
-                && markerUnderMouse != null
-                && !isShowingHover
-                && !isDraggingToken) {
-          showMarkerPopup();
-        }
+
         // SELECTION BOUND BOX
         endSelectionBox(!SwingUtil.isShiftDown(e));
 
@@ -2432,62 +2399,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
               viewSize.height - statSheet.getHeight() - STATSHEET_EXTERIOR_PADDING,
               this);
     }
-
-    // Hovers
-    if (isShowingHover) {
-      // Anchor next to the token
-      hoverSize =
-              htmlRenderer.setText(
-                      hoverTokenNotes,
-                      (int) (renderer.getWidth() * .75),
-                      (int) (renderer.getHeight() * .75));
-      hoverLocation =
-              new Point(
-                      hoverTokenBounds.getBounds().x
-                              + hoverTokenBounds.getBounds().width / 2
-                              - hoverSize.width / 2,
-                      hoverTokenBounds.getBounds().y);
-
-      // Anchor in the bottom left corner
-      hoverLocation.x = 4 + PADDING;
-      hoverLocation.y = viewSize.height - hoverSize.height - 4 - PADDING;
-
-      // Keep it on screen
-      if (hoverLocation.x + hoverSize.width > viewSize.width) {
-        hoverLocation.x = viewSize.width - hoverSize.width;
-      }
-      if (hoverLocation.x < 4) {
-        hoverLocation.x = 4;
-      }
-      if (hoverLocation.y + hoverSize.height > viewSize.height - 4) {
-        hoverLocation.y = viewSize.height - hoverSize.height - 4;
-      }
-      if (hoverLocation.y < 4) {
-        hoverLocation.y = 4;
-      }
-
-      // Background
-      // g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .5f));
-      // g.setColor(Color.black);
-      // g.fillRect(location.x, location.y, size.width, size.height);
-      // g.setComposite(composite);
-      g.setPaint(
-              new TexturePaint(
-                      AppStyle.panelTexture,
-                      new Rectangle(
-                              0, 0, AppStyle.panelTexture.getWidth(), AppStyle.panelTexture.getHeight())));
-      g.fillRect(hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
-
-      // Content
-      htmlRenderer.render(g, hoverLocation.x, hoverLocation.y);
-      htmlRenderer.setBounds(hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
-
-      // Border
-      AppStyle.miniMapBorder.paintAround(g, hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
-      AppStyle.shadowBorder.paintWithin(g, hoverLocation.x, hoverLocation.y, hoverSize.width, hoverSize.height);
-      // AppStyle.border.paintAround(g, location.x, location.y,
-      // size.width, size.height);
-    }
   }
 
   private String createHoverNote(Token marker) {
@@ -2495,6 +2406,81 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     boolean showNotes = !StringUtil.isEmpty(marker.getNotes());
 
     StringBuilder builder = new StringBuilder();
+     builder.append("<style>\n" +
+            ".gradient {\n" +
+                     "    background: linear-gradient(10deg, #A73335, white);\n" +
+                     "    height:5px;\n" +
+                     "    margin:7px 0px;\n" +
+                     "}\n" +
+                     ".name {\n" +
+                     "    font-size:225%;\n" +
+                     "    font-family:Georgia, serif;\n" +
+                     "    font-variant:small-caps;\n" +
+                     "    font-weight:bold;\n" +
+                     "    color:#A73335;\n" +
+                     "}\n" +
+                     ".description {\n" +
+                     "    font-style:italic;    \n" +
+                     "}\n" +
+                     ".bold {\n" +
+                     "    font-weight:bold;\n" +
+                     "}\n" +
+                     ".red {\n" +
+                     "    color:#A73335;\n" +
+                     "}\n" +
+                     ".table {\n" +
+                     "    width:100%;\n" +
+                     "    border:0px;\n" +
+                     "    border-collapse:collapse;\n" +
+                     "    color:#A73335;\n" +
+                     "}\n" +
+                     ".th, .td {\n" +
+                     "    width:50px;\n" +
+                     "    text-align:center;\n" +
+                     "}\n" +
+                     ".actions {\n" +
+                     "    font-size:175%;\n" +
+                     "    font-variant:small-caps;\n" +
+                     "    margin:17px 0px 0px 0px;\n" +
+                     "}\n" +
+                     ".hr {\n" +
+                     "    background: #A73335;\n" +
+                     "    height:2px;\n" +
+                     "}\n" +
+                     ".attack {\n" +
+                     "    margin:5px 0px;\n" +
+                     "}\n" +
+                     ".commonTrait {\n" +
+                     "    margin:3px 0px;\n" +
+                     "}\n" +
+                     ".spellSection {\n" +
+                     "    margin:2px 0px;\n" +
+                     "}\n" +
+                     ".attackname {\n" +
+                     "    font-weight:bold;\n" +
+                     "    font-style:italic;\n" +
+                     "}\n" +
+                     ".variant {\n" +
+                     "    margin: 7px 15px;\n" +
+                     "    padding: 5px 10px;\n" +
+                     "    box-shadow: 0 0 4px 0 #988e7c;\n" +
+                     "    border: 1px solid #656565;\n" +
+                     "    border-top: 2px solid #656565;\n" +
+                     "    border-bottom: 2px solid #656565;\n" +
+                     "    background-color: #e9ecda;\n" +
+                     "}\n" +
+                     ".variantname {\n" +
+                     "    font-variant: small-caps;\n" +
+                     "    font-weight: bolder;\n" +
+                     "    font-size: 1.1em;\n" +
+                     "    display: flex;\n" +
+                     "    justify-content: space-between;\n" +
+                     "    align-items: center;\n" +
+                     "}" +
+            "body{color:black}\n" +
+            ".title{font-size: 14pt}\n" +
+            "</style>"
+    );
 
     if (marker.getPortraitImage() != null) {
       builder.append("<table><tr><td valign=top>");
@@ -2536,7 +2522,7 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
               .append("></tr></table>");
     }
     String notes = builder.toString();
-    notes = notes.replaceAll("\n", "<br>");
+    //notes = notes.replaceAll("\n", "<br>");
     return notes;
   }
 }

@@ -62,7 +62,7 @@ public class HTMLJFXPanel extends JFXPanel implements HTMLPanelInterface {
    *
    * @param container The container that will hold the HTML panel.
    */
-  HTMLJFXPanel(final HTMLPanelContainer container, HTMLWebViewManager webViewManager) {
+  public HTMLJFXPanel(final HTMLPanelContainer container, HTMLWebViewManager webViewManager) {
     this.webViewManager = webViewManager;
     Platform.runLater(() -> setupScene(container, new WebView()));
     if (container != null) {

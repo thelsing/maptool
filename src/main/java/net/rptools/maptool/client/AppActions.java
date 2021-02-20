@@ -2806,14 +2806,13 @@ public class AppActions {
                     chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                     chooser.setFileFilter(MapTool.getFrame().getRoll20ModuleFilter());
 
-                    if (chooser.showOpenDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
-                        File file = chooser.getSelectedFile();
-                        try {
-                            new Roll20From5eToolsImporter(file).importJson();
-                        } catch (Exception ioException) {
-                            MapTool.showError(ioException.toString());
-                        }
+
+                    try {
+                        new Roll20From5eToolsImporter().importJson();
+                    } catch (Exception ioException) {
+                        MapTool.showError(ioException.toString());
                     }
+
                 }
             };
 

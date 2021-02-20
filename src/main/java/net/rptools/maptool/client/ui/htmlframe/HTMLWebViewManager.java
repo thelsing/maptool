@@ -169,7 +169,7 @@ public class HTMLWebViewManager {
           + "for(let mutation of mutations) {if (mutation.type === 'childList') {for (let i = 0; i < mutation.addedNodes.length; i++) {MapTool.handleAddedNode(mutation.addedNodes[i]);}}}});"
           + "maptool_observer.observe(document.documentElement, { attributes: false, characterData: false, childList: true, subtree: true });";
 
-  HTMLWebViewManager() {}
+  public HTMLWebViewManager() {}
 
   /**
    * Setup the WebView
@@ -231,7 +231,7 @@ public class HTMLWebViewManager {
       scrollY = getVScrollValue();
     }
     isFlushed = false;
-    webEngine.loadContent(SCRIPT_BLOCK_EXT + SCRIPT_BRIDGE + HTMLPanelInterface.fixHTML(html));
+    webEngine.loadContent(SCRIPT_BRIDGE + HTMLPanelInterface.fixHTML(html));
   }
 
   /**

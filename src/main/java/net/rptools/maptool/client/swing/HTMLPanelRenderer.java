@@ -14,6 +14,9 @@
  */
 package net.rptools.maptool.client.swing;
 
+import net.rptools.maptool.client.ui.htmlframe.HTMLJFXPanel;
+import net.rptools.maptool.client.ui.htmlframe.HTMLPane;
+import net.rptools.maptool.client.ui.htmlframe.HTMLWebViewManager;
 import org.mt4j.input.inputProcessors.IGestureEventListener;
 import org.mt4j.input.inputProcessors.MTGestureEvent;
 import org.mt4j.input.inputProcessors.componentProcessors.tapProcessor.TapEvent;
@@ -31,33 +34,81 @@ import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.StyleSheet;
 
-public class HTMLPanelRenderer extends JTextPane {
+public class HTMLPanelRenderer extends HTMLJFXPanel {
     private static final long serialVersionUID = -7535450508528232780L;
 
     private final CellRendererPane rendererPane = new CellRendererPane();
-    private final StyleSheet styleSheet;
+    //private final StyleSheet styleSheet;
     private Dimension size;
 
     public HTMLPanelRenderer() {
-        setContentType("text/html");
+        super(null, new HTMLWebViewManager());
+        /*setContentType("text/html");
         setEditable(false);
         setDoubleBuffered(false);
 
         styleSheet = ((HTMLDocument) getDocument()).getStyleSheet();
-        styleSheet.addRule("body { font-family: sans-serif; font-size: 11pt}");
+        //styleSheet.addRule("body { font-family: sans-serif; font-size: 11pt}");
+        styleSheet.addRule("gradient {\n" +
+                "    background: linear-gradient(10deg, #A73335, white);\n" +
+                "    height:5px;\n" +
+                "    margin:7px 0px;\n" +
+                "}");
+        styleSheet.addRule(".name {\n" +
+                "    font-size:225%;\n" +
+                "    font-family:Georgia, serif;\n" +
+                "    font-variant:small-caps;\n" +
+                "    font-weight:bold;\n" +
+                "    color:#A73335;\n" +
+                "}");
+        styleSheet.addRule(".description {\n" +
+                "    font-style:italic;    \n" +
+                "}");
+        styleSheet.addRule(".bold {\n" +
+                "    font-weight:bold;\n" +
+                "}");
+        styleSheet.addRule(".red {\n" +
+                "    color:#A73335;\n" +
+                "}");
+        styleSheet.addRule("table {\n" +
+                "    width:100%;\n" +
+                "    border:0px;\n" +
+                "    border-collapse:collapse;\n" +
+                "    color:#A73335;\n" +
+                "}");
+        styleSheet.addRule("th, td {\n" +
+                "    width:50px;\n" +
+                "    text-align:center;\n" +
+                "}");
+        styleSheet.addRule(".actions {\n" +
+                "    font-size:175%;\n" +
+                "    font-variant:small-caps;\n" +
+                "    margin:17px 0px 0px 0px;\n" +
+                "}");
+        styleSheet.addRule(".hr {\n" +
+                "    background: #A73335;\n" +
+                "    height:2px;\n" +
+                "}");
+        styleSheet.addRule(".attack {\n" +
+                "    margin:5px 0px;\n" +
+                "}");
+        styleSheet.addRule(".attackname {\n" +
+                "    font-weight:bold;\n" +
+                "    font-style:italic;\n" +
+                "}");*/
         rendererPane.add(this);
-        Document document = getDocument();
+        /*Document document = getDocument();
 
         // Use a little bit of black magic to get our images to display correctly
         // TODO: Need a way to flush this cache
         HTMLPanelImageCache imageCache = new HTMLPanelImageCache();
-        document.putProperty("imageCache", imageCache);
+        document.putProperty("imageCache", imageCache);*/
     }
-
+/*
     public void addStyleSheetRule(String rule) {
         styleSheet.addRule(rule);
     }
-
+*/
     public void attach(JComponent c) {
         c.add(rendererPane);
     }
@@ -67,17 +118,19 @@ public class HTMLPanelRenderer extends JTextPane {
     }
 
     public Dimension setText(String t, int maxWidth, int maxHeight) {
-        setText(t);
-        setSize(maxWidth, maxHeight);
+        updateContents(t, true);
+        //setText(t);
+        //setSize(maxWidth, maxHeight);
+        setSize(300,400);
         size = getPreferredSize();
         size.width = Math.min(size.width, maxWidth);
-        return size;
+        return getSize();
     }
 
     public void render(Graphics g, int x, int y) {
         rendererPane.paintComponent(g, this, null, x, y, size.width, size.height);
     }
-
+/*
     @Override
     public boolean contains(Point p) {
         return super.contains(p.x - getX(), p.y - getY());
@@ -112,5 +165,5 @@ public class HTMLPanelRenderer extends JTextPane {
                 }
             }
         }
-    }
+    }*/
 }
