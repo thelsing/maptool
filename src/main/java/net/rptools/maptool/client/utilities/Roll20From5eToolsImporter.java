@@ -733,6 +733,7 @@ public class Roll20From5eToolsImporter {
         desc = replaceTag(desc,"{@item ", "items.html#");
         desc = replaceTag(desc,"{@creature ", "bestiary.html#", "", "", "mm");
         desc = replaceTag(desc,"{@recharge ", "(Recharge ", "-6)");
+        desc = replaceTag(desc,"{@recharge", "(Recharge ", " 6)");
         desc = replaceTag(desc,"{@damage ");
         desc = replaceTag(desc,"{@condition ");
         desc = replaceTag(desc,"{@skill ");
