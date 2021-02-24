@@ -201,7 +201,7 @@ public class MapPropertiesDialog extends JDialog {
     setVisible(false);
   }
 
-  private void accept() {
+  public void accept() {
     // Push the assets to the server
     MapToolUtil.uploadTexture(backgroundPaint);
     MapToolUtil.uploadTexture(fogPaint);

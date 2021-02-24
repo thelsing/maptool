@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import com.samskivert.util.StringUtil;
 import jdk.nashorn.api.tree.Tree;
 import net.rptools.maptool.client.AppStyle;
 import net.rptools.maptool.client.MapTool;
@@ -80,159 +81,19 @@ public class Roll20From5eToolsImporter {
             var moduleShort = moduleFile.replaceAll(pattern, "$1");
             fetchMonsterData(moduleShort);
 
-            var mon = JsonParser.parseString("{\n" +
-                    "\t\"name\": \"Flail Snail\",\n" +
-                    "\t\"source\": \"VGM\",\n" +
-                    "\t\"page\": 144,\n" +
-                    "\t\"otherSources\": [\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"source\": \"ToA\"\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"source\": \"DIP\"\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"source\": \"SLW\"\n" +
-                    "\t\t}\n" +
-                    "\t],\n" +
-                    "\t\"size\": \"L\",\n" +
-                    "\t\"type\": \"elemental\",\n" +
-                    "\t\"alignment\": [\n" +
-                    "\t\t\"U\"\n" +
-                    "\t],\n" +
-                    "\t\"ac\": [\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"ac\": 16,\n" +
-                    "\t\t\t\"from\": [\n" +
-                    "\t\t\t\t\"natural armor\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t}\n" +
-                    "\t],\n" +
-                    "\t\"hp\": {\n" +
-                    "\t\t\"average\": 52,\n" +
-                    "\t\t\"formula\": \"5d10 + 25\"\n" +
-                    "\t},\n" +
-                    "\t\"speed\": {\n" +
-                    "\t\t\"walk\": 10\n" +
-                    "\t},\n" +
-                    "\t\"str\": 17,\n" +
-                    "\t\"dex\": 5,\n" +
-                    "\t\"con\": 20,\n" +
-                    "\t\"int\": 3,\n" +
-                    "\t\"wis\": 10,\n" +
-                    "\t\"cha\": 5,\n" +
-                    "\t\"senses\": [\n" +
-                    "\t\t\"darkvision 60 ft.\",\n" +
-                    "\t\t\"tremorsense 60 ft.\"\n" +
-                    "\t],\n" +
-                    "\t\"passive\": 10,\n" +
-                    "\t\"immune\": [\n" +
-                    "\t\t\"fire\",\n" +
-                    "\t\t\"poison\"\n" +
-                    "\t],\n" +
-                    "\t\"conditionImmune\": [\n" +
-                    "\t\t\"poisoned\"\n" +
-                    "\t],\n" +
-                    "\t\"cr\": \"3\",\n" +
-                    "\t\"trait\": [\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Antimagic Shell\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"The snail has advantage on saving throws against spells, and any creature making a spell attack against the snail has disadvantage on the attack roll. If the snail succeeds on its saving throw against a spell or a spell attack misses it, an additional effect might occur, as determined by rolling a {@dice d6}:\",\n" +
-                    "\t\t\t\t{\n" +
-                    "\t\t\t\t\t\"type\": \"list\",\n" +
-                    "\t\t\t\t\t\"style\": \"list-hang-notitle\",\n" +
-                    "\t\t\t\t\t\"items\": [\n" +
-                    "\t\t\t\t\t\t{\n" +
-                    "\t\t\t\t\t\t\t\"type\": \"item\",\n" +
-                    "\t\t\t\t\t\t\t\"name\": \"1–2.\",\n" +
-                    "\t\t\t\t\t\t\t\"style\": \"italic\",\n" +
-                    "\t\t\t\t\t\t\t\"entry\": \"If the spell affects an area or has multiple targets, it fails and has no effect. If the spell targets only the snail, it has no effect on the snail and is reflected back at the caster, using the spell slot level, spell save DC, attack bonus, and spellcasting ability of the caster.\"\n" +
-                    "\t\t\t\t\t\t},\n" +
-                    "\t\t\t\t\t\t{\n" +
-                    "\t\t\t\t\t\t\t\"type\": \"item\",\n" +
-                    "\t\t\t\t\t\t\t\"name\": \"3–4.\",\n" +
-                    "\t\t\t\t\t\t\t\"style\": \"italic\",\n" +
-                    "\t\t\t\t\t\t\t\"entry\": \"No additional effect.\"\n" +
-                    "\t\t\t\t\t\t},\n" +
-                    "\t\t\t\t\t\t{\n" +
-                    "\t\t\t\t\t\t\t\"type\": \"item\",\n" +
-                    "\t\t\t\t\t\t\t\"name\": \"5–6.\",\n" +
-                    "\t\t\t\t\t\t\t\"style\": \"italic\",\n" +
-                    "\t\t\t\t\t\t\t\"entry\": \"The snail's shell converts some of the spell's energy into a burst of destructive force. Each creature within 30 feet of the snail must make a {@dc 15} Constitution saving throw, taking {@dice 1d6} force damage per level of the spell on a failed save, or half as much damage on a successful one.\"\n" +
-                    "\t\t\t\t\t\t}\n" +
-                    "\t\t\t\t\t]\n" +
-                    "\t\t\t\t}\n" +
-                    "\t\t\t]\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Flail Tentacles\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"The flail snail has five flail tentacles. Whenever the snail takes 10 damage or more on a single turn, one of its tentacles dies. If even one tentacle remains, the snail regrows all dead ones within {@dice 1d4} days. If all its tentacles die, the snail retracts into its shell, gaining total cover, and it begins wailing, a sound that can be heard for 600 feet, stopping only when it dies {@dice 5d6} minutes later. Healing magic that restores limbs, such as the regenerate spell, can halt this dying process.\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t}\n" +
-                    "\t],\n" +
-                    "\t\"action\": [\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Multiattack\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"The flail snail makes as many flail tentacle attacks as it has flail tentacles, all against the same target.\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Flail Tentacle\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"{@atk mw} {@hit 5} to hit, reach 10 ft., one target. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage.\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Scintillating Shell (Recharges after a Short or Long Rest)\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"The snail's shell emits dazzling, colored light until the end of the snail's next turn. During this time, the shell sheds bright light in a 30-foot radius and dim light for an additional 30 feet, and creatures that can see the snail have disadvantage on attack rolls against it. In addition, any creature within the bright light and able to see the snail when this power is activated must succeed on a {@dc 15} Wisdom saving throw or be {@condition stunned} until the light ends.\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t},\n" +
-                    "\t\t{\n" +
-                    "\t\t\t\"name\": \"Shell Defense\",\n" +
-                    "\t\t\t\"entries\": [\n" +
-                    "\t\t\t\t\"The flail snail withdraws into its shell, gaining a +4 bonus to AC until it emerges. It can emerge from its shell as a bonus action on its turn.\"\n" +
-                    "\t\t\t]\n" +
-                    "\t\t}\n" +
-                    "\t],\n" +
-                    "\t\"environment\": [\n" +
-                    "\t\t\"forest\",\n" +
-                    "\t\t\"swamp\",\n" +
-                    "\t\t\"underdark\"\n" +
-                    "\t],\n" +
-                    "\t\"hasToken\": true,\n" +
-                    "\t\"soundClip\": {\n" +
-                    "\t\t\"type\": \"internal\",\n" +
-                    "\t\t\"path\": \"bestiary/flail-snail.mp3\"\n" +
-                    "\t},\n" +
-                    "\t\"senseTags\": [\n" +
-                    "\t\t\"D\",\n" +
-                    "\t\t\"T\"\n" +
-                    "\t],\n" +
-                    "\t\"actionTags\": [\n" +
-                    "\t\t\"Multiattack\"\n" +
-                    "\t],\n" +
-                    "\t\"damageTags\": [\n" +
-                    "\t\t\"B\"\n" +
-                    "\t],\n" +
-                    "\t\"miscTags\": [\n" +
-                    "\t\t\"AOE\",\n" +
-                    "\t\t\"MW\",\n" +
-                    "\t\t\"RCH\"\n" +
-                    "\t],\n" +
-                    "\t\"conditionInflict\": [\n" +
-                    "\t\t\"stunned\"\n" +
-                    "\t]\n" +
-                    "}");
-            var test = getStatBlock(mon.getAsJsonObject());
+            var mon = JsonParser.parseString("{\"name\":\"Sea Hag\",\"source\":\"MM\",\"page\":179,\"srd\":true,\"otherSources\":[{\"source\":\"PotA\"},{\"source\":\"TftYP\"},{\"source\":\"ToA\"},{\"source\":\"WDMM\"},{\"source\":\"GoS\"},{\"source\":\"DIP\"},{\"source\":\"SLW\"},{\"source\":\"MOT\"},{\"source\":\"IDRotF\"}],\"size\":\"M\",\"type\":\"fey\",\"alignment\":[\"C\",\"E\"],\"ac\":[{\"ac\":14,\"from\":[\"natural armor\"]}],\"hp\":{\"average\":52,\"formula\":\"7d8 + 21\"},\"speed\":{\"walk\":30,\"swim\":40},\"str\":16,\"dex\":13,\"con\":16,\"int\":12,\"wis\":12,\"cha\":13,\"senses\":[\"darkvision 60 ft.\"],\"passive\":11,\"languages\":[\"Aquan\",\"Common\",\"Giant\"],\"cr\":{\"cr\":\"2\",\"coven\":\"4\"},\"spellcasting\":[{\"name\":\"Shared Spellcasting (Coven Only)\",\"headerEntries\":[\"While all three members of a hag coven are within 30 feet of one another, they can each cast the following spells from the wizard's spell list but must share the spell slots among themselves:\"],\"spells\":{\"1\":{\"slots\":4,\"spells\":[\"{@spell identify}\",\"{@spell ray of sickness}\"]},\"2\":{\"slots\":3,\"spells\":[\"{@spell hold person}\",\"{@spell locate object}\"]},\"3\":{\"slots\":3,\"spells\":[\"{@spell bestow curse}\",\"{@spell counterspell}\",\"{@spell lightning bolt}\"]},\"4\":{\"slots\":3,\"spells\":[\"{@spell phantasmal killer}\",\"{@spell polymorph}\"]},\"5\":{\"slots\":2,\"spells\":[\"{@spell contact other plane}\",\"{@spell scrying}\"]},\"6\":{\"slots\":1,\"spells\":[\"{@spell eyebite}\"]}},\"footerEntries\":[\"For casting these spells, each hag is a 12th-level spellcaster that uses Intelligence as her spellcasting ability. The spell save DC is 12 + the hag's Intelligence modifier, and the spell attack bonus is 4 + the hag's Intelligence modifier.\"]}],\"trait\":[{\"name\":\"Amphibious\",\"entries\":[\"The hag can breathe air and water.\"]},{\"name\":\"Horrific Appearance\",\"entries\":[\"Any humanoid that starts its turn within 30 feet of the hag and can see the hag's true form must make a {@dc 11} Wisdom saving throw. On a failed save, the creature is {@condition frightened} for 1 minute. A creature can repeat the saving throw at the end of each of its turns, with disadvantage if the hag is within line of sight, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the hag's Horrific Appearance for the next 24 hours.\",\"Unless the target is surprised or the revelation of the hag's true form is sudden, the target can avert its eyes and avoid making the initial saving throw. Until the start of its next turn, a creature that averts its eyes has disadvantage on attack rolls against the hag.\"]},{\"name\":\"Hag Coven\",\"entries\":[\"When hags must work together, they form covens, in spite of their selfish natures. A coven is made up of hags of any type, all of whom are equals within the group. However, each of the hags continues to desire more personal power.\",\"A coven consists of three hags so that any arguments between two hags can be settled by the third. If more than three hags ever come together, as might happen if two covens come into conflict, the result is usually chaos.\"]},{\"name\":\"Hag Eye (Coven Only)\",\"entries\":[\"A hag coven can craft a magic item called a hag eye, which is made from a real eye coated in varnish and often fitted to a pendant or other wearable item. The hag eye is usually entrusted to a minion for safekeeping and transport. A hag in the coven can take an action to see what the hag eye sees if the hag eye is on the same plane of existence. A hag eye has AC 10, 1 hit point, and darkvision with a radius of 60 feet. If it is destroyed, each coven member takes {@dice 3d10} psychic damage and is {@condition blinded} for 24 hours.\",\"A hag coven can have only one hag eye at a time, and creating a new one requires all three members of the coven to perform a ritual. The ritual takes 1 hour, and the hags can't perform it while {@condition blinded}. During the ritual, if the hags take any action other than performing the ritual, they must start over.\"]}],\"action\":[{\"name\":\"Claws\",\"entries\":[\"{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) slashing damage.\"]},{\"name\":\"Death Glare\",\"entries\":[\"The hag targets one {@condition frightened} creature she can see within 30 feet of her. If the target can see the hag, it must succeed on a {@dc 11} Wisdom saving throw against this magic or drop to 0 hit points.\"]},{\"name\":\"Illusory Appearance\",\"entries\":[\"The hag covers herself and anything she is wearing or carrying with a magical illusion that makes her look like an ugly creature of her general size and humanoid shape. The effect ends if the hag takes a bonus action to end it or if she dies.\",\"The changes wrought by this effect fail to hold up to physical inspection. For example, the hag could appear to have no claws, but someone touching her hand might feel the claws. Otherwise, a creature must take an action to visually inspect the illusion and succeed on a {@dc 16} Intelligence (Investigation) check to discern that the hag is disguised.\"]}],\"environment\":[\"underwater\",\"coastal\"],\"hasToken\":true,\"soundClip\":{\"type\":\"internal\",\"path\":\"bestiary/sea-hag.mp3\"},\"traitTags\":[\"Amphibious\"],\"senseTags\":[\"D\"],\"languageTags\":[\"AQ\",\"C\",\"GI\"],\"damageTags\":[\"S\"],\"spellcastingTags\":[\"CW\",\"S\"],\"miscTags\":[\"MW\"],\"conditionInflict\":[\"frightened\"],\"conditionInflictSpell\":[\"frightened\",\"paralyzed\",\"poisoned\",\"unconscious\"],\"hasFluff\":true,\"hasFluffImages\":true}");
+            //var test = getStatBlock(mon.getAsJsonObject());
 
             moduleDir = jsonFile.getParent();
 
             JsonArray maps = json.getAsJsonArray("maps");
+            int i = 1;
             for (JsonElement m : maps) {
+                //if(++i>3)
+                //    break;
+                //if(++i < 27)
+                //    continue;
+
                 Zone zone = ZoneFactory.createZone();
                 JsonObject map = m.getAsJsonObject();
 
@@ -286,7 +147,8 @@ public class Roll20From5eToolsImporter {
                 else
                     dialog.getNameTextField().setText(mapName);
 
-                dialog.setVisible(true);
+                dialog.accept();
+                //dialog.setVisible(true);
                 if (dialog.getStatus() == MapPropertiesDialog.Status.OK) {
                     MapTool.addZone(zone);
                 } else
@@ -492,25 +354,20 @@ public class Roll20From5eToolsImporter {
             if (asset == null)
                 continue;
 
-            Token token = new Token(translatedName, asset.getId());
-            if(fullImg != null) {
-                token.setPortraitImage(fullImg.getId());
-                token.setCharsheetImage(fullImg.getId());
-            }
+            Token token = new Token(name, asset.getId());
 
-
-            if(!name.equals(translatedName))
-                token.setGMName(name);
+            //if(!name.equals(translatedName))
+            token.setGMName(translatedName);
 
             if(name.equals(id)) {
                 token.setSnapToGrid(false);
                 token.setSnapToScale(false);
             } else {
+                token.setName("?");
                 token.setSnapToGrid(true);
                 token.setSnapToScale(true);
                 token.setGMNotes(getStatBlock(name));
             }
-
 
             if(layer.equals("gmlayer"))
                 token.setLayer(Layer.GM);
@@ -539,9 +396,36 @@ public class Roll20From5eToolsImporter {
             }
             zone.putToken(token);
 
+            if(!name.equals(id)) {
+                var macro = new MacroButtonProperties(token, 0, "");
+                macro.setCommand("[setName(getGMName())]\n[abort(0)]");
+                macro.setLabel("Namen freigeben");
+                macro.setAllowPlayerEdits(false);
+            }
+
+            if(fullImg != null) {
+                token.setProperty("fullImg", fullImg.getId());
+                var macro = new MacroButtonProperties(token, 1, "");
+                macro.setCommand("[setTokenHandout(\"asset://\" + getProperty(\"fullImg\"))]\n" +
+                        "[setTokenPortrait(\"asset://\" + getProperty(\"fullImg\"))]\n" +
+                        "[abort(0)]");
+                macro.setLabel("Bild freigeben");
+                macro = new MacroButtonProperties(token, 2, "");
+                macro.setCommand("[setName(getGMName())]\n" +
+                        "[setTokenHandout(\"asset://\" + getProperty(\"fullImg\"))]\n" +
+                        "[setTokenPortrait(\"asset://\" + getProperty(\"fullImg\"))]\n" +
+                        "[abort(0)]");
+                macro.setLabel("Namen und Bild freigeben");
+                macro.setAllowPlayerEdits(false);
+
+                //token.setPortraitImage(fullImg.getId());
+                //token.setCharsheetImage(fullImg.getId());
+            }
+
+
             if(!sidesValue.isEmpty()) {
                 var sideList = sidesValue.split("\\|");
-                var macro = new MacroButtonProperties(token, 0, "");
+                var macro = new MacroButtonProperties(token, 3, "");
                 macro.setCommand(
                     "<!--\n" +
                     "[formList=\"\"]\n" +
@@ -565,6 +449,7 @@ public class Roll20From5eToolsImporter {
                     "[abort(0)]"
                 );
                 macro.setLabel("Shapeshift");
+                macro.setAllowPlayerEdits(false);
 
                 var table = MapTool.getCampaign().getLookupTableMap().get(name);
                 if(table != null)
@@ -618,12 +503,12 @@ public class Roll20From5eToolsImporter {
     }
 
     private Map<String, String> sizeMap =  Map.of(
-            "T","Tiny",
-            "S","Small",
-            "M","Medium",
-            "L","Large",
-            "H","Huge",
-            "G","Gargantuan"
+            "T","tiny",
+            "S","small",
+            "M","medium",
+            "L","large",
+            "H","huge",
+            "G","gargantuan"
     );
 
     private Map<String, String> alignmentMap =  Map.of(
@@ -639,8 +524,15 @@ public class Roll20From5eToolsImporter {
     private String mapAlignment(JsonArray alignment)
     {
         var alignList = new ArrayList<String>();
-        for(JsonElement j: alignment)
-            alignList.add(j.getAsString());
+        for(JsonElement j: alignment) {
+            if(j.isJsonPrimitive())
+                alignList.add(j.getAsString());
+            else
+            {
+                var jsonObject = j.getAsJsonObject();
+                return jsonObject.get("special").getAsString();
+            }
+        }
 
         if (alignList.size() == 1) return alignmentMap.get(alignList.get(0));
         if (alignList.size() == 2) {
@@ -686,18 +578,33 @@ public class Roll20From5eToolsImporter {
             builder.append(type.getAsString()).append(", ");
         else {
             var jsonObject = type.getAsJsonObject();
-            builder.append(jsonObject.get("type").getAsString()).append(" (");
-            var tags = jsonObject.get("tags").getAsJsonArray();
-            boolean isFirst = true;
-            for(var tag: tags) {
-                if(!isFirst) {
-                    isFirst = false;
-                    builder.append(", ");
-                }
 
-                builder.append(tag.getAsString());
+            var swarmSizeElement = jsonObject.get("swarmSize");
+            if(swarmSizeElement != null)
+            {
+                builder.append("swarm of ");
+                builder.append(sizeMap.get(swarmSizeElement.getAsString())).append(" ");
+                builder.append(jsonObject.get("type").getAsString()).append("s");
+            } else
+                builder.append(jsonObject.get("type").getAsString());
+
+
+            var tagsElement = jsonObject.get("tags");
+            if(tagsElement != null) {
+                var tags = tagsElement.getAsJsonArray();
+                builder.append(" (");
+                boolean isFirst = true;
+                for (var tag : tags) {
+                    if (!isFirst) {
+                        isFirst = false;
+                        builder.append(", ");
+                    }
+
+                    builder.append(tag.getAsString());
+                }
+                builder.append(")");
             }
-            builder.append("), ");
+            builder.append(", ");
         }
         return builder.toString();
     }
@@ -829,6 +736,7 @@ public class Roll20From5eToolsImporter {
         desc = replaceTag(desc,"{@damage ");
         desc = replaceTag(desc,"{@condition ");
         desc = replaceTag(desc,"{@skill ");
+        desc = replaceTag(desc,"{@dice ");
         desc = replaceTag(desc,"{@dc ", "DC ", "");
         desc = replaceTag(desc,"{@hit ", "+", "");
         desc = replaceTag(desc,"{@h", "<span class=\"description\">Hit:</span> ", "");
@@ -963,7 +871,9 @@ public class Roll20From5eToolsImporter {
     private String renderObjArray(JsonObject monster, String tag, String name, String extra)
     {
         var element = monster.get(tag);
-        if(element == null)
+        if(element == null && tag.equals("languages")) {
+            element = JsonParser.parseString("[ \"-\" ]");
+        } else if(element == null)
             return "";
 
         var builder = new StringBuilder();
@@ -1189,7 +1099,7 @@ public class Roll20From5eToolsImporter {
         return builder.toString();
     }
 
-    private String getStatBlock(String name) throws MalformedURLException {
+    private String getStatBlock(String name) throws Exception {
         var monsterData = monsters.get(name);
         if (monsterData == null)
             return "";
@@ -1197,85 +1107,114 @@ public class Roll20From5eToolsImporter {
         return getStatBlock(monsterData);
     }
 
-    private String getStatBlock(JsonObject monsterData) {
-        var builder = new StringBuilder();
-        var name = monsterData.get("name").getAsString();
-        var source = monsterData.get("source").getAsString().toLowerCase();
-        var escapedName = name.replace(" ", "%20");
+    private String getStatBlock(JsonObject monsterData) throws Exception {
+     //   try {
+            var builder = new StringBuilder();
+            var name = monsterData.get("name").getAsString();
+            var source = monsterData.get("source").getAsString().toLowerCase();
+            var escapedName = name.replace(" ", "%20");
 
-        builder.append("<div contenteditable=\"true\" style=\"width:400px;font-family:Arial,Helvetica,sans-serif;font-size:11px;\">\n");
-        builder.append("  <div class=\"name\"><a href=\"" +etools + "bestiary.html#" +
-                escapedName + "_" + source + "\">");
-        builder.append(name);
-        builder.append("</a></div>\n");
-        builder.append("  <div class=\"description\">");
-        builder.append(sizeMap.get(monsterData.get("size").getAsString()));
-        builder.append(" ");
-        builder.append(mapType(monsterData.get("type")));
-        builder.append(mapAlignment(monsterData.get("alignment").getAsJsonArray()));
-        builder.append("</div>\n");
-        builder.append("  <div class=\"gradient\"></div>\n");
-        builder.append("  <div class=\"red\">\n");
-        builder.append("    <div>\n");
-        builder.append("      <span class=\"bold red\">Armor Class</span>\n");
-        builder.append("      <span> ").append(mapAC(monsterData.get("ac").getAsJsonArray())).append("</span>\n");
-        builder.append("    </div>\n");
-        builder.append("    <div>\n");
-        builder.append("      <span class=\"bold red\">Hit Points</span>\n");
-        var hpObj = monsterData.get("hp").getAsJsonObject();
-        builder.append("      <span> ").append(hpObj.get("average").getAsString()).append("  (");
-        builder.append(hpObj.get("formula").getAsString()).append(")</span>\n");
-        builder.append("    </div>\n");
-        builder.append("    <div>\n");
-        builder.append("      <span class=\"bold red\">Speed</span>\n");
-        builder.append("      <span> ");
-        var speeds =  monsterData.get("speed").getAsJsonObject();
-        builder.append(renderSpeeds(speeds)).append("</span>\n");
-        builder.append("    </div>\n");
-        builder.append("  </div>\n");
-        builder.append("  <div class=\"gradient\"></div>\n");
-        builder.append("  <table class=\"table\">\n");
-        builder.append("    <tr class=\"tr\">\n");
-        builder.append("      <th class=\"th\">STR</th>\n");
-        builder.append("      <th class=\"th\">DEX</th>");
-        builder.append("      <th class=\"th\">CON</th>\n");
-        builder.append("      <th class=\"th\">INT</th>\n");
-        builder.append("      <th class=\"th\">WIS</th>\n");
-        builder.append("      <th class=\"th\">CHA</th>\n");
-        builder.append("    </tr>\n");
-        builder.append("    <tr class=\"tr\">\n");
-        builder.append(renderValue(monsterData, "str"));
-        builder.append(renderValue(monsterData, "dex"));
-        builder.append(renderValue(monsterData, "con"));
-        builder.append(renderValue(monsterData, "int"));
-        builder.append(renderValue(monsterData, "wis"));
-        builder.append(renderValue(monsterData, "cha"));
-        builder.append("    </tr>\n");
-        builder.append("  </table>\n");
-        builder.append("  <div class=\"gradient\"></div>\n");
-        builder.append(renderObj(monsterData, "save", "Saving Throws"));
-        builder.append(renderObj(monsterData, "skill", "Skills"));
-        builder.append(renderObjArray(monsterData, "vulnerable", "Damage Vulnerabilities"));
-        builder.append(renderObjArray(monsterData, "resist", "Damage Resistances"));
-        builder.append(renderObjArray(monsterData, "immune", "Damage Immunities"));
-        builder.append(renderObjArray(monsterData, "conditionImmune", "Condition Immunities"));
-        var passive = "passive Perception " + monsterData.get("passive").getAsString();
-        builder.append(renderObjArray(monsterData, "senses", "Senses", passive));
-        builder.append(renderObjArray(monsterData, "languages", "Languages"));
-        builder.append("  <div>\n");
-        builder.append("    <span class=\"bold\">Challenge</span>\n");
-        String cr = monsterData.get("cr").getAsString();
-        builder.append("    <span>").append(cr).append(" (").append(mapXp(cr)).append(" XP)</span>\n");
-        builder.append("  </div>\n");
-        builder.append("  <div class=\"gradient\"></div>\n");
-        builder.append(renderTraits(monsterData));
-        builder.append(renderSection(monsterData, "action", "Actions","", "attack", "attackname"));
-        builder.append(renderSection(monsterData, "variant", "", "", "variant", "variantname"));
-        builder.append(renderSection(monsterData, "legendary", "Legendary Actions", "mon.legendaryHeader", "attack", "attackname"));
-        builder.append(renderSection(monsterData, "mythic", "Mythic Actions", "mythicHeader", "attack", "attackname"));
-        builder.append("</div>");
+            builder.append("<div contenteditable=\"true\" style=\"width:400px;font-family:Arial,Helvetica,sans-serif;font-size:11px;\">\n");
+            builder.append("  <div class=\"name\"><a href=\"" + etools + "bestiary.html#" +
+                    escapedName + "_" + source + "\">");
+            builder.append(name);
+            builder.append("</a></div>\n");
+            builder.append("  <div class=\"description\">");
+            builder.append(StringUtil.capitalize(sizeMap.get(monsterData.get("size").getAsString())));
+            builder.append(" ");
+            builder.append(mapType(monsterData.get("type")));
+            builder.append(mapAlignment(monsterData.get("alignment").getAsJsonArray()));
+            builder.append("</div>\n");
+            builder.append("  <div class=\"gradient\"></div>\n");
+            builder.append("  <div class=\"red\">\n");
+            builder.append("    <div>\n");
+            builder.append("      <span class=\"bold red\">Armor Class</span>\n");
+            builder.append("      <span> ").append(mapAC(monsterData.get("ac").getAsJsonArray())).append("</span>\n");
+            builder.append("    </div>\n");
+            builder.append("    <div>\n");
+            builder.append("      <span class=\"bold red\">Hit Points</span>\n");
+            var hpObj = monsterData.get("hp").getAsJsonObject();
+            builder.append("      <span> ").append(hpObj.get("average").getAsString()).append("  (");
+            builder.append(hpObj.get("formula").getAsString()).append(")</span>\n");
+            builder.append("    </div>\n");
+            builder.append("    <div>\n");
+            builder.append("      <span class=\"bold red\">Speed</span>\n");
+            builder.append("      <span> ");
+            var speeds = monsterData.get("speed").getAsJsonObject();
+            builder.append(renderSpeeds(speeds)).append("</span>\n");
+            builder.append("    </div>\n");
+            builder.append("  </div>\n");
+            builder.append("  <div class=\"gradient\"></div>\n");
+            builder.append("  <table class=\"table\">\n");
+            builder.append("    <tr class=\"tr\">\n");
+            builder.append("      <th class=\"th\">STR</th>\n");
+            builder.append("      <th class=\"th\">DEX</th>");
+            builder.append("      <th class=\"th\">CON</th>\n");
+            builder.append("      <th class=\"th\">INT</th>\n");
+            builder.append("      <th class=\"th\">WIS</th>\n");
+            builder.append("      <th class=\"th\">CHA</th>\n");
+            builder.append("    </tr>\n");
+            builder.append("    <tr class=\"tr\">\n");
+            builder.append(renderValue(monsterData, "str"));
+            builder.append(renderValue(monsterData, "dex"));
+            builder.append(renderValue(monsterData, "con"));
+            builder.append(renderValue(monsterData, "int"));
+            builder.append(renderValue(monsterData, "wis"));
+            builder.append(renderValue(monsterData, "cha"));
+            builder.append("    </tr>\n");
+            builder.append("  </table>\n");
+            builder.append("  <div class=\"gradient\"></div>\n");
+            builder.append(renderObj(monsterData, "save", "Saving Throws"));
+            builder.append(renderObj(monsterData, "skill", "Skills"));
+            builder.append(renderObjArray(monsterData, "vulnerable", "Damage Vulnerabilities"));
+            builder.append(renderObjArray(monsterData, "resist", "Damage Resistances"));
+            builder.append(renderObjArray(monsterData, "immune", "Damage Immunities"));
+            builder.append(renderObjArray(monsterData, "conditionImmune", "Condition Immunities"));
+            var passive = "passive Perception " + monsterData.get("passive").getAsString();
+            builder.append(renderObjArray(monsterData, "senses", "Senses", passive));
+            builder.append(renderObjArray(monsterData, "languages", "Languages"));
+            var crElement = monsterData.get("cr");
+            if(crElement != null) {
+                builder.append("  <div>\n");
+                builder.append("    <span class=\"bold\">Challenge</span>\n");
+                if(crElement.isJsonPrimitive()) {
+                    String cr = crElement.getAsString();
+                    builder.append("    <span>").append(cr).append(" (").append(mapXp(cr)).append(" XP)</span>\n");
+                } else {
+                    builder.append("    <span>");
+                    var jsonObj = crElement.getAsJsonObject();
+                    for(var key:jsonObj.keySet())
+                    {
+                        var cr = jsonObj.get(key).getAsString();
+                        switch (key) {
+                            case "cr":
+                                builder.append(cr).append(" (").append(mapXp(cr)).append(" XP)");
+                                break;
+                            case "coven":
+                                builder.append(" or ");
+                                builder.append(cr).append(" (").append(mapXp(cr)).append(" XP)");
+                                builder.append(" when part of a coven");
+                                break;
+                            default:
+                                throw new Exception("unknown cr type");
+                        }
+                    }
+                }
+                builder.append("  </div>\n");
+            }
+            builder.append("  <div class=\"gradient\"></div>\n");
+            builder.append(renderTraits(monsterData));
+            builder.append(renderSection(monsterData, "action", "Actions", "", "attack", "attackname"));
+            builder.append(renderSection(monsterData, "variant", "", "", "variant", "variantname"));
+            builder.append(renderSection(monsterData, "legendary", "Legendary Actions", "mon.legendaryHeader", "attack", "attackname"));
+            builder.append(renderSection(monsterData, "mythic", "Mythic Actions", "mythicHeader", "attack", "attackname"));
+            builder.append("</div>");
 
-        return builder.toString();
+            return builder.toString();
+      /*  }catch(Exception e)
+        {
+            return "";
+        }*/
     }
 
     private String renderNamedEntries(JsonObject namedWithEntries, String css4main, String css4name)
@@ -1287,14 +1226,18 @@ public class Roll20From5eToolsImporter {
             var type = namedWithEntries.get("type");
             if (type != null) {
                 var typeString = type.getAsString();
-                if(!typeString.equals("item"))
+                if(!typeString.equals("item") && !typeString.equals("entries"))
                     namePrefix = StringUtils.capitalize(type.getAsString() + ": ");
             }
 
 
             builder.append("  <div class=\"" + css4main + "\">\n");
-            builder.append("    <span class=\"" + css4name + "\">");
-            builder.append(namePrefix + replaceTags(namedWithEntries.get("name").getAsString())).append("</span>\n");
+
+            var nameElement = namedWithEntries.get("name");
+            if(nameElement != null) {
+                builder.append("    <span class=\"" + css4name + "\">");
+                builder.append(namePrefix + replaceTags(nameElement.getAsString())).append("</span>\n");
+            }
 
             var entriesElement = namedWithEntries.get("entries");
             for (var entryElement : namedWithEntries.get("entries").getAsJsonArray()) {
@@ -1304,10 +1247,29 @@ public class Roll20From5eToolsImporter {
                     var entry = entryElement.getAsJsonObject();
                     var entryType = entry.get("type").getAsString();
                     if(entryType.equals("list")) {
-                        <ul> <li>
+                        builder.append("<ul class=\"rd_list");
+                        var styleElement = entry.get("style");
+                        if(styleElement != null) {
+                            builder.append(" ").append(styleElement.getAsString());
+                        }
+                        builder.append("\">\n");
                         var items = entry.get("items").getAsJsonArray();
-                        for(var item: items)
-                            builder.append(renderNamedEntries(item.getAsJsonObject(), "listItem", "listItemName"));
+                        for(var itemEntryElement: items) {
+                            var itemEntry = itemEntryElement.getAsJsonObject();
+                            builder.append("<li><p><span ");
+                            builder.append("class=\"rd_listitem");
+                            var itemStyleElement = itemEntry.get("style");
+
+                            if(itemStyleElement != null) {
+                                builder.append(" ").append(itemStyleElement.getAsString());
+                            }
+                            builder.append("\"> ");
+
+                            builder.append(itemEntry.get("name").getAsString()).append("</span>");
+                            builder.append(replaceTags(itemEntry.get("entry").getAsString()));
+                            builder.append("</p></li>");
+                        }
+                        builder.append("</ul>\n");
                     } else
                         builder.append(renderNamedEntries(entry, "attack", "attackname"));
 
