@@ -39,6 +39,7 @@ import net.rptools.lib.swing.SwingUtil;
 import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.ui.*;
+import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
@@ -72,11 +73,6 @@ public class PointerTool extends DefaultTool {
   private boolean isMovingWithKeys;
   private Rectangle selectionBoundBox;
 
-  // Hovers
-  private boolean isShowingHover;
-  private Area hoverTokenBounds;
-  private String hoverTokenNotes;
-
   // Track token interactions to hide statsheets when doing other stuff
   private boolean mouseButtonDown = false;
 
@@ -86,7 +82,6 @@ public class PointerTool extends DefaultTool {
   private int keysDown; // used to record whether Shift/Ctrl/Meta keys are down
 
   private final TokenStackPanel tokenStackPanel = new TokenStackPanel();
-  private final HTMLPanelRenderer htmlRenderer = new HTMLPanelRenderer();
   private final Font boldFont = AppStyle.labelFont.deriveFont(Font.BOLD);
   private final LayerSelectionDialog layerSelectionDialog;
 
@@ -110,11 +105,6 @@ public class PointerTool extends DefaultTool {
     } catch (IOException ioe) {
       ioe.printStackTrace();
     }
-    htmlRenderer.setBackground(new Color(0, 0, 0, 200));
-    htmlRenderer.setForeground(Color.black);
-    htmlRenderer.setOpaque(false);
-    htmlRenderer.addStyleSheetRule("body{color:black}");
-    htmlRenderer.addStyleSheetRule(".title{font-size: 14pt}");
 
     layerSelectionDialog =
         new LayerSelectionDialog(
@@ -140,8 +130,6 @@ public class PointerTool extends DefaultTool {
     if (MapTool.getPlayer().isGM()) {
       MapTool.getFrame().showControlPanel(layerSelectionDialog);
     }
-    htmlRenderer.attach(renderer);
-    layerSelectionDialog.updateViewList();
 
     if (MapTool.getFrame().getLastSelectedLayer() != Zone.Layer.TOKEN) {
       MapTool.getFrame().getToolbox().setSelectedTool(StampTool.class);
@@ -199,7 +187,6 @@ public class PointerTool extends DefaultTool {
   protected void detachFrom(ZoneRenderer renderer) {
     super.detachFrom(renderer);
     MapTool.getFrame().hideControlPanel();
-    htmlRenderer.detach(renderer);
   }
 
   @Override
@@ -430,6 +417,27 @@ public class PointerTool extends DefaultTool {
     }
   }
 
+  private void showHandout(Token token) {
+    var handout = token.getCharsheetImage();
+    if(handout == null)
+      return;
+
+    AssetViewerDialog dialog = new AssetViewerDialog(
+            token.getName(), handout);
+    dialog.pack();
+    dialog.setVisible(true);
+  }
+
+  private void showHover(Token token) {
+    try {
+      HTMLFrameFactory.show(token.getName(), HTMLFrameFactory.FrameType.DIALOG,
+              true, "height="+ MapTool.getFrame().getHeight() * 8 / 10
+                      +";width="+ MapTool.getFrame().getWidth() * 5/10 , createHoverNote(token));
+    } catch (Exception e) {
+      MapTool.showError(e.toString());
+    }
+  }
+
   // //
   // Mouse
   @Override
@@ -438,13 +446,6 @@ public class PointerTool extends DefaultTool {
 
     mouseButtonDown = true;
 
-    if (isShowingHover) {
-      isShowingHover = false;
-      hoverTokenBounds = null;
-      hoverTokenNotes = null;
-      markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
-      repaint();
-    }
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
         tokenStackPanel.handleMousePressed(e);
@@ -478,11 +479,14 @@ public class PointerTool extends DefaultTool {
       } else {
         // Single
         Token token = renderer.getTokenAt(e.getX(), e.getY());
+        if(token == null)
+          token = renderer.getMarkerAt(e.getX(), e.getY());
         if (token != null) {
           if (!AppUtil.playerOwns(token)) {
+            showHandout(token);
             return;
           }
-          MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
+          showHover(token);
         }
       }
       return;
@@ -561,19 +565,7 @@ public class PointerTool extends DefaultTool {
         renderer.setCursor(
             Cursor.getPredefinedCursor(
                 markerUnderMouse != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-        if (tokenUnderMouse == null
-            && markerUnderMouse != null
-            && !isShowingHover
-            && !isDraggingToken) {
-          isShowingHover = true;
-          hoverTokenBounds = renderer.getMarkerBounds(markerUnderMouse);
-          hoverTokenNotes = createHoverNote(markerUnderMouse);
-          if (hoverTokenBounds == null) {
-            // Uhhhh, where's the token ?
-            isShowingHover = false;
-          }
-          repaint();
-        }
+
         // SELECTION BOUND BOX
         if (isDrawingSelectionBox) {
           isDrawingSelectionBox = false;
@@ -1857,61 +1849,6 @@ public class PointerTool extends DefaultTool {
           viewSize.height - statSheet.getHeight() - STATSHEET_EXTERIOR_PADDING,
           this);
     }
-
-    // Hovers
-    if (isShowingHover) {
-      // Anchor next to the token
-      Dimension size =
-          htmlRenderer.setText(
-              hoverTokenNotes,
-              (int) (renderer.getWidth() * .75),
-              (int) (renderer.getHeight() * .75));
-      Point location =
-          new Point(
-              hoverTokenBounds.getBounds().x
-                  + hoverTokenBounds.getBounds().width / 2
-                  - size.width / 2,
-              hoverTokenBounds.getBounds().y);
-
-      // Anchor in the bottom left corner
-      location.x = 4 + PADDING;
-      location.y = viewSize.height - size.height - 4 - PADDING;
-
-      // Keep it on screen
-      if (location.x + size.width > viewSize.width) {
-        location.x = viewSize.width - size.width;
-      }
-      if (location.x < 4) {
-        location.x = 4;
-      }
-      if (location.y + size.height > viewSize.height - 4) {
-        location.y = viewSize.height - size.height - 4;
-      }
-      if (location.y < 4) {
-        location.y = 4;
-      }
-
-      // Background
-      // g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .5f));
-      // g.setColor(Color.black);
-      // g.fillRect(location.x, location.y, size.width, size.height);
-      // g.setComposite(composite);
-      g.setPaint(
-          new TexturePaint(
-              AppStyle.panelTexture,
-              new Rectangle(
-                  0, 0, AppStyle.panelTexture.getWidth(), AppStyle.panelTexture.getHeight())));
-      g.fillRect(location.x, location.y, size.width, size.height);
-
-      // Content
-      htmlRenderer.render(g, location.x, location.y);
-
-      // Border
-      AppStyle.miniMapBorder.paintAround(g, location.x, location.y, size.width, size.height);
-      AppStyle.shadowBorder.paintWithin(g, location.x, location.y, size.width, size.height);
-      // AppStyle.border.paintAround(g, location.x, location.y,
-      // size.width, size.height);
-    }
   }
 
   private String createHoverNote(Token marker) {
@@ -1919,13 +1856,98 @@ public class PointerTool extends DefaultTool {
     boolean showNotes = !StringUtil.isEmpty(marker.getNotes());
 
     StringBuilder builder = new StringBuilder();
+    builder.append("<style>\n" +
+            ".gradient {\n" +
+            "    background: linear-gradient(10deg, #A73335, white);\n" +
+            "    height:5px;\n" +
+            "    margin:7px 0px;\n" +
+            "}\n" +
+            ".name {\n" +
+            "    font-size:225%;\n" +
+            "    font-family:Georgia, serif;\n" +
+            "    font-variant:small-caps;\n" +
+            "    font-weight:bold;\n" +
+            "    color:#A73335;\n" +
+            "}\n" +
+            ".description {\n" +
+            "    font-style:italic;    \n" +
+            "}\n" +
+            ".bold {\n" +
+            "    font-weight:bold;\n" +
+            "}\n" +
+            ".red {\n" +
+            "    color:#A73335;\n" +
+            "}\n" +
+            ".table {\n" +
+            "    width:100%;\n" +
+            "    border:0px;\n" +
+            "    border-collapse:collapse;\n" +
+            "    color:#A73335;\n" +
+            "}\n" +
+            ".th, .td {\n" +
+            "    width:50px;\n" +
+            "    text-align:center;\n" +
+            "}\n" +
+            ".actions {\n" +
+            "    font-size:175%;\n" +
+            "    font-variant:small-caps;\n" +
+            "    margin:17px 0px 0px 0px;\n" +
+            "}\n" +
+            ".hr {\n" +
+            "    background: #A73335;\n" +
+            "    height:2px;\n" +
+            "}\n" +
+            ".attack {\n" +
+            "    margin:5px 0px;\n" +
+            "}\n" +
+            ".commonTrait {\n" +
+            "    margin:3px 0px;\n" +
+            "}\n" +
+            ".spellSection {\n" +
+            "    margin:2px 0px;\n" +
+            "}\n" +
+            ".attackname {\n" +
+            "    font-weight:bold;\n" +
+            "    font-style:italic;\n" +
+            "}\n" +
+            ".variant {\n" +
+            "    margin: 7px 15px;\n" +
+            "    padding: 5px 10px;\n" +
+            "    box-shadow: 0 0 4px 0 #988e7c;\n" +
+            "    border: 1px solid #656565;\n" +
+            "    border-top: 2px solid #656565;\n" +
+            "    border-bottom: 2px solid #656565;\n" +
+            "    background-color: #e9ecda;\n" +
+            "}\n" +
+            ".variantname {\n" +
+            "    font-variant: small-caps;\n" +
+            "    font-weight: bolder;\n" +
+            "    font-size: 1.1em;\n" +
+            "    display: flex;\n" +
+            "    justify-content: space-between;\n" +
+            "    align-items: center;\n" +
+            "}\n" +
+            ".italic {\n" +
+            "    font-style: italic !important;\n" +
+            "}\n" +
+            ".list-hang-notitle {\n" +
+            "    text-indent: -1.1em;\n" +
+            "    margin-left: 1.1em;\n" +
+            "    padding: 0;\n" +
+            "    list-style: none;\n" +
+            "}" +
+            "body{color:black}\n" +
+            ".title{font-size: 14pt}\n" +
+            "</style>"
+    );
 
     if (marker.getPortraitImage() != null) {
       builder.append("<table><tr><td valign=top>");
     }
     if (showGMNotes || showNotes) {
       builder.append("<b><span class='title'>").append(marker.getName());
-      if (MapTool.getPlayer().isGM() && !StringUtil.isEmpty(marker.getGMName())) {
+      if (MapTool.getPlayer().isGM() && !StringUtil.isEmpty(marker.getGMName())
+              && !marker.getName().equals(marker.getGMName())) {
         builder.append(" (").append(marker.getGMName()).append(")");
       }
       builder.append("</span></b><br>");
@@ -1934,33 +1956,35 @@ public class PointerTool extends DefaultTool {
       builder.append(marker.getNotes());
       // add a gap between player and gmNotes
       if (showGMNotes) {
-        builder.append("\n\n");
+        builder.append("<br><br>");
       }
     }
     if (showGMNotes) {
-      builder.append("<b><span class='title'>GM Notes");
-      builder.append("</span></b><br>");
+      if(showNotes) {
+        builder.append("<b><span class='title'>GM Notes");
+        builder.append("</span></b><br>");
+      }
       builder.append(marker.getGMNotes());
     }
     if (marker.getPortraitImage() != null) {
       BufferedImage image = ImageManager.getImageAndWait(marker.getPortraitImage());
       Dimension imgSize = new Dimension(image.getWidth(), image.getHeight());
       if (imgSize.width > AppConstants.NOTE_PORTRAIT_SIZE
-          || imgSize.height > AppConstants.NOTE_PORTRAIT_SIZE) {
+              || imgSize.height > AppConstants.NOTE_PORTRAIT_SIZE) {
         SwingUtil.constrainTo(imgSize, AppConstants.NOTE_PORTRAIT_SIZE);
       }
       builder.append("</td><td valign=top>");
       builder
-          .append("<img src='asset://")
-          .append(marker.getPortraitImage())
-          .append("' width=")
-          .append(imgSize.width)
-          .append(" height=")
-          .append(imgSize.height)
-          .append("></tr></table>");
+              .append("<img src='asset://")
+              .append(marker.getPortraitImage())
+              .append("' width=")
+              .append(imgSize.width)
+              .append(" height=")
+              .append(imgSize.height)
+              .append("></tr></table>");
     }
     String notes = builder.toString();
-    notes = notes.replaceAll("\n", "<br>");
+    //notes = notes.replaceAll("\n", "<br>");
     return notes;
   }
 }

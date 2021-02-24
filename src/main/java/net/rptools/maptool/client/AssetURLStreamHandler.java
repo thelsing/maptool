@@ -109,6 +109,9 @@ public class AssetURLStreamHandler extends URLStreamHandler {
       byte[] data = null;
       // latch.await();
       BufferedImage img = ImageManager.getImageAndWait(assetId);
+      if(img != null) {
+        return new ByteArrayInputStream(ImageUtil.imageToBytes(img, "png"));
+      }
 
       Asset asset = AssetManager.getAsset(assetId);
       if (asset != null && asset.getImage() != null) {
