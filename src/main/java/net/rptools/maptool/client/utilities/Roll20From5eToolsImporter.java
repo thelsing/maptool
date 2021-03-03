@@ -29,7 +29,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.util.*;
 
-import com.samskivert.util.StringUtil;
 import javafx.util.Pair;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.MapPropertiesDialog;
@@ -1239,7 +1238,7 @@ public class Roll20From5eToolsImporter {
             builder.append(name);
             builder.append("</a></div>\n");
             builder.append("  <div class=\"description\">");
-            builder.append(StringUtil.capitalize(sizeMap.get(monsterData.get("size").getAsString())));
+            builder.append(StringUtils.capitalize(sizeMap.get(monsterData.get("size").getAsString())));
             builder.append(" ");
             builder.append(mapType(monsterData.get("type")));
             var alignmentElement = monsterData.get("alignment");

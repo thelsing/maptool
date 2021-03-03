@@ -38,8 +38,6 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.ColorUIResource;
 
-import com.samskivert.swing.RadialMenu;
-import com.samskivert.swing.RadialMenuItem;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.lib.swing.SwingUtil;
@@ -939,7 +937,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     super.mouseReleased(e);
   }
 
-  private RadialTokenPopup radialTokenPopup;
   private boolean showTokenPopupAt(Point p) {
     if (tokenUnderMouse == null || renderer.getSelectedTokenSet().isEmpty())
       return false;
@@ -980,223 +977,10 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
     });
 
     tokenPopupMenu.showPopup(renderer);
-    //radialTokenPopup = new RadialTokenPopup();
-    //radialTokenPopup.activate();
     return true;
   }
 
-  private class RadialTokenPopup extends RadialMenu implements RadialMenu.Host {
-    private class RadialTokenMenuItem extends RadialMenuItem {
-      private RadialMenu _submenu;
-      private boolean _hasSubmenu = false;
-
-      public RadialTokenMenuItem getParent() {
-        return _parent;
-      }
-
-      public void setParent(RadialTokenMenuItem _parent) {
-        this._parent = _parent;
-      }
-
-      private RadialTokenMenuItem _parent = null;
-      private boolean _submenuOpen = false;
-
-      public RadialTokenMenuItem(String command, String label, Icon icon) {
-        super(command, label, icon);
-        _submenu = new RadialMenu();
-
-      }
-
-      @Override
-      public void setActive (boolean active) {
-        super.setActive(active);
-        if(!_hasSubmenu)
-          return;
-
-        if(active) {
-          int menuDepth = 0;
-          for(var item = this; item != null; item = item.getParent())
-            menuDepth += 1;
-
-          var rect = new Rectangle();
-          rect.x = _bounds.x + openBounds.x;
-          rect.y = _bounds.y + openBounds.y;
-          rect.width = openBounds.width;
-          rect.height = openBounds.height;
-          _submenu.activate(new Host() {
-            @Override
-            public Component getComponent() {
-              return renderer;
-              /*  return new Component() {
-                  @Override
-                  public Graphics getGraphics() {
-                    return renderer.getGraphics();
-                  }
-                };*/
-            }
-
-            @Override
-            public Rectangle getViewBounds() {
-              return renderer.getBounds();
-            }
-
-            @Override
-            public void repaintRect(int x, int y, int width, int height) {
-              repaintZone();
-            }
-
-            @Override
-            public void menuDeactivated(RadialMenu menu) {
-              _submenuOpen = false;
-            //  renderer.removeMouseListener(_submenu);
-            //  renderer.removeMouseMotionListener(_submenu);
-            }
-          }, rect);
-          _submenuOpen = true;
-        //  renderer.addMouseListener(_submenu);
-        //  renderer.addMouseMotionListener(_submenu);
-        }
-
-      }
-
-      public void addMenuItem(RadialTokenMenuItem item) {
-        _submenu.addMenuItem(item);
-        item.setParent(this);
-        _hasSubmenu = true;
-      }
-
-      @Override
-      protected void layout (Graphics2D gfx, int extraPadding)
-      {
-        layout(gfx, 5, extraPadding);
-      }
-
-      @Override
-      protected void layout (Graphics2D gfx, int iconPadding, int extraPadding)
-      {
-        // if we have an icon, let that dictate our size; otherwise just lay out our label all on
-        // one line
-        int sqwid, sqhei;
-        if (_icon == null) {
-          sqwid = sqhei = 0;
-        } else {
-          sqwid = _icon.getIconWidth() +  iconPadding * 2;
-          sqhei = _icon.getIconHeight() + iconPadding * 2;;
-          _label.setTargetHeight(sqhei);
-        }
-
-        // lay out our label
-        _label.layout(gfx);
-
-        Dimension lsize = _label.getSize();
-
-        // if we have no icon, make sure that the label has enough room
-        if (_icon == null) {
-          sqhei = lsize.height + extraPadding * 2;
-          sqwid = extraPadding * 2;
-        }
-
-        // compute the diameter of the circle that perfectly encompasses our icon
-        int hhei = sqhei / 2;
-        int hwid = sqwid / 2;
-        _dia = (int) (Math.sqrt(hwid * hwid + hhei * hhei) * 2);
-
-        // compute the x and y offsets at which we'll start rendering
-        // (_dia - sqwid) / 2;
-        //(_dia - sqhei) / 2;
-        _xoff = (_dia - _icon.getIconWidth())/2;
-        _yoff = (_dia - _icon.getIconHeight())/2;
-
-        // and for the label
-        _lxoff = _dia - _xoff;
-        _lyoff = (_dia - lsize.height) / 2;
-
-        // now compute our closed and open sizes
-        _size.height = _dia;
-
-        // width is the diameter of the circle that contains the icon plus space for the label when
-        // we're open
-        _size.width = _dia + lsize.width + _xoff;
-
-        // and if we are actually rendering the icon, we need to account for the space between it
-        // and the label.
-        if (_icon != null) {
-          // and add the padding needed for the icon
-          _size.width += _xoff + iconPadding;
-          //_xoff += iconPadding;
-          _lxoff += iconPadding;
-        }
-      }
-      @Override
-      protected void drawIcon (Graphics2D gfx, int x, int y, Object cliData) {
-        super.drawIcon(gfx, x, y, cliData);
-        gfx.setColor(Color.RED);
-        gfx.drawRect(x + _xoff, y+_yoff, _icon.getIconWidth(), _icon.getIconHeight());
-        gfx.setColor(Color.YELLOW);
-        gfx.drawRect(x, y, _dia, _dia);
-        gfx.setColor(Color.ORANGE);
-        gfx.drawRect(x, y, _dia/2, _dia/2);
-      }
-      @Override
-      protected void paint (Graphics2D gfx, int x, int y, Color background, Object cliData) {
-        super.paint(gfx, x, y, background, cliData);
-        if(_submenuOpen)
-          _submenu.render(gfx);
-      }
-    }
-
-    public RadialTokenPopup()
-    {
-
-
-      super();
-      UIManager.put("RadialLabelSausage.inactiveBorder", new ColorUIResource(0x478ABA));
-      UIManager.put("RadialLabelSausage.activeBorder", new ColorUIResource(0xE0A000));
-      UIManager.put("RadialLabelSausage.background", new ColorUIResource(0xD5E7E7));
-
-      try {
-        addMenuItem(new RadialTokenMenuItem("Light", "Light", new ImageIcon(
-                ImageUtil.getImage("net/rptools/maptool/client/image/lightbulb.png"))));
-
-        var menuitem = new RadialTokenMenuItem("Macros", "Macros", new ImageIcon(
-                ImageUtil.getImage("net/rptools/maptool/client/image/hero_lab_folder.png")));
-        menuitem.addMenuItem(new RadialTokenMenuItem("Macros", "Macros", new ImageIcon(
-                ImageUtil.getImage("net/rptools/maptool/client/image/hero_lab_folder.png"))));
-        menuitem.addMenuItem(new RadialTokenMenuItem("Macros", "Macros", new ImageIcon(
-                ImageUtil.getImage("net/rptools/maptool/client/image/hero_lab_folder.png"))));
-        addMenuItem(new RadialTokenMenuItem("Macros", "Macros", new ImageIcon(
-                ImageUtil.getImage("net/rptools/maptool/client/image/hero_lab_folder.png"))));
-        addMenuItem(menuitem);
-      }catch (Exception e){}
-    }
-
-    public void activate()
-    {
-      super.activate(this, tokenUnderMouse.getBounds(renderer.getZone()));
-    }
-
-    @Override
-    public Component getComponent() {
-      return renderer;
-    }
-
-    @Override
-    public Rectangle getViewBounds() {
-      return renderer.getBounds();
-    }
-
-    @Override
-    public void repaintRect(int x, int y, int width, int height) {
-      repaintZone();
-    }
-
-    @Override
-    public void menuDeactivated(RadialMenu menu) {
-      radialTokenPopup = null;
-    }
-  }
-
-  // //
+   // //
   // MouseMotion
   //@Override
   public void mouseMoved(MouseEvent e) {
@@ -2386,9 +2170,6 @@ public class PointerTool extends DefaultTool implements ZoneOverlay, IGestureEve
           statsG.dispose();
         }
       }
-      if(radialTokenPopup != null)
-        radialTokenPopup.render(g);
-
     }
 
     // Jamz: Statsheet was still showing on drag, added other tests to hide statsheet as well
