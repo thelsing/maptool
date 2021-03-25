@@ -106,6 +106,7 @@ import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.appender.FileAppender;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.apache.logging.log4j.core.config.Configurator;
+import org.mt4j.input.DesktopInputManager;
 
 /** */
 public class MapTool {
@@ -162,6 +163,7 @@ public class MapTool {
   private static ServerCommand serverCommand;
   private static ServerPolicy serverPolicy;
 
+  private static DesktopInputManager inputManager;
   private static BackupManager backupManager;
   private static AssetTransferManager assetTransferManager;
   private static ServiceAnnouncer announcer;
@@ -591,6 +593,14 @@ public class MapTool {
     getEventDispatcher().registerEvents(PreferencesEvent.values());
   }
 
+  private static void setInputManager(DesktopInputManager manager) {
+    inputManager = manager;
+  }
+
+  public static DesktopInputManager getInputManager() {
+    return inputManager;
+  }
+
   /**
    * This was added to make it easier to set a breakpoint and locate when the frame was initialized.
    *
@@ -674,6 +684,8 @@ public class MapTool {
     handler = new ClientMethodHandler();
 
     setClientFrame(new MapToolFrame(menuBar));
+
+    setInputManager(new DesktopInputManager(getFrame()));
 
     serverCommand = new ServerCommandClientImpl();
 
