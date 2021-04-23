@@ -605,17 +605,6 @@ public class PointerTool extends DefaultTool implements IGestureEventListener {
     return;
   }
 
-  private boolean handledByHover(Point p) {
-    if (!isShowingHover) return false;
-
-    if (htmlRenderer.contains(p)) {
-      // depends on links in htmlRenderer
-      // htmlRenderer.clickAt(p);
-      return true;
-    }
-    return false;
-  }
-
   private void selectTokenAt(
       Point p, boolean showDetails, boolean clearBeforeSelection, boolean muliSelect) {
     Token token = getTokenFromStack(p);
