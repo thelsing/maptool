@@ -91,6 +91,7 @@ import net.rptools.maptool.client.ui.token.TransferProgressDialog;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.utilities.DungeonDraftImporter;
+import net.rptools.maptool.client.utilities.Roll20From5eToolsImporter;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Asset;
 import net.rptools.maptool.model.AssetManager;
@@ -1844,6 +1845,29 @@ public class AppActions {
       }
     }
   }
+
+    public static final ClientAction IMPORT_ROLL20_MAP =
+            new ClientAction() {
+                {
+                    init("action.import.roll20");
+                }
+
+                @Override
+                public boolean isAvailable() {
+                    return MapTool.isHostingServer()
+                            || (MapTool.getPlayer() != null && MapTool.getPlayer().isGM());
+                }
+
+                @Override
+                protected void executeAction() {
+                    try {
+                        new Roll20From5eToolsImporter().importJson();
+                    } catch (Exception ioException) {
+                        MapTool.showError(ioException.toString());
+                    }
+
+                }
+            };
 
   public static final Action TOGGLE_SHOW_TOKEN_NAMES =
       new DefaultClientAction() {
