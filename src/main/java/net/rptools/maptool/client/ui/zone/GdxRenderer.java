@@ -1311,7 +1311,7 @@ public class GdxRenderer extends ApplicationAdapter implements AppEventListener,
 
     private void renderGrid(SquareGrid grid) {
         var scale = (float) zoneRenderer.getScale();
-        int gridSize = (int) (grid.getSize() * scale);
+        float gridSize = (grid.getSize() * scale);
 
         Color.argb8888ToColor(tmpColor, zone.getGridColor());
 
@@ -1322,19 +1322,23 @@ public class GdxRenderer extends ApplicationAdapter implements AppEventListener,
         var w = hudCam.viewportWidth;
         var h = hudCam.viewportHeight;
 
-        var offX = (int) (zoneRenderer.getViewOffsetX() % gridSize + grid.getOffsetX() * scale) + 1;
-        var offY = (int) (zoneRenderer.getViewOffsetY() % gridSize + grid.getOffsetY() * scale) + 1;
+        int offX = Math.round(zoneRenderer.getViewOffsetX() % gridSize + grid.getOffsetX() * scale);
+        int offY = Math.round(zoneRenderer.getViewOffsetY() % gridSize + grid.getOffsetY() * scale);
 
-        var startCol = ((int) (x / gridSize) * gridSize);
-        var startRow = ((int) (y / gridSize) * gridSize);
+        int startCol = Math.round((int) (x / gridSize) * gridSize);
+        int startRow = Math.round((int) (y / gridSize) * gridSize);
 
         var lineWidth = AppState.getGridSize();
 
-        for (float row = startRow; row < y + h + gridSize; row += gridSize)
-            drawer.line(x, (int) (h - (row + offY)), x + w, (int) (h - (row + offY)), lineWidth);
+        for (float row = startRow; row < y + h + gridSize; row += gridSize) {
+            int roundedRow = Math.round(h - (row + offY));
+            drawer.line(x, roundedRow, x + w, roundedRow, lineWidth);
+        }
 
-        for (float col = startCol; col < x + w + gridSize; col += gridSize)
-            drawer.line((int) (col + offX), y, (int) (col + offX), y + h, lineWidth);
+        for (float col = startCol; col < x + w + gridSize; col += gridSize) {
+            int roundedCol = Math.round(col + offX);
+            drawer.line(roundedCol, y, roundedCol, y + h, lineWidth);
+        }
     }
 
     private FloatArray pathToVertices(GeneralPath path) {
