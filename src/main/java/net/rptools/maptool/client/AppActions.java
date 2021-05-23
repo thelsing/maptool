@@ -57,6 +57,7 @@ import javax.swing.text.BadLocationException;
 import net.rptools.lib.FileUtil;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
+import net.rptools.lib.swing.PositionalLayout;
 import net.rptools.maptool.client.tool.BoardTool;
 import net.rptools.maptool.client.tool.GridTool;
 import net.rptools.maptool.client.ui.AddResourceDialog;
@@ -2032,6 +2033,21 @@ public class AppActions {
           }
         }
       };
+
+    public static final DefaultClientAction SHOW_BOX2D_TEST =
+            new DefaultClientAction() {
+        {
+            init("Show jfx");
+            //init("Show Box2D Test");
+        }
+
+        @Override
+        public void executeAction() {
+            MapTool.getFrame().addJfx();
+            //MapTool.loadBox2dTest();
+
+        }
+    };
 
   public static final DefaultClientAction ZOOM_RESET =
       new DefaultClientAction() {

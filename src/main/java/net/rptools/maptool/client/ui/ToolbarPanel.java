@@ -177,6 +177,12 @@ public class ToolbarPanel extends JToolBar {
     tokenSelectionButtonAll.setSelected(true);
     // Jamz: End panel
 
+    add(
+            createJfxButton(
+                    "net/rptools/maptool/client/image/javafx.png",
+                    I18N.getText("tools.mute.tooltip"),
+                    I18N.getText("tools.unmute.tooltip")));
+
     // the "Select Map" button
     add(createZoneSelectionButton());
 
@@ -395,6 +401,25 @@ public class ToolbarPanel extends JToolBar {
 
     if (MediaPlayerAdapter.getGlobalMute()) {
       button.doClick();
+    }
+
+    return button;
+  }
+
+  private JToggleButton createJfxButton(
+          final String icon, String mutetooltip, String unmutetooltip) {
+    final JToggleButton button = new JToggleButton();
+    button.setToolTipText(mutetooltip);
+    button.addActionListener(
+            e -> {
+              MapTool.getFrame().addJfx();
+            });
+
+    try {
+      button.setIcon(createIcon(icon, 25, 25));
+      //button.setSelectedIcon(createIcon(icon, 25, 25));
+    } catch (IOException ioe) {
+      ioe.printStackTrace();
     }
 
     return button;

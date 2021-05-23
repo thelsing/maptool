@@ -37,6 +37,12 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 import javax.xml.parsers.ParserConfigurationException;
+
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
 import net.rptools.lib.AppEvent;
 import net.rptools.lib.AppEventListener;
 import net.rptools.lib.FileUtil;
@@ -47,6 +53,8 @@ import net.rptools.lib.swing.ColorPicker;
 import net.rptools.lib.swing.PositionalLayout;
 import net.rptools.lib.swing.SwingUtil;
 import net.rptools.lib.swing.preference.WindowPreferences;
+import net.rptools.maptool.box2d.NativeRenderingCanvas;
+import net.rptools.maptool.client.AppActions;
 import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.AppActions.ClientAction;
 import net.rptools.maptool.client.swing.AppHomeDiskSpaceStatusBar;
@@ -214,6 +222,7 @@ public class MapToolFrame extends DefaultDockableHolder
   private final GlobalPanel globalPanel = new GlobalPanel();
   private final SelectionPanel selectionPanel = new SelectionPanel();
   private final ImpersonatePanel impersonatePanel = new ImpersonatePanel();
+  private final JFXPanel jfxPanel =  new JFXPanel();
 
   private final DragImageGlassPane dragImageGlassPane = new DragImageGlassPane();
 
@@ -404,11 +413,11 @@ public class MapToolFrame extends DefaultDockableHolder
     statusPanel.addPanel(new SpacerStatusBar(25));
 
     zoneMiniMapPanel = new ZoneMiniMapPanel();
-    // zoneMiniMapPanel.setSize(100, 100);
+    //zoneMiniMapPanel.setSize(100, 100);
 
     zoneRendererPanel = new JPanel(new PositionalLayout(5));
-    zoneRendererPanel.setBackground(Color.black);
-    // zoneRendererPanel.add(zoneMiniMapPanel, PositionalLayout.Position.SE);
+    //zoneRendererPanel.setBackground(Color.black);
+    //zoneRendererPanel.add(zoneMiniMapPanel, PositionalLayout.Position.SE);
     // zoneRendererPanel.add(getChatTypingLabel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatTypingPanel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatActionLabel(), PositionalLayout.Position.SW);
@@ -426,6 +435,7 @@ public class MapToolFrame extends DefaultDockableHolder
 
     pointerToolOverlay = new PointerToolOverlay();
     zoneRendererPanel.add(pointerToolOverlay, PositionalLayout.Position.CENTER, 0);
+
 
     // Put it all together
     setJMenuBar(menuBar);
@@ -466,6 +476,45 @@ public class MapToolFrame extends DefaultDockableHolder
     chatTyperTimers.addObserver(chatTyperObserver);
     chatTimer = getChatTimer();
     setChatTypingLabelColor(AppPreferences.getChatNotificationColor());
+
+    Platform.runLater(()->{
+      var gdxCanvas = new Canvas();
+
+      var frame = new JFrame();
+      frame.setSize(getSize());
+      frame.add(gdxCanvas);
+      frame.setVisible(true);
+
+
+/*
+      var panel = new JPanel();
+      panel.add(gdxCanvas);
+      panel.setSize(getSize());
+      SwingNode swingNode = new SwingNode();
+      swingNode.setContent(panel);
+*/
+
+
+      javafx.scene.control.Label label = new Label(" ");
+      label.setMouseTransparent(true);
+      //label.setStyle("-fx-font-size: 64pt; -fx-font-family: Arial; -fx-font-weight: bold; -fx-text-fill: white; -fx-opacity: 0.8;");
+
+      var canvas = new NativeRenderingCanvas(gdxCanvas);
+
+      var root = new StackPane();
+      //FIXME: find out why gdx doen't render without this label
+      root.getChildren().addAll(/*swingNode, */canvas.getRoot(),label);
+
+      Scene scene = new Scene(root);
+      jfxPanel.setScene(scene);
+    });
+    zoneRendererPanel.add(jfxPanel, PositionalLayout.Position.CENTER);
+
+    jfxPanel.setVisible(false);
+  }
+
+  public void addJfx() {
+    jfxPanel.setVisible(!jfxPanel.isVisible());
   }
 
   public ChatNotificationTimers getChatNotificationTimers() {
@@ -882,6 +931,12 @@ public class MapToolFrame extends DefaultDockableHolder
     }
     return zoomStatusBar;
   }
+
+  public JFXPanel getJfxPanel() {
+    return jfxPanel;
+  }
+
+
 
   public AssetCacheStatusBar getAssetCacheStatusBar() {
     if (assetCacheStatusBar == null) {
