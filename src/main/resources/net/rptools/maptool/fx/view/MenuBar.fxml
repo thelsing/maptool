@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.CheckMenuItem?>
+<?import javafx.scene.control.CustomMenuItem?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.SeparatorMenuItem?>
+<?import javafx.scene.input.KeyCodeCombination?>
+
+<MenuBar xmlns="http://javafx.com/javafx/10.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.rptools.maptool_fx.controller.MenuBar_Controller">
+   <menus>
+      <Menu text="%menu.file">
+         <items>
+            <MenuItem text="%action.newCampaign" />
+            <MenuItem fx:id="openCampaignMenuItem" onAction="#openCampaign_OnAction" text="%action.loadCampaign">
+               <accelerator>
+                  <KeyCodeCombination alt="UP" code="O" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+               </accelerator></MenuItem>
+            <MenuItem text="%action.saveCampaign">
+               <accelerator>
+                  <KeyCodeCombination alt="UP" code="S" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+               </accelerator></MenuItem>
+            <MenuItem text="%action.saveCampaignAs">
+               <accelerator>
+                  <KeyCodeCombination alt="UP" code="A" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+               </accelerator></MenuItem>
+            <MenuItem text="%action.saveMessageHistory" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <Menu text="%menu.export">
+               <items>
+                  <MenuItem mnemonicParsing="false" text="%action.exportScreenShot">
+                     <accelerator>
+                        <KeyCodeCombination alt="UP" code="S" control="UP" meta="UP" shift="DOWN" shortcut="DOWN" />
+                     </accelerator></MenuItem>
+                  <MenuItem mnemonicParsing="false" text="%action.exportScreenShotAs" />
+                  <SeparatorMenuItem mnemonicParsing="false" />
+                  <MenuItem mnemonicParsing="false" text="%action.exportCampaignAs" />
+                  <MenuItem mnemonicParsing="false" text="%admin.exportCampaignRepo" />
+               </items>
+            </Menu>
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem text="%action.addIconSelector" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem onAction="#startServer" text="%action.serverStart" />
+            <MenuItem text="%action.clientConnect" />
+            <MenuItem onAction="#clientDisconnect" text="%action.clientDisconnect" />
+            <MenuItem text="%action.showConnectionInfo" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <Menu disable="true" text="%menu.recent" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem onAction="#exit_OnAction" text="%action.exit" />
+         </items>
+      </Menu>
+      <Menu text="%menu.edit">
+         <items>
+            <MenuItem mnemonicParsing="false" text="%action.undoDrawing" />
+            <MenuItem mnemonicParsing="false" text="%action.redoDrawing" />
+            <MenuItem mnemonicParsing="false" text="%action.clearDrawing" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem mnemonicParsing="false" text="%action.copyTokens">
+               <accelerator>
+                  <KeyCodeCombination alt="UP" code="C" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
+               </accelerator>
+            </MenuItem>
+            <MenuItem mnemonicParsing="false" text="%action.cutTokens" />
+            <MenuItem mnemonicParsing="false" text="%action.pasteTokens" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem mnemonicParsing="false" text="%action.campaignProperties" />
+            <MenuItem mnemonicParsing="false" text="%action.preferences" />
+            <CustomMenuItem mnemonicParsing="false" text="Unspecified Action" />
+         </items>
+      </Menu>
+      <Menu text="%menu.map">
+         <items>
+            <MenuItem mnemonicParsing="false" text="%action.newMap" />
+            <Menu mnemonicParsing="false" text="%menu.QuickMap" />
+            <MenuItem mnemonicParsing="false" text="%action.loadMap" />
+            <MenuItem mnemonicParsing="false" text="%action.saveMapAs" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <CheckMenuItem mnemonicParsing="false" text="%action.hideMap" />
+            <MenuItem mnemonicParsing="false" text="%action.restoreFogOfWar" />
+            <CheckMenuItem mnemonicParsing="false" text="%action.enableFogOfWar" />
+            <CheckMenuItem mnemonicParsing="false" text="%action.revealFogAtWaypoints" />
+            <Menu mnemonicParsing="false" text="%menu.vision">
+               <items>
+                  <CheckMenuItem mnemonicParsing="false" text="Off" />
+                  <CheckMenuItem mnemonicParsing="false" text="Day" />
+                  <CheckMenuItem mnemonicParsing="false" text="Night" />
+               </items>
+            </Menu>
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem mnemonicParsing="false" text="%action.editMap" />
+            <MenuItem mnemonicParsing="false" text="%action.adjustGrid" />
+            <MenuItem mnemonicParsing="false" text="%action.adjustGrid" />
+            <MenuItem mnemonicParsing="false" text="%action.renameMap" />
+            <MenuItem mnemonicParsing="false" text="%action.copyZone" />
+            <MenuItem mnemonicParsing="false" text="%action.copyZone" />
+         </items>
+      </Menu>
+      <Menu text="%menu.view">
+         <items>
+            <MenuItem mnemonicParsing="false" text="Action 1" />
+         </items>
+      </Menu>
+      <Menu text="%menu.tools">
+         <items>
+            <MenuItem mnemonicParsing="false" text="Action 1" />
+         </items>
+      </Menu>
+      <Menu text="%menu.window">
+         <items>
+            <CheckMenuItem fx:id="connectionsWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Connections" />
+            <CheckMenuItem fx:id="mapExplorerWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.MapExplorer" />
+            <CheckMenuItem fx:id="drawExplorerWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.DrawExplorer" />
+            <CheckMenuItem fx:id="intitiativeWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Initiative" />
+            <CheckMenuItem fx:id="resourceLibraryWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Library" />
+            <CheckMenuItem fx:id="chatWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Chat" />
+            <CheckMenuItem fx:id="tablesWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Tables" />
+            <CheckMenuItem fx:id="globalWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Global" />
+            <CheckMenuItem fx:id="campaignWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Campaign" />
+            <CheckMenuItem fx:id="selectedWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Selected" />
+            <CheckMenuItem fx:id="impersonatedWindowMenuItem" mnemonicParsing="false" onAction="#windowCheckMenuItem_OnAction" text="%panel.Impersonate" />
+            <SeparatorMenuItem mnemonicParsing="false" />
+            <MenuItem mnemonicParsing="false" onAction="#saveLayout_OnAction" text="%window.saveLayout" />
+            <MenuItem mnemonicParsing="false" onAction="#loadLayout_OnAction" text="%window.loadLayout" />
+         </items>
+      </Menu>
+      <Menu text="%menu.help">
+         <items>
+            <MenuItem mnemonicParsing="false" text="About MyHelloApp" />
+         </items>
+      </Menu>
+   </menus>
+</MenuBar>

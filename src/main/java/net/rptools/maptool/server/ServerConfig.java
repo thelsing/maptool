@@ -153,4 +153,8 @@ public class ServerConfig {
 
     return s1.equals(s2);
   }
+
+  public void setPersonalServer(boolean value) {
+    personalServer = value;
+  }
 }

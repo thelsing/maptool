@@ -83,4 +83,6 @@ public class AppConstants {
 
   public static final FilenameFilter CAMPAIGN_PROPERTIES_FILE_FILTER =
       (dir, name) -> name.toLowerCase().endsWith(CAMPAIGN_PROPERTIES_FILE_EXTENSION);
+  public static final String MAP_TOOL_BUNDLE = "net.rptools.maptool.language.i18n";
+  public static final String DOCK_LAYOUT_FILE = "dock_layout.pref";
 }

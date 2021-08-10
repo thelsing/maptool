@@ -84,7 +84,7 @@ public class MapPropertiesDialog extends JDialog {
     return new MapPropertiesDialog(I18N.getText("dialog.importedMapProperties.title"), owner);
   }
 
-  private MapPropertiesDialog(String title, JFrame owner) {
+  public MapPropertiesDialog(String title, JFrame owner) {
     super(owner, title, true);
     initialize();
     pack();

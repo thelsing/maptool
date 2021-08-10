@@ -450,4 +450,8 @@ public class AppUtil {
   public static File getThemeFile(String themeName) {
     return getUIThemeNames().get(themeName);
   }
+
+  public static String getDockConfig() {
+    return getAppHome("config").getAbsolutePath() + "/" + AppConstants.DOCK_LAYOUT_FILE;
+  }
 }

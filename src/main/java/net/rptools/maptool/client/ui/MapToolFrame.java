@@ -175,6 +175,7 @@ public class MapToolFrame extends DefaultDockableHolder
   private final GlassPane glassPane;
   /** Model for the token tree panel of the map explorer. */
   private TokenPanelTreeModel tokenPanelTreeModel;
+  private JComponent tokenTreePanel;
 
   private DrawPanelTreeModel drawPanelTreeModel;
   private DrawablesPanel drawablesPanel;
@@ -216,6 +217,18 @@ public class MapToolFrame extends DefaultDockableHolder
   private final ImpersonatePanel impersonatePanel = new ImpersonatePanel();
 
   private final DragImageGlassPane dragImageGlassPane = new DragImageGlassPane();
+
+  public JPanel getZoneRendererPanel() {
+    return zoneRendererPanel;
+  }
+
+  public JComponent getDrawablesTreePanel() {
+    return drawablesPanel;
+  }
+
+  public JComponent getTokenTreePanel() {
+    return tokenTreePanel;
+  }
 
   private final class KeyListenerDeleteDraw implements KeyListener {
     private final JTree tree;
@@ -634,11 +647,12 @@ public class MapToolFrame extends DefaultDockableHolder
             MTFrame.CONNECTIONS,
             new JScrollPane(connectionPanel),
             new ImageIcon(AppStyle.connectionsImage)));
+    tokenTreePanel = createTokenTreePanel();
     frameMap.put(
         MTFrame.TOKEN_TREE,
         createDockingFrame(
             MTFrame.TOKEN_TREE,
-            new JScrollPane(createTokenTreePanel()),
+            new JScrollPane(tokenTreePanel),
             new ImageIcon(AppStyle.mapExplorerImage)));
     frameMap.put(
         MTFrame.IMAGE_EXPLORER,
