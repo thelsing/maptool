@@ -407,6 +407,11 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
 
   @Override
   public boolean zoom(float initialDistance, float distance) {
+    // we can get zoom events when dragging a token and setting a waypoint with another finger
+    if (isDraggingToken) {
+      return false;
+    }
+
     float zoomFactor = distance / initialDistance;
 
     renderer
