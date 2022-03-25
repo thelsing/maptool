@@ -1821,8 +1821,12 @@ public class MapTool {
           @Override
           public void removeLifecycleListener(LifecycleListener lifecycleListener) {}
         };
+
     var input = new JoglAwtInput(null);
-    if (AppState.isTuioServerEnabled()) input.startTuioClient();
+    if (AppState.isTuioServerEnabled()) {
+      input.startTuioClient();
+    }
+
     Gdx.input = input;
     ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
     scheduledExecutorService.scheduleAtFixedRate(

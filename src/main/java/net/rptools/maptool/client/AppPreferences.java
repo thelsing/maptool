@@ -194,6 +194,9 @@ public class AppPreferences {
   private static final String KEY_OLD_TOPOLOGY_DRAWING_MODE = "topologyDrawingMode";
   private static final String DEFAULT_TOPOLOGY_TYPE = "VBL";
 
+  private static final String KEY_TOUCH_MODE = "touchMode";
+  private static final String KEY_TUIO_SERVER = "tuioServerEnabled";
+
   private static final String KEY_WEB_END_POINT_PORT = "webEndPointPort";
   private static final int DEFAULT_WEB_END_POINT = 654555;
 
@@ -1288,6 +1291,14 @@ public class AppPreferences {
       return new Zone.TopologyTypeSet(Zone.TopologyType.WALL_VBL);
     }
   }
+
+  public static void setTouchModeEnabled(boolean value) { prefs.putBoolean(KEY_TOUCH_MODE, value); }
+
+  public static boolean getTouchModeEnabled() { return prefs.getBoolean(KEY_TOUCH_MODE, false); }
+
+  public static void setTuioServerEnabled(boolean value) { prefs.putBoolean(KEY_TUIO_SERVER, value); }
+
+  public static boolean getTuioServerEnabled() { return prefs.getBoolean(KEY_TUIO_SERVER, false); }
 
   public static void setWebEndPointPort(int value) {
     prefs.putInt(KEY_WEB_END_POINT_PORT, value);

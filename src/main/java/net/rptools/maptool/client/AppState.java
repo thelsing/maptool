@@ -48,8 +48,6 @@ public class AppState {
   private static boolean isLockedForBackgroundTask = false;
   private static boolean useWebRTC = false;
   private static boolean enableFullScreenUI = true;
-  private static boolean touchModeEnabled = true;
-  private static boolean tuioServerEnabled = false;
 
   private static PropertyChangeSupport changeSupport = new PropertyChangeSupport(AppState.class);
 
@@ -240,23 +238,23 @@ public class AppState {
   }
 
   public static boolean isTouchModeEnabled() {
-    return touchModeEnabled;
+    return AppPreferences.getTouchModeEnabled();
   }
 
   public static void setTouchModeEnabled(boolean value) {
-    var old = touchModeEnabled;
-    touchModeEnabled = value;
-    changeSupport.firePropertyChange(TOUCH_MODE_ENABLED_PROP_NAME, old, touchModeEnabled);
+    var old = AppPreferences.getTouchModeEnabled();
+    AppPreferences.setTouchModeEnabled(value);
+    changeSupport.firePropertyChange(TOUCH_MODE_ENABLED_PROP_NAME, old, value);
   }
 
   public static boolean isTuioServerEnabled() {
-    return tuioServerEnabled;
+    return AppPreferences.getTuioServerEnabled();
   }
 
   public static void setTuioServerEnabled(boolean value) {
-    tuioServerEnabled = value;
+    AppPreferences.setTuioServerEnabled(value);
     var input = (JoglAwtInput) Gdx.input;
-    if (tuioServerEnabled) {
+    if (value) {
       input.startTuioClient();
     } else {
       input.stopTuioClient();
