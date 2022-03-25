@@ -76,7 +76,6 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   private boolean isShowingTokenStackPopup;
   private boolean isShowingPointer;
   private boolean isDraggingToken;
-  private boolean isNewTokenSelected;
   private boolean isDrawingSelectionBox;
   private boolean isSpaceDown;
   private boolean isMovingWithKeys;
@@ -93,6 +92,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   private Token tokenBeingDragged;
   private Token tokenUnderMouse;
   private Token markerUnderMouse;
+  private Token selectedToken;
   private int keysDown; // used to record whether Shift/Ctrl/Meta keys are down
 
   private final TokenStackPanel tokenStackPanel = new TokenStackPanel();
@@ -328,7 +328,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     tapPoint.x = (int) x;
     tapPoint.y = (int) y;
 
-    handleSingleSelectAt(tapPoint, count >= 2);
+    handleSelectAt(tapPoint, count >= 2, false);
     repaintZone();
     return false;
   }
@@ -342,7 +342,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     tapPoint.x = (int) x;
     tapPoint.y = (int) y;
 
-    handleSingleSelectAt(tapPoint, false);
+    handleSelectAt(tapPoint, false, false);
     // if we open popup stop handling this touch
     if (showTokenPopupAt(tapPoint)) {
       return true;
@@ -371,10 +371,10 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
 
     // if we are not doing pan action, try to select something at start point
     if (!isDraggingToken && !isDrawingSelectionBox) {
-      handleSelectAt(from, false, false, false);
+      handleSelectAt(from, false, false);
     }
 
-    if (startTokenDrag(tokenUnderMouse)) {
+    if (startTokenDrag(selectedToken)) {
       dragStartX = from.x;
       dragStartY = from.y;
     }
@@ -479,18 +479,18 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
         if (token == null || !AppUtil.playerOwns(token)) {
           return;
         }
-        tokenUnderMouse = token;
-        MapTool.getFrame().showTokenPropertiesDialog(tokenUnderMouse, renderer);
+        selectedToken = token;
+        MapTool.getFrame().showTokenPropertiesDialog(selectedToken, renderer);
       }
       if (SwingUtilities.isRightMouseButton(event)) {
         Token token = getTokenAt(event.getX(), event.getY());
         if (token == null || !AppUtil.playerOwns(token)) {
           return;
         }
-        tokenUnderMouse = token;
+        selectedToken = token;
         Set<GUID> selectedSet = new HashSet<GUID>();
         selectedSet.add(token.getId());
-        new TokenPopupMenu(selectedSet, event.getX(), event.getY(), renderer, tokenUnderMouse)
+        new TokenPopupMenu(selectedSet, event.getX(), event.getY(), renderer, selectedToken)
             .showPopup(renderer);
       }
     }
@@ -583,7 +583,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
       return false;
     }
 
-    ZonePoint last = renderer.getLastWaypoint(tokenUnderMouse.getId());
+    ZonePoint last = renderer.getLastWaypoint(selectedToken.getId());
     if (last == null) {
 
       // Just make a last ZP that is the same.
@@ -627,7 +627,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   }
 
   private boolean startSelectionBox(Point from) {
-    if (tokenUnderMouse != null || isDrawingSelectionBox || isDraggingToken) {
+    if (selectedToken != null || isDrawingSelectionBox || isDraggingToken) {
       return false;
     }
     dragStartX = from.x;
@@ -639,52 +639,39 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     return true;
   }
 
-  private void handleSingleSelectAt(Point p, boolean showDetails) {
-    handleSelectAt(p, showDetails, true, false);
-  }
-
-  private void handleMultiSelectAt(Point p, boolean showDetails) {
-    handleSelectAt(p, showDetails, false, true);
-  }
-
-  private void handleSelectAt(
-      Point p, boolean showDetails, boolean clearBeforeSelect, boolean multiSelect) {
+  private void handleSelectAt(Point p, boolean showDetails, boolean multiSelect) {
     if (handledByHover(p)) return;
 
     selectMarkerAt(p, showDetails);
-    selectTokenAt(p, showDetails, clearBeforeSelect, multiSelect);
-    return;
+    selectTokenAt(p, showDetails, multiSelect);
   }
 
-  private void selectTokenAt(
-      Point p, boolean showDetails, boolean clearBeforeSelection, boolean muliSelect) {
+  private void selectTokenAt(Point p, boolean showDetails, boolean muliSelect) {
     Token token = getTokenFromStack(p);
 
     if (token == null) token = renderer.getTokenAt(p.x, p.y);
 
     if (token == null) {
-      setNewCurrentToken(null, clearBeforeSelection, muliSelect);
+      setNewCurrentToken(null, muliSelect);
       return;
     }
 
     if (renderer.isTokenMoving(token)) return;
 
     calcTokenDragOffset(token, p.x, p.y);
-    if (token == tokenUnderMouse) {
-      if (showDetails) handleTapOnCurrentToken(p, token);
-      return;
+    if (token == selectedToken && showDetails) {
+      handleTapOnCurrentToken(p, token);
     }
 
-    setNewCurrentToken(token, clearBeforeSelection, muliSelect);
+    setNewCurrentToken(token, muliSelect);
   }
 
-  private void setNewCurrentToken(
-      Token token, boolean clearBeforeSelection, boolean multiSelectMode) {
+  private void setNewCurrentToken(Token token, boolean multiSelectMode) {
     statSheet = null;
-    tokenUnderMouse = null;
+    selectedToken = null;
     renderer.setMouseOver(null);
 
-    if (clearBeforeSelection) renderer.clearSelectedTokens();
+    if (!multiSelectMode) renderer.clearSelectedTokens();
 
     if (token == null) {
       return;
@@ -705,6 +692,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
 
     if (renderer.getSelectedTokenSet().contains(token.getId())) {
       tokenUnderMouse = token;
+      selectedToken = token;
       renderer.setMouseOver(token);
     }
 
@@ -777,188 +765,49 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   @Override
   public void mousePressed(MouseEvent e) {
     log.info("mousePressed " + e.toString());
-
     super.mousePressed(e);
 
-    if (handledByHover(e.getPoint())) return;
-
-    mouseButtonDown = true;
-
-    hideMarkerPopup();
-    if (isShowingTokenStackPopup) {
-      if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        tokenStackPanel.handleMousePressed(e);
-        return;
-      } else {
-        isShowingTokenStackPopup = false;
-        repaint();
-      }
+    if (SwingUtilities.isLeftMouseButton(e)) {
+      dragStartX = e.getX();
+      dragStartY = e.getY();
     }
+
     // So that keystrokes end up in the right place
     renderer.requestFocusInWindow();
-    if (isDraggingMap()) {
-      return;
-    }
-    if (isDraggingToken) {
-      return;
-    }
-    dragStartX = e.getX();
-    dragStartY = e.getY();
-
-    // Properties
-    if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
-      mouseButtonDown = false;
-      List<Token> tokenList = renderer.getTokenStackAt(mouseX, mouseY);
-      if (tokenList != null) {
-        // Stack
-        renderer.clearSelectedTokens();
-        showTokenStackPopup(tokenList, e.getX(), e.getY());
-        renderer.updateAfterSelection();
-      } else {
-        // Single
-        Token token = renderer.getTokenAt(e.getX(), e.getY());
-        if (token != null) {
-          if (!AppUtil.playerOwns(token)) {
-            return;
-          }
-          MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
-        }
-      }
-      return;
-    }
-    // SELECTION
-    Token token = renderer.getTokenAt(e.getX(), e.getY());
-
-    if (token != null && SwingUtilities.isLeftMouseButton(e)) {
-      // Don't select if it's already being moved by someone
-      isNewTokenSelected = false;
-      if (!renderer.isTokenMoving(token)) {
-        if (SwingUtil.isShiftDown(e)) {
-          // if shift, we invert the selection of the token
-          if (renderer.getSelectedTokenSet().contains(token.getId())) {
-            renderer.deselectToken(token.getId());
-          } else {
-            renderer.selectToken(token.getId());
-          }
-          renderer.updateAfterSelection();
-        } else if (!renderer.getSelectedTokenSet().contains(token.getId())) {
-          // if not shift and click on non-selected token, switch selection to the token
-          isNewTokenSelected = true;
-          renderer.clearSelectedTokens();
-          renderer.selectToken(token.getId());
-          renderer.updateAfterSelection();
-        }
-
-        calcTokenDragOffset(token, e.getX(), e.getY());
-      }
-    } else {
-      if (SwingUtilities.isLeftMouseButton(e)) {
-        // Starting a bound box selection
-        isDrawingSelectionBox = true;
-        selectionBoundBox = new Rectangle(e.getX(), e.getY(), 0, 0);
-      } else {
-        if (tokenUnderMouse != null) {
-          isNewTokenSelected = true;
-        }
-      }
-    }
   }
 
-  // @Override
+  @Override
   public void mouseReleased(MouseEvent e) {
     log.info("mouseReleased " + e.toString());
-    mouseButtonDown = false;
-    // System.out.println("mouseReleased " + e.toString());
-
-    if (isShowingTokenStackPopup) {
-      if (tokenStackPanel.contains(e.getX(), e.getY())) {
-        return;
-      } else {
-        isShowingTokenStackPopup = false;
-        repaint();
-      }
-    }
-
-    // Jamz: We have to capture here as isLeftMouseButton is also true during drag
-    // Jamz: Also, changed to right button which is easier to click during drag
-    // WAYPOINT
-    if (SwingUtilities.isRightMouseButton(e) && isDraggingToken) {
-      setWaypoint();
-      setDraggingMap(false); // We no longer drag the map. Fixes bug #616
-      return;
-    }
-
-    if (SwingUtilities.isLeftMouseButton(e)) {
-      try {
-        // MARKER
-        markerUnderMouse = renderer.getMarkerAt(e.getX(), e.getY());
-        renderer.setCursor(
-            Cursor.getPredefinedCursor(
-                markerUnderMouse != null ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-        if (tokenUnderMouse == null
-            && markerUnderMouse != null
-            && !isShowingHover
-            && !isDraggingToken) {
-          showMarkerPopup();
-        }
-        // SELECTION BOUND BOX
-        endSelectionBox(!SwingUtil.isShiftDown(e));
-
-        // DRAG TOKEN COMPLETE
-        if (isDraggingToken) {
-          SwingUtil.showPointer(renderer);
-          stopTokenDrag();
-        } else {
-          // IF SELECTING MULTIPLE, SELECT SINGLE TOKEN
-          if (SwingUtilities.isLeftMouseButton(e) && !SwingUtil.isShiftDown(e)) {
-            Token token = renderer.getTokenAt(e.getX(), e.getY());
-            // Only if it isn't already being moved
-            if (renderer.isSubsetSelected(token) && !renderer.isTokenMoving(token)) {
-              renderer.clearSelectedTokens();
-              renderer.selectToken(token.getId());
-              renderer.updateAfterSelection();
-            }
-          }
-        }
-      } finally {
-        isDraggingToken = false;
-        isDrawingSelectionBox = false;
-      }
-      return;
-    }
-
-    // Jamz: This doesn't seem to work for me, looks like Mouse 1 is always returned along with
-    // Mouse 3 so it's caught above...
-    // And Middle button? That's a pain to click while dragging isn't it? How about Right click
-    // during drag?
-    // WAYPOINT
-    if (SwingUtilities.isMiddleMouseButton(e) && isDraggingToken) {
-      setWaypoint();
-    }
-
-    // POPUP MENU
-    if (SwingUtilities.isRightMouseButton(e) && !isDraggingToken && !isDraggingMap()) {
-      if (tokenUnderMouse != null
-          && !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
-        if (!SwingUtil.isShiftDown(e)) {
-          renderer.clearSelectedTokens();
-        }
-        renderer.selectToken(tokenUnderMouse.getId());
-        renderer.updateAfterSelection();
-        isNewTokenSelected = false;
-      }
-      if (showTokenPopupAt(e.getPoint())) return;
-    }
+    var wasDraggingMap = isDraggingMap();
     super.mouseReleased(e);
+    if (SwingUtilities.isRightMouseButton(e)) {
+      if (isDraggingToken) {
+        setWaypoint();
+      } else if (!wasDraggingMap) {
+        handleSelectAt(e.getPoint(), false, SwingUtil.isShiftDown(e));
+        showTokenPopupAt(e.getPoint());
+      }
+    } else {
+      if (isDraggingToken) {
+        SwingUtil.showPointer(renderer);
+        stopTokenDrag();
+      } else if (isDrawingSelectionBox) {
+        endSelectionBox(!SwingUtil.isShiftDown(e));
+      } else {
+        handleSelectAt(e.getPoint(), e.getClickCount() >= 2, SwingUtil.isShiftDown(e));
+      }
+    }
+    repaintZone();
   }
 
   private boolean showTokenPopupAt(Point p) {
-    if (tokenUnderMouse == null || renderer.getSelectedTokenSet().isEmpty()) return false;
+    if (selectedToken == null || renderer.getSelectedTokenSet().isEmpty()) return false;
 
-    if (tokenUnderMouse.isStamp()) {
+    if (selectedToken.isStamp()) {
       tokenPopupMenu =
-          new StampPopupMenu(renderer.getSelectedTokenSet(), p.x, p.y, renderer, tokenUnderMouse);
-    } else if (AppUtil.playerOwns(tokenUnderMouse)) {
+          new StampPopupMenu(renderer.getSelectedTokenSet(), p.x, p.y, renderer, selectedToken);
+    } else if (AppUtil.playerOwns(selectedToken)) {
       // FIXME Every once in awhile we get a report on the forum of the following
       // exception:
       // java.awt.IllegalComponentStateException: component must be showing on the
@@ -974,7 +823,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
       // to that
       // monitor?
       tokenPopupMenu =
-          new TokenPopupMenu(renderer.getSelectedTokenSet(), p.x, p.y, renderer, tokenUnderMouse);
+          new TokenPopupMenu(renderer.getSelectedTokenSet(), p.x, p.y, renderer, selectedToken);
     }
     tokenPopupMenu.addPopupMenuListener(
         new PopupMenuListener() {
@@ -998,14 +847,11 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   // MouseMotion
   @Override
   public void mouseMoved(MouseEvent e) {
-    log.info("mouseMoved " + e.toString());
     if (renderer == null) {
       return;
     }
     super.mouseMoved(e);
 
-    // mouseX = e.getX(); // done by super.mouseMoved()
-    // mouseY = e.getY();
     if (isShowingPointer) {
       ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
       Pointer pointer =
@@ -1028,24 +874,6 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
       return;
     }
 
-    if (isDraggingToken) {
-      // FJE If we're dragging the token, wouldn't mouseDragged() be called instead? Can this
-      // code
-      // ever be executed?
-      if (isMovingWithKeys) {
-        return;
-      }
-      ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
-      ZonePoint last;
-      if (tokenUnderMouse == null) last = zp;
-      else {
-        last = renderer.getLastWaypoint(tokenUnderMouse.getId());
-        // XXX This shouldn't be possible, but it happens?!
-        if (last == null) last = zp;
-      }
-      handleDragToken(zp, zp.x - last.x, zp.y - last.y);
-      return;
-    }
     tokenUnderMouse = renderer.getTokenAt(mouseX, mouseY);
     keysDown = e.getModifiersEx();
     renderer.setMouseOver(tokenUnderMouse);
@@ -1068,119 +896,36 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     }
   }
 
-  // @Override
+  @Override
   public void mouseDragged(MouseEvent e) {
     log.info("mouseDragged " + e.toString());
-    mouseX = e.getX();
-    mouseY = e.getY();
+    super.mouseDragged(e);
 
-    if (isShowingTokenStackPopup) {
-      isShowingTokenStackPopup = false;
-      if (tokenStackPanel.contains(mouseX, mouseY)) {
-        tokenStackPanel.handleMouseMotionAt(e.getPoint());
-        return;
-      } else {
-        renderer.repaint();
-      }
-    }
-    // XXX Updating the status bar is done in super.mouseDragged() -- maybe just call that here?
-    // But
-    // it also causes repaint events...
-    CellPoint cellUnderMouse = renderer.getCellAt(new ScreenPoint(mouseX, mouseY));
-    if (cellUnderMouse != null) {
-      MapTool.getFrame().getCoordinateStatusBar().update(cellUnderMouse.x, cellUnderMouse.y);
-    }
-    if (SwingUtilities.isLeftMouseButton(e) && !SwingUtilities.isRightMouseButton(e)) {
-      if (isDrawingSelectionBox) {
-        int x1 = dragStartX;
-        int y1 = dragStartY;
-
-        int x2 = mouseX;
-        int y2 = mouseY;
-
-        selectionBoundBox.x = Math.min(x1, x2);
-        selectionBoundBox.y = Math.min(y1, y2);
-        selectionBoundBox.width = Math.abs(x1 - x2);
-        selectionBoundBox.height = Math.abs(y1 - y2);
-        /*
-         * NOTE: This is a weird one that has to do with the order of the mouseReleased event. If the selection box started the drag while hovering over a marker, we need to tell it to not
-         * show the marker after the drag is complete.
-         */
-        markerUnderMouse = null;
-        renderer.repaint();
-        return;
-      }
-      if (tokenUnderMouse == null
-          || !renderer.getSelectedTokenSet().contains(tokenUnderMouse.getId())) {
-        return;
-      }
-      if (isDraggingToken) {
-        if (isMovingWithKeys) {
-          return;
-        }
-        ZonePoint last = renderer.getLastWaypoint(tokenUnderMouse.getId());
-        if (last == null) {
-          // This makes no sense to me. Why create a fake last point that is
-          // half the token width away from the current point? (Phil)
-          // last =  new ZonePoint(
-          //        tokenUnderMouse.getX() + r.width / 2,
-          //        tokenUnderMouse.getY() + r.height / 2);
-
-          // Just make a last ZP that is the same.
-          last = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
-        }
-        ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
-        // These lines were causing tokens to end up in the wrong grid cell in
-        // relation to the the mouse location.
-        // if (tokenUnderMouse.isSnapToGrid() && grid.getCapabilities().isSnapToGridSupported()) {
-        //          zp.translate(-r.width / 2, -r.height / 2);
-        //          last.translate(-r.width / 2, -r.height / 2);
-        // }
-        //        zp.translate(-dragOffsetX, -dragOffsetY);
-
-        // Now the dx/dy are calculated on Zone Points that haven't been
-        // translated for drag offset or for snapping. That is being done in
-        // handleDragToken().
-        int dx = zp.x - last.x;
-        int dy = zp.y - last.y;
-        handleDragToken(zp, dx, dy);
-        return;
-      }
-      if (!isDraggingToken && renderer.isTokenMoving(tokenUnderMouse)) {
-        return;
-      }
-      if (isNewTokenSelected && !renderer.isOnlyTokenSelected(tokenUnderMouse)) {
-        renderer.clearSelectedTokens();
-        renderer.selectToken(tokenUnderMouse.getId());
-        renderer.updateAfterSelection();
-      }
-      isNewTokenSelected = false;
-
-      // Make sure we're allowed
-      if (!MapTool.getPlayer().isGM() && MapTool.getServerPolicy().isMovementLocked()) {
-        return;
-      }
-      // Might be dragging a token
-      String playerId = MapTool.getPlayer().getName();
-      Set<GUID> selectedTokenSet = renderer.getOwnedTokens(renderer.getSelectedTokenSet());
-      if (!selectedTokenSet.isEmpty()) {
-        // Make sure we can do this
-        // Possibly let unowned tokens be moved?
-        if (!MapTool.getPlayer().isGM() && MapTool.getServerPolicy().useStrictTokenManagement()) {
-          for (GUID tokenGUID : selectedTokenSet) {
-            Token token = renderer.getZone().getToken(tokenGUID);
-            if (!token.isOwner(playerId)) {
-              return;
-            }
-          }
-        }
-        startTokenDrag(tokenUnderMouse);
-        isDraggingToken = true;
-        if (AppPreferences.getHideMousePointerWhileDragging()) SwingUtil.hidePointer(renderer);
-      }
+    if (!SwingUtilities.isLeftMouseButton(e)) {
       return;
     }
-    super.mouseDragged(e);
+
+    var from = new Point();
+    from.x = dragStartX;
+    from.y = dragStartY;
+
+    var to = e.getPoint();
+
+    // if we are not doing pan action, try to select something at start point
+    if (!isDraggingToken && !isDrawingSelectionBox) {
+      handleSelectAt(from, false, false);
+    }
+
+    startTokenDrag(selectedToken);
+
+    if (isDraggingToken) {
+      updateTokenDrag(from, to);
+    } else if (isDrawingSelectionBox) {
+      updateSelectionBox(to);
+    } else {
+      startSelectionBox(from);
+    }
+    repaintZone();
   }
 
   public boolean isDraggingToken() {
