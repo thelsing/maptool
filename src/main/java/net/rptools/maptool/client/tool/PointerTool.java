@@ -327,6 +327,8 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     var tapPoint = new Point();
     tapPoint.x = (int) x;
     tapPoint.y = (int) y;
+    hideMarkerPopup();
+    statSheet = null;
 
     handleSelectAt(tapPoint, count >= 2, false);
     repaintZone();
@@ -370,7 +372,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
     to.y = (int) (y + deltaY);
 
     // if we are not doing pan action, try to select something at start point
-    if (!isDraggingToken && !isDrawingSelectionBox) {
+    if (!isDraggingToken && !isDrawingSelectionBox && !isDraggingMap()) {
       handleSelectAt(from, false, false);
     }
 
@@ -642,7 +644,7 @@ public class PointerTool extends DefaultTool implements GestureDetector.GestureL
   private void handleSelectAt(Point p, boolean showDetails, boolean multiSelect) {
     if (handledByHover(p)) return;
 
-    selectMarkerAt(p, showDetails);
+    selectMarkerAt(p, true);
     selectTokenAt(p, showDetails, multiSelect);
   }
 
