@@ -120,13 +120,13 @@ spotless {
 
 // org.openjfx.javafxplugin
 javafx {
-    version = '17'
+    version = '18'
     // modules = ['javafx.fxml', 'javafx.graphics']
     modules = ['javafx.base', 'javafx.controls', 'javafx.media', 'javafx.swing', 'javafx.web', 'javafx.fxml', 'javafx.graphics']
 }
 
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:3.20.0" }
+    protoc { artifact = "com.google.protobuf:protoc:3.21.3" }
 }
 
 // Inform IDEs like IntelliJ IDEA, Eclipse or NetBeans about the generated code.
