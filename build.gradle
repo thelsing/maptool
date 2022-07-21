@@ -120,7 +120,7 @@ spotless {
 
 // org.openjfx.javafxplugin
 javafx {
-    version = '17'
+    version = '18'
     // modules = ['javafx.fxml', 'javafx.graphics']
     modules = ['javafx.base', 'javafx.controls', 'javafx.media', 'javafx.swing', 'javafx.web', 'javafx.fxml', 'javafx.graphics']
 }
@@ -361,7 +361,7 @@ dependencies {
     implementation 'com.thoughtworks.xstream:xstream:1.4.19'
     implementation 'yasb:yasb:0.2-21012007'
     implementation 'de.muntjak.tinylookandfeel:tinylaf-nocp:1.4.0'
-    implementation group: 'org.graalvm.js', name: 'js', version: '21.2.0'
+    implementation group: 'org.graalvm.js', name: 'js', version: '22.2.0'
     implementation group: 'org.graalvm.js', name: 'js-scriptengine', version: '21.1.0'
 
     implementation 'com.jayway.jsonpath:json-path:2.6.0'
