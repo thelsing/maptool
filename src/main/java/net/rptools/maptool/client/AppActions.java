@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
@@ -662,7 +663,7 @@ public class AppActions {
       };
 
   public static final Action TOGGLE_FULLSCREEN_TOOLS =
-      new AdminClientAction() {
+      new DefaultClientAction() {
         {
           init("action.toggleFullScreenTools");
         }
@@ -2342,6 +2343,7 @@ public class AppActions {
                   MapTool.showError("msg.error.failedConnect", ioe);
                   failed = true;
                 } catch (NoSuchAlgorithmException
+                    | InvalidAlgorithmParameterException
                     | InvalidKeySpecException
                     | NoSuchPaddingException
                     | InvalidKeyException
@@ -2666,7 +2668,7 @@ public class AppActions {
         if (t.getCause() instanceof AppState.FailedToAcquireLockException) {
           MapTool.showError("msg.error.failedLoadCampaignLock");
         } else {
-          MapTool.showError("msg.error.failedLoadCampaign", t.getCause());
+          MapTool.showError("msg.error.failedLoadCampaign", t);
         }
       }
     }
@@ -3267,29 +3269,6 @@ public class AppActions {
         @Override
         protected void executeAction() {
           new AddOnLibrariesDialog().show();
-          // TODO: CDW
-          /*JFileChooser chooser = new MapPreviewFileChooser();
-          chooser.setDialogTitle(I18N.getText("library.dialog.import.title"));
-          chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-          chooser.setFileFilter(AddOnLibraryImporter.getAddOnLibraryFileFilter());
-
-          if (chooser.showOpenDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
-            File libFile = chooser.getSelectedFile();
-            try {
-              var addOnLibrary = new AddOnLibraryImporter().importFromFile(libFile);
-              var libraryManager = new LibraryManager();
-              String namespace = addOnLibrary.getNamespace().get();
-              if (libraryManager.addOnLibraryExists(addOnLibrary.getNamespace().get())) {
-                if (!MapTool.confirm(I18N.getText("library.error.addOnLibraryExists", namespace))) {
-                  return;
-                }
-                libraryManager.deregisterAddOnLibrary(namespace);
-              }
-              libraryManager.reregisterAddOnLibrary(addOnLibrary);
-            } catch (IOException | InterruptedException | ExecutionException ioException) {
-              MapTool.showError("library.import.ioError", ioException);
-            }
-          }*/
         }
       };
 

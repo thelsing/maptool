@@ -70,6 +70,12 @@ public class AppStyle {
 
   public static Color tokenTopologyColor = new Color(255, 255, 0, 128);
 
+  public static Color tokenHillVblColor = new Color(255, 136, 0, 128);
+
+  public static Color tokenPitVblColor = new Color(255, 0, 0, 128);
+
+  public static Color tokenMblColor = new Color(255, 128, 255, 128);
+
   public static BufferedImage boundedBackgroundTile;
 
   public static BufferedImage cancelButton;
@@ -141,7 +147,7 @@ public class AppStyle {
       addButton = ImageUtil.getCompatibleImage("net/rptools/maptool/client/image/add_sm.png");
 
       lookupTableDefaultImage =
-          ImageUtil.getCompatibleImage("net/rptools/maptool/client/image/document.jpg");
+          ImageUtil.getCompatibleImage("net/rptools/maptool/client/image/document.png");
 
       resourceLibraryImage =
           ImageUtil.getCompatibleImage("net/rptools/maptool/client/image/book_open.png");

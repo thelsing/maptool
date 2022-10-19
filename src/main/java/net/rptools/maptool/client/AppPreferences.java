@@ -14,7 +14,10 @@
  */
 package net.rptools.maptool.client;
 
+import com.twelvemonkeys.image.ResampleOp;
 import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +37,8 @@ public class AppPreferences {
 
   private static final Logger log = LogManager.getLogger(AppPreferences.class);
   private static Preferences prefs = Preferences.userRoot().node(AppConstants.APP_NAME + "/prefs");
+
+  private static RenderQuality renderQuality;
 
   private static final String KEY_ASSET_ROOTS = "assetRoots";
   private static final String KEY_SAVE_DIR = "saveDir";
@@ -80,6 +85,9 @@ public class AppPreferences {
 
   private static final String KEY_LIGHT_OVERLAY_OPACITY = "lightOverlayOpacity";
   private static final int DEFAULT_LIGHT_OVERLAY_OPACITY = 60;
+
+  private static final String KEY_DARKNESS_OVERLAY_OPACITY = "darknessOverlayOpacity";
+  private static final int DEFAULT_DARKNESS_OVERLAY_OPACITY = 200;
 
   private static final String KEY_FOG_OVERLAY_OPACITY = "fogOverlayOpacity";
   private static final int DEFAULT_FOG_OVERLAY_OPACITY = 100;
@@ -185,7 +193,7 @@ public class AppPreferences {
   private static final boolean DEFAULT_VBL_BLOCKS_MOVE = true;
 
   private static final String MACRO_EDITOR_THEME = "macroEditorTheme";
-  private static final String DEFAULT_MACRO_EDITOR_THEME = "default";
+  private static final String DEFAULT_MACRO_EDITOR_THEME = "Default";
 
   // When hill VBL was introduced, older versions of MapTool were unable to read the new topology
   // modes. So we use a different preference key than in the past so older versions would not
@@ -338,6 +346,15 @@ public class AppPreferences {
     return range0to255(value);
   }
 
+  public static void setDarknessOverlayOpacity(int size) {
+    prefs.putInt(KEY_DARKNESS_OVERLAY_OPACITY, range0to255(size));
+  }
+
+  public static int getDarknessOverlayOpacity() {
+    int value = prefs.getInt(KEY_DARKNESS_OVERLAY_OPACITY, DEFAULT_DARKNESS_OVERLAY_OPACITY);
+    return range0to255(value);
+  }
+
   public static void setFogOverlayOpacity(int size) {
     prefs.putInt(KEY_FOG_OVERLAY_OPACITY, range0to255(size));
 
@@ -479,6 +496,84 @@ public class AppPreferences {
 
   private static final String KEY_ALLOW_EXTERNAL_MACRO_ACCESS = "allowExternalMacroAccess";
   private static final boolean DEFAULT_ALLOW_EXTERNAL_MACRO_ACCESS = false;
+
+  private static final String KEY_RENDER_QUALITY = "renderScaleQuality";
+
+  private static final RenderQuality DEFAULT_RENDER_QUALITY = RenderQuality.LOW_SCALING;
+
+  public enum RenderQuality {
+    LOW_SCALING,
+    PIXEL_ART_SCALING,
+    MEDIUM_SCALING,
+    HIGH_SCALING;
+
+    public void setRenderingHints(Graphics2D g) {
+      switch (this) {
+        case LOW_SCALING, PIXEL_ART_SCALING -> {
+          g.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION,
+              RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+          g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        }
+        case MEDIUM_SCALING -> {
+          g.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+          g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_DEFAULT);
+        }
+        case HIGH_SCALING -> {
+          g.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+          g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        }
+      }
+    }
+
+    public void setShrinkRenderingHints(Graphics2D d) {
+      switch (this) {
+        case LOW_SCALING, PIXEL_ART_SCALING -> {
+          d.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION,
+              RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+          d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        }
+        case MEDIUM_SCALING -> {
+          d.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+          d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_DEFAULT);
+        }
+        case HIGH_SCALING -> {
+          d.setRenderingHint(
+              RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+          d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        }
+      }
+    }
+
+    public int getResampleOpFilter() {
+      return switch (this) {
+        case LOW_SCALING, PIXEL_ART_SCALING -> ResampleOp.FILTER_POINT;
+        case MEDIUM_SCALING -> ResampleOp.FILTER_TRIANGLE;
+        case HIGH_SCALING -> ResampleOp.FILTER_QUADRATIC;
+      };
+    }
+  }
+
+  public static void setRenderQuality(RenderQuality quality) {
+    prefs.put(KEY_RENDER_QUALITY, quality.name());
+    renderQuality = quality;
+  }
+
+  public static RenderQuality getRenderQuality() {
+    if (renderQuality == null) {
+      try {
+        renderQuality =
+            RenderQuality.valueOf(prefs.get(KEY_RENDER_QUALITY, DEFAULT_RENDER_QUALITY.name()));
+      } catch (Exception e) {
+        renderQuality = DEFAULT_RENDER_QUALITY;
+      }
+    }
+    return renderQuality;
+  }
 
   public static void setTypingNotificationDuration(int ms) {
     prefs.putInt(KEY_TYPING_NOTIFICATION_DURATION, ms);

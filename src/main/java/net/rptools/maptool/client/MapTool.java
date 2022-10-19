@@ -19,13 +19,11 @@ import static net.rptools.maptool.model.player.PlayerDatabaseFactory.PlayerDatab
 import com.jidesoft.plaf.LookAndFeelFactory;
 import com.jidesoft.plaf.UIDefaultsLookup;
 import com.jidesoft.plaf.basic.ThemePainter;
-import de.muntjak.tinylookandfeel.Theme;
 import io.sentry.Sentry;
 import io.sentry.SentryClient;
 import io.sentry.SentryClientFactory;
 import io.sentry.event.BreadcrumbBuilder;
 import io.sentry.event.UserBuilder;
-import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -62,7 +60,6 @@ import net.rptools.lib.net.RPTURLStreamHandlerFactory;
 import net.rptools.lib.sound.SoundManager;
 import net.rptools.lib.swing.SwingUtil;
 import net.rptools.maptool.client.functions.UserDefinedMacroFunctions;
-import net.rptools.maptool.client.script.javascript.JSScriptEngine;
 import net.rptools.maptool.client.swing.MapToolEventQueue;
 import net.rptools.maptool.client.swing.NoteFrame;
 import net.rptools.maptool.client.swing.SplashScreen;
@@ -72,6 +69,7 @@ import net.rptools.maptool.client.ui.MapToolFrame;
 import net.rptools.maptool.client.ui.OSXAdapter;
 import net.rptools.maptool.client.ui.StartServerDialogPreferences;
 import net.rptools.maptool.client.ui.logger.LogConsoleFrame;
+import net.rptools.maptool.client.ui.theme.ThemeSupport;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.ui.zone.ZoneRendererFactory;
@@ -162,7 +160,7 @@ public class MapTool {
   private static LocalPlayer player;
 
   private static MapToolConnection conn;
-  private static ClientMethodHandler handler;
+  private static ClientMessageHandler handler;
   private static JMenuBar menuBar;
   private static MapToolFrame clientFrame;
   private static NoteFrame profilingNoteFrame;
@@ -293,7 +291,7 @@ public class MapTool {
    */
   public static void showError(String msgKey, Throwable t) {
     String msg = generateMessage(msgKey, t);
-    log.error(msgKey, t);
+    log.error(I18N.getString(msgKey), t);
     showMessage(msg, "msg.title.messageDialogError", JOptionPane.ERROR_MESSAGE);
   }
 
@@ -680,7 +678,7 @@ public class MapTool {
     messageList =
         new ObservableList<TextMessage>(Collections.synchronizedList(new ArrayList<TextMessage>()));
 
-    handler = new ClientMethodHandler();
+    handler = new ClientMessageHandler();
 
     setClientFrame(new MapToolFrame(menuBar));
 
@@ -703,7 +701,7 @@ public class MapTool {
     ChatAutoSave.changeTimeout(AppPreferences.getChatAutosaveTime());
 
     // TODO: make this more formal when we switch to mina
-    new ServerHeartBeatThread().start();
+    // new ServerHeartBeatThread().start();
   }
 
   public static NoteFrame getProfilingNoteFrame() {
@@ -950,7 +948,7 @@ public class MapTool {
 
   public static Campaign getCampaign() {
     if (campaign == null) {
-      campaign = new Campaign();
+      campaign = CampaignFactory.createBasicCampaign();
     }
     return campaign;
   }
@@ -968,7 +966,6 @@ public class MapTool {
     MapTool.campaign = campaign;
     ZoneRenderer currRenderer = null;
 
-    // Clean up
     clientFrame.clearZoneRendererList();
     clientFrame.getInitiativePanel().setZone(null);
     clientFrame.clearTokenTree();
@@ -999,9 +996,6 @@ public class MapTool {
     AssetManager.updateRepositoryList();
     MapTool.getFrame().getCampaignPanel().reset();
     MapTool.getFrame().getGmPanel().reset();
-    // overlay vanishes after campaign change
-    MapTool.getFrame().getOverlayPanel().removeAllOverlays();
-    JSScriptEngine.resetContexts();
     UserDefinedMacroFunctions.getInstance().handleCampaignLoadMacroEvent();
   }
 
@@ -1237,6 +1231,11 @@ public class MapTool {
     return conn;
   }
 
+  /** returns the current locale code. */
+  public static String getLanguage() {
+    return Locale.getDefault(Locale.Category.DISPLAY).getLanguage();
+  }
+
   /** returns whether the player is using a personal server. */
   public static boolean isPersonalServer() {
     return server != null && server.getConfig().isPersonalServer();
@@ -1343,6 +1342,24 @@ public class MapTool {
 
           defaults.put("OptionPane.buttonAreaBorder", BorderFactory.createEmptyBorder(6, 6, 6, 6));
           defaults.put("OptionPane.buttonOrientation", SwingConstants.RIGHT);
+
+          defaults.put(
+              "DockableFrame.inactiveTitleBackground",
+              UIManager.getColor("InternalFrame.inactiveTitleBackground"));
+          defaults.put(
+              "DockableFrame.inactiveTitleForeground",
+              UIManager.getColor("InternalFrame.inactiveTitleForeground"));
+          defaults.put(
+              "DockableFrame.activeTitleBackground",
+              UIManager.getColor("InternalFrame.activeTitleBackground"));
+          defaults.put(
+              "DockableFrame.activeTitleForeground",
+              UIManager.getColor("InternalFrame.activeTitleForeground"));
+          defaults.put("DockableFrame.background", UIManager.getColor("Panel.background"));
+          defaults.put(
+              "DockableFrame.border",
+              BorderFactory.createLineBorder(UIManager.getColor("Panel.background")));
+          defaults.put("DockableFrameTitlePane.showIcon", true);
         };
     uiDefaultsCustomizer.customize(UIManager.getDefaults());
   }
@@ -1573,6 +1590,20 @@ public class MapTool {
     String versionImplementation = version;
     String versionOverride = version;
 
+    if (AppUtil.MAC_OS_X) {
+      // On OSX the menu bar at the top of the screen can be enabled at any time, but the
+      // title (ie. name of the application) has to be set before the GUI is initialized (by
+      // creating a frame, loading a splash screen, etc). So we do it here.
+      System.setProperty("apple.laf.useScreenMenuBar", "true");
+      String appName = "MapTool";
+      if (MapTool.isDevelopment()) {
+        appName += " (Development)";
+      }
+      System.setProperty("apple.awt.application.name", appName);
+      System.setProperty("apple.awt.application.appearance", "system");
+      System.setProperty("com.apple.mrj.application.apple.menu.about.name", "About MapTool...");
+    }
+
     if (MapTool.class.getPackage().getImplementationVersion() != null) {
       versionImplementation = MapTool.class.getPackage().getImplementationVersion().trim();
       log.info("getting MapTool version from manifest: " + versionImplementation);
@@ -1682,19 +1713,16 @@ public class MapTool {
       log.info("Current list of Macro Functions: " + logOutput);
     }
 
-    if (AppUtil.MAC_OS_X) {
-      // On OSX the menu bar at the top of the screen can be enabled at any time, but the
-      // title (ie. name of the application) has to be set before the GUI is initialized (by
-      // creating a frame, loading a splash screen, etc). So we do it here.
-      System.setProperty("apple.laf.useScreenMenuBar", "true");
-      System.setProperty("com.apple.mrj.application.apple.menu.about.name", "About MapTool...");
-      System.setProperty("apple.awt.brushMetalLook", "true");
-    }
-
     // System properties
     System.setProperty("swing.aatext", "true");
 
     final SplashScreen splash = new SplashScreen((isDevelopment()) ? getVersion() : getVersion());
+
+    try {
+      ThemeSupport.loadTheme();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
     // Protocol handlers
     // cp:// is registered by the RPTURLStreamHandlerFactory constructor (why?)
@@ -1727,31 +1755,18 @@ public class MapTool {
       // That is, please don't move these lines around unless you test the result on windows
       // and mac
       if (AppUtil.MAC_OS_X) {
-        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        UIManager.setLookAndFeel(AppUtil.LOOK_AND_FEEL_NAME);
+        // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        // UIManager.setLookAndFeel(AppUtil.LOOK_AND_FEEL_NAME);
+
         menuBar = new AppMenuBar();
         OSXAdapter.macOSXicon();
-        loadTheme();
-      }
-      // If running on Windows based OS, CJK font is broken when using TinyLAF.
-      // else if (WINDOWS) {
-      // UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
-      // menuBar = new AppMenuBar();
-      // }
-      else {
-        UIManager.setLookAndFeel(AppUtil.LOOK_AND_FEEL_NAME);
-        loadTheme();
+      } else {
+        // UIManager.setLookAndFeel(AppUtil.LOOK_AND_FEEL_NAME);
         menuBar = new AppMenuBar();
       }
 
       com.jidesoft.utils.Lm.verifyLicense(
           "Trevor Croft", "rptools", "5MfIVe:WXJBDrToeLWPhMv3kI2s3VFo");
-      LookAndFeelFactory.addUIDefaultsCustomizer(
-          defaults -> {
-            // Remove red border around menus
-            defaults.put("PopupMenu.foreground", Color.lightGray);
-          });
-      LookAndFeelFactory.installJideExtension(LookAndFeelFactory.XERTO_STYLE);
 
       configureJide();
     } catch (Exception e) {
@@ -1795,36 +1810,5 @@ public class MapTool {
               });
         });
     // new Thread(new HeapSpy()).start();
-  }
-
-  private static void loadTheme()
-      throws ClassNotFoundException, InstantiationException, IllegalAccessException,
-          UnsupportedLookAndFeelException {
-    // After the TinyLAF library is initialized, look to see if there is a Default.theme
-    // in our AppHome directory and load it if there is. Unfortunately, changing the
-    // search path for the default theme requires subclassing TinyLAF and because
-    // we have both the original and a Mac version that gets cumbersome. (Really
-    // the Mac version should use the default and then install the keystroke differences
-    // but what we have works and I'm loathe to go playing with it at 1.3b87 -- yes, 87!)
-    File f2 = AppUtil.getThemeFile(AppUtil.getThemeName());
-    // File f = AppUtil.getAppHome("config");
-    // if (f.exists()) {
-    // File f2 = new File(f, "Default.theme");
-    if (f2 != null && f2.exists() && Theme.loadTheme(f2)) {
-      // re-install the Tiny Look and Feel
-      UIManager.setLookAndFeel(AppUtil.LOOK_AND_FEEL_NAME);
-
-      // Update the ComponentUIs for all Components. This
-      // needs to be invoked for all windows.
-      // SwingUtilities.updateComponentTreeUI(rootWindow);
-    } else {
-      showMessage(
-          "msg.error.cantLoadTheme",
-          "msg.error.cantLoadThemeTitle",
-          JOptionPane.WARNING_MESSAGE,
-          AppUtil.getThemeName());
-      AppUtil.setThemeName(AppConstants.DEFAULT_THEME_NAME);
-    }
-    // }
   }
 }

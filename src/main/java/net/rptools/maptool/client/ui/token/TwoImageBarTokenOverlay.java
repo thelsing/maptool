@@ -23,6 +23,7 @@ import java.awt.image.BufferedImage;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.swing.SwingUtil;
 import net.rptools.maptool.model.Token;
+import net.rptools.maptool.server.proto.BarTokenOverlayDto;
 import net.rptools.maptool.util.ImageManager;
 
 /**
@@ -159,5 +160,21 @@ public class TwoImageBarTokenOverlay extends BarTokenOverlay {
   /** @param topAssetId Setter for topAssetId */
   public void setTopAssetId(MD5Key topAssetId) {
     this.topAssetId = topAssetId;
+  }
+
+  public static BarTokenOverlay fromDto(BarTokenOverlayDto dto) {
+    var bar = new TwoImageBarTokenOverlay();
+    bar.fillFrom(dto.getCommon());
+    bar.bottomAssetId = new MD5Key(dto.getAssetIds(0));
+    bar.topAssetId = new MD5Key(dto.getAssetIds(1));
+    return bar;
+  }
+
+  public BarTokenOverlayDto toDto() {
+    var dto = BarTokenOverlayDto.newBuilder().setCommon(getCommonDto());
+    dto.addAssetIds(bottomAssetId.toString());
+    dto.addAssetIds(topAssetId.toString());
+    setSideDto(dto);
+    return dto.setType(BarTokenOverlayDto.BarTokenOverlayTypeDto.TWO_IMAGES).build();
   }
 }
