@@ -52,35 +52,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-import javax.swing.AbstractButton;
-import javax.swing.AbstractListModel;
-import javax.swing.BorderFactory;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.DefaultListModel;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JEditorPane;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JMenuItem;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.JSlider;
-import javax.swing.JSpinner;
-import javax.swing.JTabbedPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.JToggleButton;
-import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
-import javax.swing.WindowConstants;
+import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -160,12 +132,14 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   public void initPlayerNotesTextArea() {
-    getNotesTextArea().addMouseListener(new MouseHandler(getNotesTextArea()));
+    getNotesTextArea().setContentType("text/html");
+    //getNotesTextArea().addMouseListener(new MouseHandler(getNotesTextArea()));
   }
 
   public void initGMNotesTextArea() {
+    getGMNotesTextArea().setContentType("text/html");
     if (MapTool.getPlayer().isGM()) {
-      getGMNotesTextArea().addMouseListener(new MouseHandler(getGMNotesTextArea()));
+      //getGMNotesTextArea().addMouseListener(new MouseHandler(getGMNotesTextArea()));
     }
     getComponent("@GMNotes").setEnabled(MapTool.getPlayer().isGM());
   }
@@ -481,12 +455,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JTabbedPane) getComponent("TabPane");
   }
 
-  public JTextArea getNotesTextArea() {
-    return (JTextArea) getComponent("@notes");
+  public JEditorPane getNotesTextArea() {
+    return (JEditorPane) getComponent("@notes");
   }
 
-  public JTextArea getGMNotesTextArea() {
-    return (JTextArea) getComponent("@GMNotes");
+  public JEditorPane getGMNotesTextArea() {
+    return (JEditorPane) getComponent("@GMNotes");
   }
 
   // private JLabel getGMNameLabel() {

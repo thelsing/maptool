@@ -193,10 +193,10 @@
                            <at name="componentclass">com.jeta.forms.gui.form.StandardComponent</at>
                           </super>
                           <at name="jetabeanclass">com.jeta.forms.gui.beans.JETABean</at>
-                          <at name="beanclass">javax.swing.JTextArea</at>
+                          <at name="beanclass">javax.swing.JEditorPane</at>
                           <at name="beanproperties">
                            <object classname="com.jeta.forms.store.memento.PropertiesMemento">
-                            <at name="classname">javax.swing.JTextArea</at>
+                            <at name="classname">javax.swing.JEditorPane</at>
                             <at name="properties">
                              <object classname="com.jeta.forms.store.support.PropertyMap">
                               <at name="border">
@@ -528,10 +528,10 @@
                            <at name="componentclass">com.jeta.forms.gui.form.StandardComponent</at>
                           </super>
                           <at name="jetabeanclass">com.jeta.forms.gui.beans.JETABean</at>
-                          <at name="beanclass">javax.swing.JTextArea</at>
+                          <at name="beanclass">javax.swing.JEditorPane</at>
                           <at name="beanproperties">
                            <object classname="com.jeta.forms.store.memento.PropertiesMemento">
-                            <at name="classname">javax.swing.JTextArea</at>
+                            <at name="classname">javax.swing.JEditorPane</at>
                             <at name="properties">
                              <object classname="com.jeta.forms.store.support.PropertyMap">
                               <at name="border">

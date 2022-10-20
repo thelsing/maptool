@@ -112,7 +112,7 @@ public class ToolbarPanel extends JToolBar {
     add(optionPanel);
 
     add(Box.createGlue());
-
+/*
     // the Volume icon
     add(
         createMuteButton(
@@ -177,7 +177,7 @@ public class ToolbarPanel extends JToolBar {
 
     tokenSelectionButtonAll.setSelected(true);
     // Jamz: End panel
-
+*/
     // the "Select Map" button
     mapselect = createZoneSelectionButton();
     add(mapselect);

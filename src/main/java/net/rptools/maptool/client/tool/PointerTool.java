@@ -1980,8 +1980,11 @@ public class PointerTool extends DefaultTool {
   }
 
   private String createHoverNote(Token marker) {
-    boolean showGMNotes = MapTool.getPlayer().isGM() && !StringUtil.isEmpty(marker.getGMNotes());
-    boolean showNotes = !StringUtil.isEmpty(marker.getNotes());
+    var notes = marker.getNotes();
+    var gmNotes = marker.getGMNotes();
+
+    boolean showGMNotes = MapTool.getPlayer().isGM() && !StringUtil.isEmpty(gmNotes);
+    boolean showNotes = !StringUtil.isEmpty(notes);
 
     StringBuilder builder = new StringBuilder();
     builder.append("<style>\n" +
@@ -2081,7 +2084,7 @@ public class PointerTool extends DefaultTool {
       builder.append("</span></b><br>");
     }
     if (showNotes) {
-      builder.append(marker.getNotes());
+      builder.append(notes);
       // add a gap between player and gmNotes
       if (showGMNotes) {
         builder.append("<br><br>");
@@ -2092,7 +2095,7 @@ public class PointerTool extends DefaultTool {
         builder.append("<b><span class='title'>GM Notes");
         builder.append("</span></b><br>");
       }
-      builder.append(marker.getGMNotes());
+      builder.append(gmNotes);
     }
     if (marker.getPortraitImage() != null) {
       BufferedImage image = ImageManager.getImageAndWait(marker.getPortraitImage());
@@ -2111,8 +2114,12 @@ public class PointerTool extends DefaultTool {
               .append(imgSize.height)
               .append("></tr></table>");
     }
-    String notes = builder.toString();
-    //notes = notes.replaceAll("\n", "<br>");
-    return notes;
+    String hoverText = builder.toString();
+
+    //notes = hoverText.replaceAll("\n", "<br>");
+    // fix some google docs stuff
+    hoverText = hoverText.replaceAll("white-space: pre-wrap", "");
+    hoverText = hoverText.replaceAll("size=\"[^\"]*\"", "");
+    return hoverText;
   }
 }
