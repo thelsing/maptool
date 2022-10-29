@@ -133,16 +133,19 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   private void connectContentTypeCBtoEP(JComboBox comboBox, JEditorPane pane) {
-    pane.setContentType(((ListItemProperty)comboBox.getSelectedItem()).getLabel());
-    comboBox.addItemListener((event)->{
-      var item = event.getItem();
-      if (event.getStateChange() == ItemEvent.SELECTED && item != null && item instanceof ListItemProperty) {
-        var listItem = (ListItemProperty)item;
-        var text = pane.getText();
-        pane.setContentType(listItem.getLabel());
-        pane.setText(text);
-      }
-    });
+    pane.setContentType(((ListItemProperty) comboBox.getSelectedItem()).getLabel());
+    comboBox.addItemListener(
+        (event) -> {
+          var item = event.getItem();
+          if (event.getStateChange() == ItemEvent.SELECTED
+              && item != null
+              && item instanceof ListItemProperty) {
+            var listItem = (ListItemProperty) item;
+            var text = pane.getText();
+            pane.setContentType(listItem.getLabel());
+            pane.setText(text);
+          }
+        });
   }
 
   public void initPlayerNotesTextArea() {

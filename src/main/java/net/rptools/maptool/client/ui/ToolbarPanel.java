@@ -16,7 +16,6 @@ package net.rptools.maptool.client.ui;
 
 import java.awt.*;
 import java.io.IOException;
-import java.util.Hashtable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicToolBarUI;
@@ -112,72 +111,72 @@ public class ToolbarPanel extends JToolBar {
     add(optionPanel);
 
     add(Box.createGlue());
-/*
-    // the Volume icon
-    add(
-        createMuteButton(
-            "net/rptools/maptool/client/image/audio/mute.png",
-            "net/rptools/maptool/client/image/audio/volume.png",
-            I18N.getText("tools.mute.tooltip"),
-            I18N.getText("tools.unmute.tooltip")));
+    /*
+        // the Volume icon
+        add(
+            createMuteButton(
+                "net/rptools/maptool/client/image/audio/mute.png",
+                "net/rptools/maptool/client/image/audio/volume.png",
+                I18N.getText("tools.mute.tooltip"),
+                I18N.getText("tools.unmute.tooltip")));
 
-    // the Volume slider
-    final int MAX_SLIDER = 10;
-    final int INIT_VALUE = (int) Math.round(MediaPlayerAdapter.getGlobalVolume() * MAX_SLIDER);
-    JSlider jslider = new JSlider(0, MAX_SLIDER, INIT_VALUE);
-    jslider.addChangeListener(
-        e -> MediaPlayerAdapter.setGlobalVolume((double) jslider.getValue() / MAX_SLIDER));
+        // the Volume slider
+        final int MAX_SLIDER = 10;
+        final int INIT_VALUE = (int) Math.round(MediaPlayerAdapter.getGlobalVolume() * MAX_SLIDER);
+        JSlider jslider = new JSlider(0, MAX_SLIDER, INIT_VALUE);
+        jslider.addChangeListener(
+            e -> MediaPlayerAdapter.setGlobalVolume((double) jslider.getValue() / MAX_SLIDER));
 
-    // Create the label table
-    Hashtable labelTable = new Hashtable();
-    labelTable.put(0, new JLabel("0"));
-    labelTable.put(MAX_SLIDER, new JLabel("100"));
-    jslider.setLabelTable(labelTable);
-    jslider.setPaintLabels(true);
+        // Create the label table
+        Hashtable labelTable = new Hashtable();
+        labelTable.put(0, new JLabel("0"));
+        labelTable.put(MAX_SLIDER, new JLabel("100"));
+        jslider.setLabelTable(labelTable);
+        jslider.setPaintLabels(true);
 
-    add(jslider);
-    // End slider
+        add(jslider);
+        // End slider
 
-    add(Box.createHorizontalStrut(10));
-    add(new JSeparator(JSeparator.VERTICAL));
-    add(Box.createHorizontalStrut(10));
+        add(Box.createHorizontalStrut(10));
+        add(new JSeparator(JSeparator.VERTICAL));
+        add(Box.createHorizontalStrut(10));
 
-    // Jamz: Adding new Token Selection option buttons
-    // Default selected button created with reference to set selection true
-    final JToggleButton tokenSelectionButtonAll =
-        createTokenSelectionButton(
-            "net/rptools/maptool/client/image/tool/select-all-blue.png",
-            "net/rptools/maptool/client/image/tool/select-all-blue-off.png",
-            I18N.getText("tools.token.fow.all.tooltip"),
-            TokenSelection.ALL);
+        // Jamz: Adding new Token Selection option buttons
+        // Default selected button created with reference to set selection true
+        final JToggleButton tokenSelectionButtonAll =
+            createTokenSelectionButton(
+                "net/rptools/maptool/client/image/tool/select-all-blue.png",
+                "net/rptools/maptool/client/image/tool/select-all-blue-off.png",
+                I18N.getText("tools.token.fow.all.tooltip"),
+                TokenSelection.ALL);
 
-    add(
-        createTokenSelectionButton(
-            "net/rptools/maptool/client/image/tool/select-me-blue.png",
-            "net/rptools/maptool/client/image/tool/select-me-blue-off.png",
-            I18N.getText("tools.token.fow.gm.tooltip"),
-            TokenSelection.GM));
-    add(tokenSelectionButtonAll);
-    add(
-        createTokenSelectionButton(
-            "net/rptools/maptool/client/image/tool/select-pc-blue.png",
-            "net/rptools/maptool/client/image/tool/select-pc-blue-off.png",
-            I18N.getText("tools.token.fow.pc.tooltip"),
-            TokenSelection.PC));
-    add(
-        createTokenSelectionButton(
-            "net/rptools/maptool/client/image/tool/select-npc-blue.png",
-            "net/rptools/maptool/client/image/tool/select-npc-blue-off.png",
-            I18N.getText("tools.token.fow.npc.tooltip"),
-            TokenSelection.NPC));
+        add(
+            createTokenSelectionButton(
+                "net/rptools/maptool/client/image/tool/select-me-blue.png",
+                "net/rptools/maptool/client/image/tool/select-me-blue-off.png",
+                I18N.getText("tools.token.fow.gm.tooltip"),
+                TokenSelection.GM));
+        add(tokenSelectionButtonAll);
+        add(
+            createTokenSelectionButton(
+                "net/rptools/maptool/client/image/tool/select-pc-blue.png",
+                "net/rptools/maptool/client/image/tool/select-pc-blue-off.png",
+                I18N.getText("tools.token.fow.pc.tooltip"),
+                TokenSelection.PC));
+        add(
+            createTokenSelectionButton(
+                "net/rptools/maptool/client/image/tool/select-npc-blue.png",
+                "net/rptools/maptool/client/image/tool/select-npc-blue-off.png",
+                I18N.getText("tools.token.fow.npc.tooltip"),
+                TokenSelection.NPC));
 
-    add(Box.createHorizontalStrut(10));
-    add(new JSeparator(JSeparator.VERTICAL));
-    add(Box.createHorizontalStrut(10));
+        add(Box.createHorizontalStrut(10));
+        add(new JSeparator(JSeparator.VERTICAL));
+        add(Box.createHorizontalStrut(10));
 
-    tokenSelectionButtonAll.setSelected(true);
-    // Jamz: End panel
-*/
+        tokenSelectionButtonAll.setSelected(true);
+        // Jamz: End panel
+    */
     // the "Select Map" button
     mapselect = createZoneSelectionButton();
     add(mapselect);
