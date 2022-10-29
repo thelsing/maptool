@@ -279,7 +279,7 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven { url = 'https://maptool.craigs-stuff.net/repo/' }
-    maven { url = 'https://nerps.net/repo/' }
+ //   maven { url = 'https://nerps.net/repo/' }
     maven { url = 'https://jitpack.io' }
 }
 
@@ -319,7 +319,7 @@ dependencies {
     implementation 'commons-cli:commons-cli:1.4'
 
     // RPTool Libs
-    implementation 'net.rptools.decktool:decktool:1.0.b1'
+    //implementation 'net.rptools.decktool:decktool:1.0.b1'
     implementation 'com.github.RPTools:maptool-resources:1.6.0'
     implementation 'com.github.RPTools:parser:1.8.3'
     implementation 'net.rptools.dicelib:dicelib:1.8.3'
@@ -354,15 +354,22 @@ dependencies {
     implementation 'org.hibernate:antlr:2.7.5H3'
     implementation 'org.reflections:reflections:0.9.11'
     implementation 'org.mozilla:rhino:1.7.12'
-    implementation 'ca.odell.renderpack:renderpack:1.2004'
+
+    // find running instances in LAN
     implementation 'net.tsc.servicediscovery:servicediscovery:1.0.b5'
+
+    //maybe replace with jupnp
     implementation 'net.sbbi.upnp:upnplib:1.0.9-nodebug'
-    implementation 'com.withay:withay-util:1.0'
+
+    // custom binding stuff, should probably be replace with Beans Binding (JSR 295)
+    implementation 'yasb:yasb:0.2-21012007'
+
+    implementation 'de.muntjak.tinylookandfeel:tinylaf-nocp:1.4.0'
+
     implementation 'xmlpull:xmlpull:1.1.3.1'
     implementation 'xpp3:xpp3_min:1.1.4c'
     implementation 'com.thoughtworks.xstream:xstream:1.4.19'
-    implementation 'yasb:yasb:0.2-21012007'
-    implementation 'de.muntjak.tinylookandfeel:tinylaf-nocp:1.4.0'
+
     implementation 'com.formdev:flatlaf:2.4'
     implementation 'com.formdev:flatlaf-intellij-themes:2.4'
     implementation 'com.formdev:flatlaf-extras:2.4'
