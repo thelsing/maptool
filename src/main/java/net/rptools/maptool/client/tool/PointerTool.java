@@ -453,7 +453,7 @@ public class PointerTool extends DefaultTool {
     try {
       HTMLFrameFactory.show(token.getName(), HTMLFrameFactory.FrameType.DIALOG,
               true, "height="+ MapTool.getFrame().getHeight() * 8 / 10
-                      +";width="+ MapTool.getFrame().getWidth() * 5/10 , createHoverNote(token));
+                      +";width="+ MapTool.getFrame().getWidth() * 8/10 , createHoverNote(token));
     } catch (Exception e) {
       MapTool.showError(e.toString());
     }
@@ -2119,6 +2119,7 @@ public class PointerTool extends DefaultTool {
     //notes = hoverText.replaceAll("\n", "<br>");
     // fix some google docs stuff
     hoverText = hoverText.replaceAll("white-space: pre-wrap", "");
+    hoverText = hoverText.replaceAll("white-space: pre", "");
     hoverText = hoverText.replaceAll("size=\"[^\"]*\"", "");
     return hoverText;
   }
