@@ -15,6 +15,7 @@
 package net.rptools.maptool.client.ui.token;
 
 import com.jeta.forms.components.colors.JETAColorWell;
+import com.jeta.forms.store.properties.ListItemProperty;
 import com.jgoodies.forms.layout.CellConstraints;
 import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
@@ -131,17 +132,32 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     panelInit();
   }
 
+  private void connectContentTypeCBtoEP(JComboBox comboBox, JEditorPane pane) {
+    pane.setContentType(((ListItemProperty)comboBox.getSelectedItem()).getLabel());
+    comboBox.addItemListener((event)->{
+      var item = event.getItem();
+      if (event.getStateChange() == ItemEvent.SELECTED && item != null && item instanceof ListItemProperty) {
+        var listItem = (ListItemProperty)item;
+        var text = pane.getText();
+        pane.setContentType(listItem.getLabel());
+        pane.setText(text);
+      }
+    });
+  }
+
   public void initPlayerNotesTextArea() {
-    getNotesTextArea().setContentType("text/html");
-    //getNotesTextArea().addMouseListener(new MouseHandler(getNotesTextArea()));
+    getNotesEditPane().addMouseListener(new MouseHandler(getNotesEditPane()));
+    connectContentTypeCBtoEP(getNotesComboBox(), getNotesEditPane());
   }
 
   public void initGMNotesTextArea() {
-    getGMNotesTextArea().setContentType("text/html");
-    if (MapTool.getPlayer().isGM()) {
-      //getGMNotesTextArea().addMouseListener(new MouseHandler(getGMNotesTextArea()));
+    boolean isGm = MapTool.getPlayer().isGM();
+    if (isGm) {
+      getGmNotesEditPane().addMouseListener(new MouseHandler(getGmNotesEditPane()));
     }
-    getComponent("@GMNotes").setEnabled(MapTool.getPlayer().isGM());
+    connectContentTypeCBtoEP(getGmNotesComboBox(), getGmNotesEditPane());
+    getGmNotesComboBox().setEnabled(isGm);
+    getGmNotesEditPane().setEnabled(isGm);
   }
 
   public void initTerrainModifierOperationComboBox() {
@@ -455,11 +471,19 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JTabbedPane) getComponent("TabPane");
   }
 
-  public JEditorPane getNotesTextArea() {
+  public JEditorPane getNotesEditPane() {
     return (JEditorPane) getComponent("@notes");
   }
 
-  public JEditorPane getGMNotesTextArea() {
+  public JComboBox getNotesComboBox() {
+    return (JComboBox) getComponent("@notesContentType");
+  }
+
+  public JComboBox getGmNotesComboBox() {
+    return (JComboBox) getComponent("@gmNotesContentType");
+  }
+
+  public JEditorPane getGmNotesEditPane() {
     return (JEditorPane) getComponent("@GMNotes");
   }
 
@@ -1991,9 +2015,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   // HANDLER
   public static class MouseHandler extends MouseAdapter {
 
-    JTextArea source;
+    JTextComponent source;
 
-    public MouseHandler(JTextArea source) {
+    public MouseHandler(JTextComponent source) {
       this.source = source;
     }
 
