@@ -2253,7 +2253,8 @@ public class AppActions {
                         serverProps.getPort(),
                         serverProps.getRPToolsName(),
                         "localhost",
-                        serverProps.getUseEasyConnect());
+                        serverProps.getUseEasyConnect(),
+                        serverProps.getUseWebRtc());
 
                 // Use the existing campaign
                 Campaign campaign = MapTool.getCampaign();
@@ -2425,7 +2426,8 @@ public class AppActions {
                           "",
                           dialog.getPort(),
                           prefs.getServerName(),
-                          dialog.getServer());
+                          dialog.getServer(),
+                          dialog.getUseWebRTC());
 
                   String password =
                       prefs.getUsePublicKey()
