@@ -40,12 +40,7 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.awt.geom.Area;
 import java.io.File;
 import java.io.FileInputStream;
@@ -132,7 +127,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     panelInit();
   }
 
-  private void connectContentTypeCBtoEP(JComboBox comboBox, JEditorPane pane) {
+  private void connectContentType(JComboBox comboBox, JEditorPane pane) {
     pane.setContentType(((ListItemProperty) comboBox.getSelectedItem()).getLabel());
     comboBox.addItemListener(
         (event) -> {
@@ -148,19 +143,41 @@ public class EditTokenDialog extends AbeillePanel<Token> {
         });
   }
 
-  public void initPlayerNotesTextArea() {
-    getNotesEditPane().addMouseListener(new MouseHandler(getNotesEditPane()));
-    connectContentTypeCBtoEP(getNotesComboBox(), getNotesEditPane());
+  private void addFixupPasteHandler(JEditorPane pane) {
+    var pasteAction = pane.getActionMap().get("paste-from-clipboard");
+    pane.getActionMap().put("paste-from-clipboard", new AbstractAction() {
+
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        pasteAction.actionPerformed(e);
+
+        // fix some google docs stuff
+        var text = pane.getText();
+        text = text.replaceAll("white-space: pre-wrap", "");
+        text = text.replaceAll("white-space: pre", "");
+        text = text.replaceAll("size=\"[^\"]*\"", "");
+        pane.setText(text);
+      }
+    });
   }
 
-  public void initGMNotesTextArea() {
+  public void initPlayerNotesEditorPane() {
+    var pane = getPlayerNotesEditorPane();
+    pane.addMouseListener(new MouseHandler(pane));
+    connectContentType(getNotesComboBox(), pane);
+    addFixupPasteHandler(pane);
+  }
+
+  public void initGMNotesEditorPane() {
     boolean isGm = MapTool.getPlayer().isGM();
+    var pane = getGmNotesEditorPane();
     if (isGm) {
-      getGmNotesEditPane().addMouseListener(new MouseHandler(getGmNotesEditPane()));
+      pane.addMouseListener(new MouseHandler(pane));
     }
-    connectContentTypeCBtoEP(getGmNotesComboBox(), getGmNotesEditPane());
+    connectContentType(getGmNotesComboBox(), pane);
     getGmNotesComboBox().setEnabled(isGm);
-    getGmNotesEditPane().setEnabled(isGm);
+    pane.setEnabled(isGm);
+    addFixupPasteHandler(pane);
   }
 
   public void initTerrainModifierOperationComboBox() {
@@ -474,7 +491,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JTabbedPane) getComponent("TabPane");
   }
 
-  public JEditorPane getNotesEditPane() {
+  public JEditorPane getPlayerNotesEditorPane() {
     return (JEditorPane) getComponent("@notes");
   }
 
@@ -486,7 +503,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JComboBox) getComponent("@gmNotesContentType");
   }
 
-  public JEditorPane getGmNotesEditPane() {
+  public JEditorPane getGmNotesEditorPane() {
     return (JEditorPane) getComponent("@GMNotes");
   }
 

@@ -2194,6 +2194,9 @@ public class PointerTool extends DefaultTool {
       builder.append("</span></b><br>");
     }
     if (showNotes) {
+      if(!notes.startsWith("<html>")) {
+        notes = notes.replaceAll("\n", "<br>");
+      }
       builder.append(notes);
       // add a gap between player and gmNotes
       if (showGMNotes) {
@@ -2204,6 +2207,9 @@ public class PointerTool extends DefaultTool {
       if (showNotes) {
         builder.append("<b><span class='title'>GM Notes");
         builder.append("</span></b><br>");
+      }
+      if(!gmNotes.startsWith("<html>")) {
+        gmNotes = gmNotes.replaceAll("\n", "<br>");
       }
       builder.append(gmNotes);
     }
@@ -2225,12 +2231,6 @@ public class PointerTool extends DefaultTool {
           .append("></tr></table>");
     }
     String hoverText = builder.toString();
-
-    // notes = hoverText.replaceAll("\n", "<br>");
-    // fix some google docs stuff
-    hoverText = hoverText.replaceAll("white-space: pre-wrap", "");
-    hoverText = hoverText.replaceAll("white-space: pre", "");
-    hoverText = hoverText.replaceAll("size=\"[^\"]*\"", "");
     return hoverText;
   }
 }
