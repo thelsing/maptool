@@ -129,37 +129,47 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   private void connectContentType(JComboBox comboBox, JEditorPane pane) {
-    pane.setContentType(((ListItemProperty) comboBox.getSelectedItem()).getLabel());
+    pane.setContentType(contentFromComboBoxItem(comboBox.getSelectedItem()));
     comboBox.addItemListener(
         (event) -> {
           var item = event.getItem();
-          if (event.getStateChange() == ItemEvent.SELECTED
-              && item != null
-              && item instanceof ListItemProperty) {
-            var listItem = (ListItemProperty) item;
+          if (event.getStateChange() == ItemEvent.SELECTED && item != null) {
+
             var text = pane.getText();
-            pane.setContentType(listItem.getLabel());
+            pane.setContentType(contentFromComboBoxItem(item));
             pane.setText(text);
           }
         });
   }
 
+  private String contentFromComboBoxItem(Object item) {
+    if (item instanceof ListItemProperty listItemProperty) {
+      return listItemProperty.getLabel();
+    } else if (item instanceof String string) {
+      return string;
+    }
+    throw new RuntimeException("ComboBoxItem has unexpected type: " + item.getClass().getName());
+  }
+
   private void addFixupPasteHandler(JEditorPane pane) {
     var pasteAction = pane.getActionMap().get("paste-from-clipboard");
-    pane.getActionMap().put("paste-from-clipboard", new AbstractAction() {
+    pane.getActionMap()
+        .put(
+            "paste-from-clipboard",
+            new AbstractAction() {
 
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        pasteAction.actionPerformed(e);
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                pasteAction.actionPerformed(e);
 
-        // fix some google docs stuff
-        var text = pane.getText();
-        text = text.replaceAll("white-space: pre-wrap", "");
-        text = text.replaceAll("white-space: pre", "");
-        text = text.replaceAll("size=\"[^\"]*\"", "");
-        pane.setText(text);
-      }
-    });
+                // fix some google docs stuff
+                var text = pane.getText();
+                text = text.replaceAll("white-space: pre-wrap", "");
+                text = text.replaceAll("white-space: pre", "");
+                text = text.replaceAll("size=\"[^\"]*\"", "");
+                pane.setText(text);
+              }
+            });
   }
 
   public void initPlayerNotesEditorPane() {
@@ -515,11 +525,11 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   public JComboBox getNotesComboBox() {
-    return (JComboBox) getComponent("@notesContentType");
+    return (JComboBox) getComponent("notesContentType");
   }
 
   public JComboBox getGmNotesComboBox() {
-    return (JComboBox) getComponent("@gmNotesContentType");
+    return (JComboBox) getComponent("gmNotesContentType");
   }
 
   public JEditorPane getGmNotesEditorPane() {

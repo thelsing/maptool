@@ -40,6 +40,9 @@ import net.rptools.maptool.client.functions.FindTokenFunctions;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.ui.*;
+import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
+import net.rptools.maptool.client.ui.theme.Images;
+import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
@@ -2062,7 +2065,20 @@ public class PointerTool extends DefaultTool {
 
   private String createHoverNote(Token marker, boolean stubOnly) {
     var notes = marker.getNotes();
+    var text = notes;
+    text = text.replaceAll("white-space: pre-wrap", "");
+    text = text.replaceAll("white-space: pre", "");
+    text = text.replaceAll("size=\"[^\"]*\"", "");
+    marker.setNotes(text);
+    notes = marker.getNotes();
+
     var gmNotes = marker.getGMNotes();
+    text = gmNotes;
+    text = text.replaceAll("white-space: pre-wrap", "");
+    text = text.replaceAll("white-space: pre", "");
+    text = text.replaceAll("size=\"[^\"]*\"", "");
+    marker.setGMNotes(text);
+    gmNotes = marker.getGMNotes();
 
     boolean showGMNotes = !stubOnly && MapTool.getPlayer().isGM() && !StringUtil.isEmpty(gmNotes);
     boolean showNotes = !stubOnly && !StringUtil.isEmpty(notes);
@@ -2166,7 +2182,7 @@ public class PointerTool extends DefaultTool {
       builder.append("</span></b><br>");
     }
     if (showNotes) {
-      if(!notes.startsWith("<html>")) {
+      if (!notes.startsWith("<html>")) {
         notes = notes.replaceAll("\n", "<br>");
       }
       builder.append(notes);
@@ -2180,7 +2196,7 @@ public class PointerTool extends DefaultTool {
         builder.append("<b><span class='title'>GM Notes");
         builder.append("</span></b><br>");
       }
-      if(!gmNotes.startsWith("<html>")) {
+      if (!gmNotes.startsWith("<html>")) {
         gmNotes = gmNotes.replaceAll("\n", "<br>");
       }
       builder.append(gmNotes);
