@@ -59,6 +59,11 @@ import javax.swing.text.JTextComponent;
 import javax.swing.text.Position.Bias;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
+
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
+import javafx.scene.web.HTMLEditor;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.maptool.client.AppConstants;
@@ -68,6 +73,7 @@ import net.rptools.maptool.client.MapToolUtil;
 import net.rptools.maptool.client.functions.TokenBarFunction;
 import net.rptools.maptool.client.swing.AbeillePanel;
 import net.rptools.maptool.client.swing.GenericDialog;
+import net.rptools.maptool.client.swing.htmleditorsplit.HtmlEditorSplit;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.zone.vbl.TokenVBL;
@@ -84,12 +90,17 @@ import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.ImageManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.fife.rsta.ac.LanguageSupportFactory;
+import org.fife.rsta.ui.CollapsibleSectionPanel;
+import org.fife.rsta.ui.search.*;
+import org.fife.ui.autocomplete.AutoCompletion;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import org.fife.ui.rtextarea.SearchContext;
 import org.fife.ui.rtextarea.SearchEngine;
+import org.fife.ui.rtextarea.SearchResult;
 
 /** This dialog is used to display all of the token states and notes to the user. */
 public class EditTokenDialog extends AbeillePanel<Token> {
@@ -107,6 +118,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   private final RSyntaxTextArea xmlStatblockRSyntaxTextArea = new RSyntaxTextArea(2, 2);
   private final RSyntaxTextArea textStatblockRSyntaxTextArea = new RSyntaxTextArea(2, 2);
   private final WordWrapCellRenderer propertyCellRenderer = new WordWrapCellRenderer();
+
   private boolean tokenSaved;
   private GenericDialog dialog;
   private ImageAssetPanel imagePanel;
@@ -173,14 +185,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   public void initPlayerNotesEditorPane() {
-    var pane = getPlayerNotesEditorPane();
-    pane.addMouseListener(new MouseHandler(pane));
-    connectContentType(getNotesComboBox(), pane);
-    addFixupPasteHandler(pane);
+    var editor = getPlayerNotesEditor();
+    editor.addMouseListener(new MouseHandler(editor));
   }
 
   public void initGMNotesEditorPane() {
-    boolean isGm = MapTool.getPlayer().isGM();
+    /*boolean isGm = MapTool.getPlayer().isGM();
     var pane = getGmNotesEditorPane();
     if (isGm) {
       pane.addMouseListener(new MouseHandler(pane));
@@ -188,7 +198,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     connectContentType(getGmNotesComboBox(), pane);
     getGmNotesComboBox().setEnabled(isGm);
     pane.setEnabled(isGm);
-    addFixupPasteHandler(pane);
+    addFixupPasteHandler(pane);*/
   }
 
   public void initTerrainModifierOperationComboBox() {
@@ -228,7 +238,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     bind(token);
 
     getRootPane().setDefaultButton(getOKButton());
-    getComponent("@GMNotes").setEnabled(MapTool.getPlayer().isGM());
+    getComponent("gmNotesEditor").setEnabled(MapTool.getPlayer().isGM());
     getComponent("@GMName").setEnabled(MapTool.getPlayer().isGM());
 
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -270,6 +280,10 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   public void bind(final Token token) {
     // ICON
     getTokenIconPanel().setImageId(token.getImageAssetId());
+
+    // NOTES
+    getGMNotesEditor().setText(token.getGMNotes());
+    getPlayerNotesEditor().setText(token.getNotes());
 
     // TYPE
     getTypeCombo().setSelectedItem(token.getType());
@@ -520,33 +534,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JTabbedPane) getComponent("TabPane");
   }
 
-  public JEditorPane getPlayerNotesEditorPane() {
-    return (JEditorPane) getComponent("@notes");
+  public HtmlEditorSplit getPlayerNotesEditor() {
+    return (HtmlEditorSplit) getComponent("playerNotesEditor");
   }
-
-  public JComboBox getNotesComboBox() {
-    return (JComboBox) getComponent("notesContentType");
-  }
-
-  public JComboBox getGmNotesComboBox() {
-    return (JComboBox) getComponent("gmNotesContentType");
-  }
-
-  public JEditorPane getGmNotesEditorPane() {
-    return (JEditorPane) getComponent("@GMNotes");
-  }
-
-  // private JLabel getGMNameLabel() {
-  // return (JLabel) getComponent("tokenGMNameLabel");
-  // }
-  //
-  // public JTextField getNameTextField() {
-  // return (JTextField) getComponent("tokenName");
-  // }
-  //
-  // public JTextField getGMNameTextField() {
-  // return (JTextField) getComponent("tokenGMName");
-  // }
 
   public void initTypeCombo() {
     getTypeCombo().setModel(new DefaultComboBoxModel<>(Token.Type.values()));
@@ -751,6 +741,10 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     if (getTypeCombo().getSelectedItem() != token.getType()) {
       token.setType((Token.Type) getTypeCombo().getSelectedItem());
     }
+
+    // NOTES
+    token.setGMNotes(getGMNotesEditor().getText());
+    token.setNotes(getPlayerNotesEditor().getText());
 
     // SIZE
     token.setSnapToScale(getSizeCombo().getSelectedIndex() != 0);
@@ -1057,8 +1051,8 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JCheckBox) getComponent("@visibleOnlyToOwner");
   }
 
-  private JPanel getGMNotesPanel() {
-    return (JPanel) getComponent("gmNotesPanel");
+  private HtmlEditorSplit getGMNotesEditor() {
+    return (HtmlEditorSplit) getComponent("gmNotesEditor");
   }
 
   private JTextField getNameField() {
@@ -2070,9 +2064,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   // HANDLER
   public static class MouseHandler extends MouseAdapter {
 
-    JTextComponent source;
+    HtmlEditorSplit source;
 
-    public MouseHandler(JTextComponent source) {
+    public MouseHandler(HtmlEditorSplit source) {
       this.source = source;
     }
 
