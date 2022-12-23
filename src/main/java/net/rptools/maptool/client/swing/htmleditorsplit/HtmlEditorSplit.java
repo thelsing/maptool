@@ -55,4 +55,10 @@ public class HtmlEditorSplit extends JPanel {
   public String getSelectedText() {
     return gui.getSelectedText();
   }
+
+  @Override
+  public void setEnabled(boolean enabled) {
+    super.setEnabled(enabled);
+    gui.setEnabled(enabled);
+  }
 }

@@ -126,9 +126,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   public void initGMNotesEditorPane() {
-    boolean isGm = MapTool.getPlayer().isGM();
-    var pane = getGMNotesEditor();
-    pane.setEnabled(isGm);
+    setGmNotesEnabled(MapTool.getPlayer().isGM());
   }
 
   public void initTerrainModifierOperationComboBox() {
@@ -168,7 +166,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     bind(token);
 
     getRootPane().setDefaultButton(getOKButton());
-    getComponent("gmNotesEditor").setEnabled(MapTool.getPlayer().isGM());
+    setGmNotesEnabled(MapTool.getPlayer().isGM());
     getComponent("@GMName").setEnabled(MapTool.getPlayer().isGM());
 
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -451,6 +449,13 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     // replaceComponent("sheetPanel", "characterSheet", controller.getPanel());
 
     super.bind(token);
+  }
+
+  private void setGmNotesEnabled(boolean enabled) {
+    JTabbedPane tabbedPane = getTabbedPane();
+    String libTokenTile = I18N.getString("EditTokenDialog.label.gmnotes");
+    tabbedPane.setEnabledAt(tabbedPane.indexOfTab(libTokenTile), enabled);
+    getGMNotesEditor().setEnabled(enabled);
   }
 
   private void setLibTokenPaneEnabled(boolean show) {

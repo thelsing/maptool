@@ -102,7 +102,7 @@ public class TokenPropertiesDialog {
     final JPanel panel1 = new JPanel();
     panel1.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
     panel1.setName("notesPanel");
-    panel1.setVisible(true);
+    panel1.setVisible(false);
     tabPanel.addTab(
         this.$$$getMessageFromBundle$$$(
             "net/rptools/maptool/language/i18n", "EditTokenDialog.tab.notes"),
@@ -125,7 +125,8 @@ public class TokenPropertiesDialog {
             false));
     final JPanel panel2 = new JPanel();
     panel2.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
-    panel2.setVisible(false);
+    panel2.setName("gmNotesPanel");
+    panel2.setVisible(true);
     tabPanel.addTab(
         this.$$$getMessageFromBundle$$$(
             "net/rptools/maptool/language/i18n", "EditTokenDialog.label.gmnotes"),
