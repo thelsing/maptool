@@ -2186,8 +2186,12 @@ public class PointerTool extends DefaultTool {
       builder.append("</span></b><br>");
     }
     if (showNotes) {
-      if (!notes.startsWith("<html>")) {
+      if (!notes.startsWith("<html")) {
         notes = notes.replaceAll("\n", "<br>");
+      }
+      if (showGMNotes) {
+        notes = notes.replaceAll("</html>", "");
+        notes = notes.replaceAll("</body>", "");
       }
       builder.append(notes);
       // add a gap between player and gmNotes
@@ -2197,10 +2201,11 @@ public class PointerTool extends DefaultTool {
     }
     if (showGMNotes) {
       if (showNotes) {
-        builder.append("<b><span class='title'>GM Notes");
-        builder.append("</span></b><br>");
+        builder.append("<b><span class='title'>GM Notes</span></b><br>");
+        gmNotes = gmNotes.replaceAll("<html[^>]*>", "");
+        gmNotes = gmNotes.replaceAll("<body[^>]*>", "");
       }
-      if (!gmNotes.startsWith("<html>")) {
+      if (!gmNotes.startsWith("<html")) {
         gmNotes = gmNotes.replaceAll("\n", "<br>");
       }
       builder.append(gmNotes);
