@@ -360,7 +360,7 @@ dependencies {
     implementation 'com.thoughtworks.xstream:xstream:1.4.19'
     implementation 'yasb:yasb:0.2-21012007'
     implementation 'de.muntjak.tinylookandfeel:tinylaf-nocp:1.4.0'
-    implementation 'com.formdev:flatlaf:2.4'
+    implementation 'com.formdev:flatlaf:3.0'
     implementation 'com.formdev:flatlaf-intellij-themes:2.4'
     implementation 'com.formdev:flatlaf-extras:2.4'
     implementation 'com.formdev:svgSalamander:1.1.3'
