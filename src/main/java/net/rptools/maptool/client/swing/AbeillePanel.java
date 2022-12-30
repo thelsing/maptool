@@ -22,8 +22,10 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.HashMap;
 import javax.swing.*;
+import javax.swing.text.JTextComponent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import yasb.Binder;
@@ -81,19 +83,9 @@ public class AbeillePanel<T> extends JPanel {
         });
   }
 
-  public AbeillePanel(String panelForm) {
-    panel = new FormPanel(panelForm);
-    init();
-  }
-
   public AbeillePanel(JComponent mainPanel) {
     panel = mainPanel;
-    init();
-  }
-
-  private void init() {
     setLayout(new BorderLayout());
-    FormPanelI18N.translateComponent(panel);
     add(panel, "Center");
   }
 
@@ -114,7 +106,7 @@ public class AbeillePanel<T> extends JPanel {
     }
   }
 
-  protected void replaceComponent(String panelName, String name, Component replacement) {
+  public void replaceComponent(String panelName, String name, Component replacement) {
     if (panel instanceof FormPanel formPanel) {
       formPanel.getFormAccessor(panelName).replaceBean(name, replacement);
       formPanel.reset();
@@ -160,7 +152,7 @@ public class AbeillePanel<T> extends JPanel {
     }
   }
 
-  protected Component getComponent(String name) {
+  public Component getComponent(String name) {
     if (panel instanceof FormPanel formPanel) {
       return formPanel.getComponentByName(name);
     }
@@ -224,6 +216,57 @@ public class AbeillePanel<T> extends JPanel {
   /** Breaks the binding between the model and the view. */
   public void unbind() {
     model = null;
+  }
+
+  public AbstractButton getButton(String name) {
+    return (AbstractButton) getComponent(name);
+  }
+
+  public JRadioButton getRadioButton(String name) {
+    return (JRadioButton) getComponent(name);
+  }
+
+  public JComboBox getComboBox(String name) {
+    return (JComboBox) getComponent(name);
+  }
+
+  public JLabel getLabel(String name) {
+    return (JLabel) getComponent(name);
+  }
+
+  public JTabbedPane getTabbedPane(String name) {
+    return (JTabbedPane) getComponent(name);
+  }
+
+  public JTextField getTextField(String name) {
+    return (JTextField) getComponent(name);
+  }
+
+  public Collection<Component> getAllCompoments() {
+    if (componentMap == null) {
+      createComponentMap();
+    }
+    return componentMap.values();
+  }
+
+  public JTree getTree(String name) {
+    return (JTree) getComponent(name);
+  }
+
+  public JSpinner getSpinner(String name) {
+    return (JSpinner) getComponent(name);
+  }
+
+  public JList getList(String name) {
+    return (JList) getComponent(name);
+  }
+
+  public JCheckBox getCheckBox(String name) {
+    return (JCheckBox) getComponent(name);
+  }
+
+  public JTextComponent getTextComponent(String name) {
+    return (JTextComponent) getComponent(name);
   }
 
   public static class RadioButtonAdapter extends AbstractComponentAdapter implements ItemListener {
