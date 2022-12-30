@@ -75,6 +75,8 @@ import net.rptools.maptool.client.ui.htmlframe.HTMLOverlayPanel;
 import net.rptools.maptool.client.ui.lookuptable.LookupTablePanel;
 import net.rptools.maptool.client.ui.macrobuttons.buttons.MacroButton;
 import net.rptools.maptool.client.ui.macrobuttons.panels.*;
+import net.rptools.maptool.client.ui.notebook.NoteBookPanel;
+import net.rptools.maptool.client.ui.notebook.NoteBookUI;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
@@ -182,6 +184,11 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private final TextureChooserPanel textureChooserPanel;
   private LookupTablePanel lookupTablePanel;
 
+  /** The UI element for displaying note books. */
+  private final NoteBookPanel noteBookPanel = NoteBookPanel.createMapBookmarkPanel();
+
+  private final NoteBookUI noteBookUI;
+
   // External filename support
   private JFileChooser loadPropsFileChooser;
   private JFileChooser loadFileChooser;
@@ -216,6 +223,10 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private final ImpersonatePanel impersonatePanel = new ImpersonatePanel();
 
   private final DragImageGlassPane dragImageGlassPane = new DragImageGlassPane();
+
+  public void showNoteBook() {
+    noteBookUI.show();
+  }
 
   private final class KeyListenerDeleteDraw implements KeyListener {
     private final JTree tree;
@@ -330,7 +341,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     }
   }
 
-  public MapToolFrame(JMenuBar menuBar) {
+  public MapToolFrame(JMenuBar menuBar, NoteBookUI nbUI) {
     // Set up the frame
     super(AppConstants.APP_NAME);
 
@@ -345,6 +356,8 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     setIconImage(RessourceManager.getImage(Images.MAPTOOL_LOGO_MINI));
     // Notify duration
     initializeNotifyDuration();
+
+    noteBookUI = nbUI;
 
     // Components
     glassPane = new GlassPane();
@@ -513,7 +526,8 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     CAMPAIGN("Campaign"),
     GM("Gm"),
     SELECTION("Selected"),
-    IMPERSONATED("Impersonate");
+    IMPERSONATED("Impersonate"),
+    NOTEBOOK("NoteBook");
     // @formatter:on
 
     private String displayName;
@@ -687,6 +701,12 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
             MTFrame.IMPERSONATED,
             impersonate,
             RessourceManager.getSmallIcon(Icons.WINDOW_IMPERSONATED_MACROS)));
+    frameMap.put(
+        MTFrame.NOTEBOOK,
+        createDockingFrame(
+            MTFrame.NOTEBOOK,
+            noteBookPanel,
+            RessourceManager.getSmallIcon(Icons.WINDOW_SELECTED_TOKEN)));
   }
 
   private JScrollPane scrollPaneFactory(JPanel panel) {
@@ -726,6 +746,10 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
       lookupTablePanel = new LookupTablePanel();
     }
     return lookupTablePanel;
+  }
+
+  public NoteBookPanel getNoteBookPanel() {
+    return noteBookPanel;
   }
 
   /**

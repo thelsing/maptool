@@ -72,6 +72,7 @@ import net.rptools.maptool.client.ui.MapToolFrame;
 import net.rptools.maptool.client.ui.OSXAdapter;
 import net.rptools.maptool.client.ui.StartServerDialogPreferences;
 import net.rptools.maptool.client.ui.logger.LogConsoleFrame;
+import net.rptools.maptool.client.ui.notebook.NoteBookUI;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.theme.ThemeSupport;
@@ -93,10 +94,7 @@ import net.rptools.maptool.model.player.Player;
 import net.rptools.maptool.model.player.PlayerDatabase;
 import net.rptools.maptool.model.player.PlayerDatabaseFactory;
 import net.rptools.maptool.model.player.Players;
-import net.rptools.maptool.model.zones.TokensAdded;
-import net.rptools.maptool.model.zones.TokensRemoved;
-import net.rptools.maptool.model.zones.ZoneAdded;
-import net.rptools.maptool.model.zones.ZoneRemoved;
+import net.rptools.maptool.model.zones.*;
 import net.rptools.maptool.protocol.syrinscape.SyrinscapeURLStreamHandler;
 import net.rptools.maptool.server.MapToolServer;
 import net.rptools.maptool.server.ServerCommand;
@@ -662,7 +660,14 @@ public class MapTool {
 
     handler = new ClientMessageHandler();
 
-    setClientFrame(new MapToolFrame(menuBar));
+    NoteBookUI noteBookUI = new NoteBookUI();
+    setClientFrame(new MapToolFrame(menuBar, noteBookUI));
+
+    /*
+     * Want to run the init of the of the NoteBook UI later as we want to have initaliasation
+     * completed first to avoid a race condition.
+     */
+    SwingUtilities.invokeLater(() -> noteBookUI.init(MapTool.getFrame()));
 
     serverCommand = new ServerCommandClientImpl();
 
@@ -936,6 +941,7 @@ public class MapTool {
 
   public static void setCampaign(Campaign campaign, GUID defaultRendererId) {
     // Load up the new
+    Campaign oldCampaign = MapTool.campaign;
     MapTool.campaign = campaign;
     ZoneRenderer currRenderer = null;
 
@@ -972,6 +978,8 @@ public class MapTool {
     MapTool.getFrame().getCampaignPanel().reset();
     MapTool.getFrame().getGmPanel().reset();
     UserDefinedMacroFunctions.getInstance().handleCampaignLoadMacroEvent();
+
+    new MapToolEventBus().getMainEventBus().post(new CampaignChanged(oldCampaign, campaign));
   }
 
   public static void setServerPolicy(ServerPolicy policy) {
@@ -1568,7 +1576,7 @@ public class MapTool {
 
     String versionImplementation = version;
     String versionOverride = version;
-
+    System.setProperty("prism.lcdtext", "false");
     if (AppUtil.MAC_OS_X) {
       // On OSX the menu bar at the top of the screen can be enabled at any time, but the
       // title (ie. name of the application) has to be set before the GUI is initialized (by

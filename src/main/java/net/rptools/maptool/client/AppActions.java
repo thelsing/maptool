@@ -1714,6 +1714,18 @@ public class AppActions {
         }
       };
 
+  public static final Action CAMPAIGN_NOTE_BOOK =
+      new DefaultClientAction() {
+        {
+          init("noteBook.menuItem");
+        }
+
+        @Override
+        protected void executeAction() {
+          MapTool.getFrame().showNoteBook();
+        }
+      };
+
   public static final Action TOGGLE_GRID =
       new DefaultClientAction() {
         {

@@ -69,6 +69,8 @@ import net.rptools.maptool.model.library.LibraryManager;
 import net.rptools.maptool.model.library.addon.AddOnLibrary;
 import net.rptools.maptool.model.library.addon.AddOnLibraryImporter;
 import net.rptools.maptool.model.library.proto.AddOnLibraryListDto;
+import net.rptools.maptool.model.notebook.NoteBookManager;
+import net.rptools.maptool.model.notebook.persistence.NoteBookPersistenceUtil;
 import net.rptools.maptool.model.transform.campaign.AssetNameTransform;
 import net.rptools.maptool.model.transform.campaign.ExportInfoTransform;
 import net.rptools.maptool.model.transform.campaign.PCVisionTransform;
@@ -333,6 +335,13 @@ public class PersistenceUtil {
           pakFile.setProperty(PROP_VERSION, MapTool.getVersion());
         }
 
+        if (campaignVersion == null || campaignVersion.startsWith("1.7")) {
+          saveTimer.start("Save NoteBooks");
+          new NoteBookPersistenceUtil()
+              .saveCampaignNoteBooks(pakFile, persistedCampaign.campaign.getNoteBookManager());
+          saveTimer.stop("Save NoteBooks");
+        }
+
         saveTimer.stop("Set content");
         saveTimer.start("Save");
         pakFile.save();
@@ -478,6 +487,8 @@ public class PersistenceUtil {
         // " :: " + entryLs.getValue().getLumens());
         // }
         // }
+        NoteBookManager noteBookManager = persistedCampaign.campaign.getNoteBookManager();
+        new NoteBookPersistenceUtil().loadCampaignNoteBooks(pakFile, noteBookManager);
 
         return persistedCampaign;
       }
@@ -599,7 +610,19 @@ public class PersistenceUtil {
     return token;
   }
 
-  private static void loadAssets(Collection<MD5Key> assetIds, PackedFile pakFile)
+  public static void putAssets(Collection<Asset> assets, PackedFile packedFile) throws IOException {
+    // Special handling of assets: XML file to describe the Asset, but binary file for the image
+    // data
+    packedFile.getXStream().processAnnotations(Asset.class);
+
+    for (Asset asset : assets) {
+      packedFile.putFile(
+          ASSET_DIR + asset.getMD5Key() + "." + asset.getExtension(), asset.getData());
+      packedFile.putFile(ASSET_DIR + asset.getName() + "", asset);
+    }
+  }
+
+  public static void loadAssets(Collection<MD5Key> assetIds, PackedFile pakFile)
       throws IOException {
     // Special handling of assets: XML file to describe the Asset, but binary file for the image
     // data

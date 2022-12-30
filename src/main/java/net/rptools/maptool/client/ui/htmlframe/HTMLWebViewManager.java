@@ -241,7 +241,11 @@ public class HTMLWebViewManager {
     "net/rptools/maptool/client/html5/javascript/XMLHttpRequest.js"
   };
 
-  HTMLWebViewManager(String kind, String name) {
+  public HTMLWebViewManager() {
+    bridge = null;
+  }
+
+  public HTMLWebViewManager(String kind, String name) {
     bridge = new JavaBridge((HTMLPanelContainer) this, kind, name);
   }
 
@@ -270,7 +274,9 @@ public class HTMLWebViewManager {
     webEngine.setOnError(HTMLWebViewManager::showError);
 
     // Workaround to load Java Bridge before everything else.
-    webEngine.onStatusChangedProperty().set(this::setBridge);
+    if (bridge != null) {
+      webEngine.onStatusChangedProperty().set(this::setBridge);
+    }
   }
 
   public WebView getWebView() {

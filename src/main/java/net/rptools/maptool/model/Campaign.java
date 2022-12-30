@@ -40,6 +40,7 @@ import net.rptools.maptool.client.ui.token.ImageTokenOverlay;
 import net.rptools.maptool.client.ui.token.MultipleImageBarTokenOverlay;
 import net.rptools.maptool.client.ui.token.SingleImageBarTokenOverlay;
 import net.rptools.maptool.client.ui.token.TwoImageBarTokenOverlay;
+import net.rptools.maptool.model.notebook.NoteBookManager;
 import net.rptools.maptool.server.proto.CampaignDto;
 
 /**
@@ -101,6 +102,12 @@ public class Campaign {
   private Map<String, Map<GUID, LightSource>> lightSourcesMap;
   private Map<String, LookupTable> lookupTableMap;
 
+  /**
+   * The {@link NoteBook} manages all the {@link
+   * net.rptools.maptool.model.notebook.entry.NoteEntry}s for the campaign.
+   */
+  private final transient NoteBookManager noteBookManager;
+
   // DEPRECATED: as of 1.3b19 here to support old serialized versions
   // private Map<GUID, LightSource> lightSourceMap;
 
@@ -124,6 +131,7 @@ public class Campaign {
     gmMacroButtonLastIndex = 0;
     macroButtonProperties = new ArrayList<MacroButtonProperties>();
     gmMacroButtonProperties = new ArrayList<MacroButtonProperties>();
+    noteBookManager = new NoteBookManager();
   }
 
   private Object readResolve() {
@@ -168,7 +176,7 @@ public class Campaign {
    */
   public Campaign(Campaign campaign) {
     name = campaign.getName();
-
+    noteBookManager = new NoteBookManager();
     /*
      * Don't forget that since these are new zones AND new tokens created here from the old one,
      * if you have any data that needs to transfer over you will need to manually copy it
@@ -182,6 +190,7 @@ public class Campaign {
     for (Entry<GUID, Zone> entry : zonesToCopy.entrySet()) {
       Zone copy = new Zone(entry.getValue(), true);
       zones.put(copy.getId(), copy);
+      noteBookManager.zoneAdded(copy.getId());
     }
     campaignProperties = new CampaignProperties(campaign.campaignProperties);
     macroButtonProperties =
@@ -401,10 +410,15 @@ public class Campaign {
    */
   public void putZone(Zone zone) {
     zones.put(zone.getId(), zone);
+    noteBookManager.zoneAdded(zone.getId());
   }
 
   public void removeAllZones() {
+    Set<GUID> removedZoneIds = Set.copyOf(zones.keySet());
     zones.clear();
+    for (GUID zid : removedZoneIds) {
+      noteBookManager.zoneRemoved(zid);
+    }
   }
 
   /**
@@ -414,6 +428,7 @@ public class Campaign {
    */
   public void removeZone(GUID id) {
     zones.remove(id);
+    noteBookManager.zoneRemoved(id);
   }
 
   public boolean containsAsset(Asset asset) {
@@ -723,6 +738,15 @@ public class Campaign {
 
   public CampaignExportDialog getExportCampaignDialog() {
     return campaignExportDialog;
+  }
+
+  /**
+   * Returns the {@link NoteBookManager} for the {@code Campaign}.
+   *
+   * @return the {@link NoteBookManager} for the {@code Campaign}.
+   */
+  public NoteBookManager getNoteBookManager() {
+    return noteBookManager;
   }
 
   public void initDefault() {
