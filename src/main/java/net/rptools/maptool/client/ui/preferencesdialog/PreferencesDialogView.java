@@ -17,9 +17,6 @@ package net.rptools.maptool.client.ui.preferencesdialog;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.uiDesigner.core.Spacer;
-import com.jeta.forms.components.colors.JETAColorWell;
-import com.jgoodies.forms.layout.CellConstraints;
-import com.jgoodies.forms.layout.FormLayout;
 import java.awt.*;
 import java.lang.reflect.Method;
 import java.util.Locale;
@@ -28,6 +25,7 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.text.StyleContext;
+import net.rptools.maptool.client.swing.ColorWell;
 
 public class PreferencesDialogView {
 
@@ -346,16 +344,16 @@ public class PreferencesDialogView {
         this.$$$loadLabelText$$$(label31, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.trusted.foreground"));
         label31.setToolTipText(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.trusted.foreground.tooltip"));
         panel7.add(label31, new GridConstraints(8, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
-        final JETAColorWell jETAColorWell1 = new JETAColorWell();
-        Font jETAColorWell1Font = UIManager.getFont("Panel.font");
-        if (jETAColorWell1Font != null) jETAColorWell1.setFont(jETAColorWell1Font);
-        jETAColorWell1.setName("trustedOuputBackground");
-        panel7.add(jETAColorWell1, new GridConstraints(7, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
-        final JETAColorWell jETAColorWell2 = new JETAColorWell();
-        Font jETAColorWell2Font = UIManager.getFont("Panel.font");
-        if (jETAColorWell2Font != null) jETAColorWell2.setFont(jETAColorWell2Font);
-        jETAColorWell2.setName("trustedOuputForeground");
-        panel7.add(jETAColorWell2, new GridConstraints(8, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final ColorWell colorWell1 = new ColorWell();
+        Font colorWell1Font = UIManager.getFont("Panel.font");
+        if (colorWell1Font != null) colorWell1.setFont(colorWell1Font);
+        colorWell1.setName("trustedOuputBackground");
+        panel7.add(colorWell1, new GridConstraints(7, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final ColorWell colorWell2 = new ColorWell();
+        Font colorWell2Font = UIManager.getFont("Panel.font");
+        if (colorWell2Font != null) colorWell2.setFont(colorWell2Font);
+        colorWell2.setName("trustedOuputForeground");
+        panel7.add(colorWell2, new GridConstraints(8, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final JLabel label32 = new JLabel();
         this.$$$loadLabelText$$$(label32, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.duration"));
         label32.setToolTipText(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.duration.tooltip"));
@@ -364,11 +362,11 @@ public class PreferencesDialogView {
         this.$$$loadLabelText$$$(label33, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.color"));
         label33.setToolTipText(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.color.tooltip"));
         panel7.add(label33, new GridConstraints(5, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
-        final JETAColorWell jETAColorWell3 = new JETAColorWell();
-        Font jETAColorWell3Font = UIManager.getFont("Panel.font");
-        if (jETAColorWell3Font != null) jETAColorWell3.setFont(jETAColorWell3Font);
-        jETAColorWell3.setName("chatNotificationColor");
-        panel7.add(jETAColorWell3, new GridConstraints(5, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final ColorWell colorWell3 = new ColorWell();
+        Font colorWell3Font = UIManager.getFont("Panel.font");
+        if (colorWell3Font != null) colorWell3.setFont(colorWell3Font);
+        colorWell3.setName("chatNotificationColor");
+        panel7.add(colorWell3, new GridConstraints(5, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final JLabel label34 = new JLabel();
         this.$$$loadLabelText$$$(label34, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.background"));
         label34.setToolTipText(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.chat.type.background.tooltip"));
@@ -1002,24 +1000,19 @@ public class PreferencesDialogView {
         textField16.setToolTipText(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.label.options.directory.tooltip"));
         panel30.add(textField16, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final JPanel panel31 = new JPanel();
-        panel31.setLayout(new FormLayout("fill:d:grow", "center:2dlu:noGrow,fill:d:grow,center:2dlu:noGrow"));
+        panel31.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         panel26.add(panel31, new GridConstraints(0, 2, 5, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         panel31.setBorder(BorderFactory.createTitledBorder(null, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "Preferences.startup.label.info"), TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, this.$$$getFont$$$("Dialog", Font.BOLD, 12, panel31.getFont()), new Color(-13538620)));
         final JLabel label91 = new JLabel();
         label91.setName("startupInfoLabel");
         this.$$$loadLabelText$$$(label91, this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "startup.preferences.info"));
-        CellConstraints cc = new CellConstraints();
-        panel31.add(label91, cc.xy(1, 2));
+        panel31.add(label91, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final Spacer spacer15 = new Spacer();
-        panel31.add(spacer15, cc.xy(1, 1));
+        panel26.add(spacer15, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
         final Spacer spacer16 = new Spacer();
-        panel31.add(spacer16, cc.xy(1, 3));
+        panel26.add(spacer16, new GridConstraints(5, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
         final Spacer spacer17 = new Spacer();
-        panel26.add(spacer17, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        final Spacer spacer18 = new Spacer();
-        panel26.add(spacer18, new GridConstraints(5, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        final Spacer spacer19 = new Spacer();
-        mainPanel.add(spacer19, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        mainPanel.add(spacer17, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
     }
 
     /**

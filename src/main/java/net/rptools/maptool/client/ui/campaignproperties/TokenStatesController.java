@@ -14,7 +14,6 @@
  */
 package net.rptools.maptool.client.ui.campaignproperties;
 
-import com.jeta.forms.components.colors.JETAColorWell;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics2D;
@@ -45,25 +44,26 @@ import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.AppConstants;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.swing.AbeillePanel;
+import net.rptools.maptool.client.swing.ColorWell;
 import net.rptools.maptool.client.ui.PreviewPanelFileChooser;
-import net.rptools.maptool.client.ui.token.overlays.AbstractTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.BooleanTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.ColorDotTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.CornerImageTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.CrossTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.DiamondTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowColorDotTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowColorSquareTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowDiamondTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowImageTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowTriangleTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.FlowYieldTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.ImageTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.OTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.ShadedTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.TriangleTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.XTokenOverlay;
-import net.rptools.maptool.client.ui.token.overlays.YieldTokenOverlay;
+import net.rptools.maptool.client.ui.token.AbstractTokenOverlay;
+import net.rptools.maptool.client.ui.token.BooleanTokenOverlay;
+import net.rptools.maptool.client.ui.token.ColorDotTokenOverlay;
+import net.rptools.maptool.client.ui.token.CornerImageTokenOverlay;
+import net.rptools.maptool.client.ui.token.CrossTokenOverlay;
+import net.rptools.maptool.client.ui.token.DiamondTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowColorDotTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowColorSquareTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowDiamondTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowImageTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowTriangleTokenOverlay;
+import net.rptools.maptool.client.ui.token.FlowYieldTokenOverlay;
+import net.rptools.maptool.client.ui.token.ImageTokenOverlay;
+import net.rptools.maptool.client.ui.token.OTokenOverlay;
+import net.rptools.maptool.client.ui.token.ShadedTokenOverlay;
+import net.rptools.maptool.client.ui.token.TriangleTokenOverlay;
+import net.rptools.maptool.client.ui.token.XTokenOverlay;
+import net.rptools.maptool.client.ui.token.YieldTokenOverlay;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Asset;
 import net.rptools.maptool.model.AssetManager;
@@ -521,7 +521,7 @@ public class TokenStatesController
       if (s instanceof XTokenOverlay) {
         type = 7;
         formPanel.getSpinner(WIDTH).setValue(((XTokenOverlay) s).getWidth());
-        ((JETAColorWell) formPanel.getComponent(COLOR)).setColor(((XTokenOverlay) s).getColor());
+        ((ColorWell) formPanel.getComponent(COLOR)).setColor(((XTokenOverlay) s).getColor());
       } // endif
 
       // Get the the flow grid for most components from FlowColorDotTokenOverlay
@@ -552,8 +552,7 @@ public class TokenStatesController
         type = 5;
       } else if (s instanceof ShadedTokenOverlay) {
         type = 6;
-        ((JETAColorWell) formPanel.getComponent(COLOR))
-            .setColor(((ShadedTokenOverlay) s).getColor());
+        ((ColorWell) formPanel.getComponent(COLOR)).setColor(((ShadedTokenOverlay) s).getColor());
       } else if (s instanceof CrossTokenOverlay) {
         type = 8;
       } else if (s instanceof DiamondTokenOverlay) {
@@ -687,7 +686,7 @@ public class TokenStatesController
   public BooleanTokenOverlay createTokenOverlay(BooleanTokenOverlay updatedOverlay) {
 
     // Need the color group, and name for everything
-    Color color = ((JETAColorWell) formPanel.getComponent(COLOR)).getColor();
+    Color color = ((ColorWell) formPanel.getComponent(COLOR)).getColor();
     String name = formPanel.getTextComponent(NAME).getText();
     String group = formPanel.getTextComponent(GROUP).getText();
     boolean mouseover = formPanel.getCheckBox(MOUSEOVER).isSelected();
