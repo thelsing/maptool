@@ -25,8 +25,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
@@ -105,6 +107,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
   /** The current state of the handshake process. */
   private State currentState = State.AwaitingUseAuthType;
 
+  private CompletableFuture<HandshakeResult> future;
   public ClientHandshake(ClientConnection connection, LocalPlayer player) {
     this.connection = connection;
     this.player = player;
@@ -138,6 +141,21 @@ public class ClientHandshake implements Handshake, MessageHandler {
 
     sendMessage(handshakeMsg);
     currentState = State.AwaitingUseAuthType;
+  }
+
+  @Override
+  public CompletableFuture<HandshakeResult> execute() {
+    future = new CompletableFuture<>();
+
+    Executors.newCachedThreadPool().submit(() -> {
+      try {
+        startHandshake();
+      } catch (Throwable t) {
+        future.completeExceptionally(t);
+      }
+    });
+
+    return future;
   }
 
   private void sendMessage(HandshakeMsg message) {
@@ -210,11 +228,12 @@ public class ClientHandshake implements Handshake, MessageHandler {
           break;
       }
 
-    } catch (Exception e) {
-      log.warn(e.toString());
-      exception = e;
+    } catch (Throwable t) {
+      log.warn(t.toString());
+      exception = (Exception) t;
       currentState = State.Error;
       errorMessage = I18N.getText("Handshake.msg.incorrectPassword");
+      future.completeExceptionally(t);
       notifyObservers();
     }
   }
@@ -377,6 +396,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
   /** Notifies observers that the handshake has completed or errored out.. */
   private void notifyObservers() {
     SwingUtilities.invokeLater(this::closeEasyConnectDialog);
+    future.complete(new HandshakeResult(isSuccessful(), getErrorMessage()));
     for (var observer : observerList) {
       observer.onCompleted(this);
     }

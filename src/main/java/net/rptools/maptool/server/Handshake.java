@@ -14,6 +14,7 @@
  */
 package net.rptools.maptool.server;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import net.rptools.clientserver.simple.MessageHandler;
 import net.rptools.clientserver.simple.client.ClientConnection;
@@ -78,4 +79,6 @@ public interface Handshake extends MessageHandler {
    * @throws InterruptedException when the background task is interrupted.
    */
   void startHandshake() throws ExecutionException, InterruptedException;
+
+  CompletableFuture<HandshakeResult> execute();
 }

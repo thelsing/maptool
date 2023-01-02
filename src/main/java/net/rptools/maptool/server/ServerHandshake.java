@@ -23,6 +23,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import javax.crypto.BadPaddingException;
@@ -590,6 +591,11 @@ public class ServerHandshake implements Handshake, MessageHandler {
   @Override
   public void startHandshake() {
     setCurrentState(State.AwaitingClientInit);
+  }
+
+  @Override
+  public CompletableFuture execute() {
+    return null;
   }
 
   /** The states that the server side of the server side of the handshake process can be in. */
