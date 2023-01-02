@@ -45,6 +45,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.text.MessageFormat;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import javax.imageio.ImageIO;
 import javax.imageio.spi.IIORegistry;
@@ -1166,19 +1167,17 @@ public class MapTool {
     String username = AppPreferences.getDefaultUserName();
     LocalPlayer localPlayer = (LocalPlayer) playerDatabase.getPlayer(username);
     // Connect to server
-    MapTool.createConnection(
-        config,
-        localPlayer,
-        () -> {
-          // connecting
-          MapTool.getFrame()
-              .getConnectionStatusPanel()
-              .setStatus(ConnectionStatusPanel.Status.server);
-        });
+    MapTool.createConnection(config, localPlayer)
+        .thenRun(
+            () -> {
+              // connecting
+              MapTool.getFrame()
+                  .getConnectionStatusPanel()
+                  .setStatus(ConnectionStatusPanel.Status.server);
+            });
   }
 
-  public static void createConnection(ServerConfig config, LocalPlayer player, Runnable onCompleted)
-      throws IOException, ExecutionException, InterruptedException {
+  public static CompletableFuture createConnection(ServerConfig config, LocalPlayer player) {
     MapTool.player = player;
     MapTool.getFrame().getCommandPanel().clearAllIdentities();
 
@@ -1187,19 +1186,18 @@ public class MapTool {
     clientConn.addActivityListener(clientFrame.getActivityMonitor());
     clientConn.addDisconnectHandler(new ServerDisconnectHandler());
 
-    clientConn.setOnCompleted(
-        () -> {
-          clientConn.addMessageHandler(handler);
-          // LATER: I really, really, really don't like this startup pattern
-          if (clientConn.isAlive()) {
-            conn = clientConn;
-          }
-          clientFrame.getLookupTablePanel().updateView();
-          clientFrame.getInitiativePanel().updateView();
-          onCompleted.run();
-        });
-
-    clientConn.start();
+    return clientConn
+        .start()
+        .thenRun(
+            () -> {
+              clientConn.addMessageHandler(handler);
+              // LATER: I really, really, really don't like this startup pattern
+              if (clientConn.isAlive()) {
+                conn = clientConn;
+              }
+              clientFrame.getLookupTablePanel().updateView();
+              clientFrame.getInitiativePanel().updateView();
+            });
   }
 
   public static void closeConnection() throws IOException {

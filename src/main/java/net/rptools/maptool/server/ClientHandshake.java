@@ -108,6 +108,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
   private State currentState = State.AwaitingUseAuthType;
 
   private CompletableFuture<HandshakeResult> future;
+
   public ClientHandshake(ClientConnection connection, LocalPlayer player) {
     this.connection = connection;
     this.player = player;
@@ -146,14 +147,17 @@ public class ClientHandshake implements Handshake, MessageHandler {
   @Override
   public CompletableFuture<HandshakeResult> execute() {
     future = new CompletableFuture<>();
-
-    Executors.newCachedThreadPool().submit(() -> {
-      try {
-        startHandshake();
-      } catch (Throwable t) {
-        future.completeExceptionally(t);
-      }
-    });
+    connection.addMessageHandler(this);
+    Executors.newSingleThreadExecutor()
+        .submit(
+            () -> {
+              try {
+                connection.open();
+                startHandshake();
+              } catch (Throwable t) {
+                future.completeExceptionally(t);
+              }
+            });
 
     return future;
   }
@@ -231,6 +235,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
     } catch (Throwable t) {
       log.warn(t.toString());
       exception = (Exception) t;
+      connection.removeMessageHandler(this);
       currentState = State.Error;
       errorMessage = I18N.getText("Handshake.msg.incorrectPassword");
       future.completeExceptionally(t);
@@ -396,6 +401,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
   /** Notifies observers that the handshake has completed or errored out.. */
   private void notifyObservers() {
     SwingUtilities.invokeLater(this::closeEasyConnectDialog);
+    connection.removeMessageHandler(this);
     future.complete(new HandshakeResult(isSuccessful(), getErrorMessage()));
     for (var observer : observerList) {
       observer.onCompleted(this);

@@ -17,13 +17,14 @@ package net.rptools.maptool.client;
 import static net.rptools.maptool.server.proto.Message.MessageTypeCase.HEARTBEAT_MSG;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import net.rptools.clientserver.ConnectionFactory;
 import net.rptools.clientserver.simple.client.ClientConnection;
 import net.rptools.maptool.client.ui.ActivityMonitorPanel;
 import net.rptools.maptool.model.player.LocalPlayer;
 import net.rptools.maptool.server.ClientHandshake;
-import net.rptools.maptool.server.Handshake;
+import net.rptools.maptool.server.HandshakeResult;
 import net.rptools.maptool.server.ServerConfig;
 import net.rptools.maptool.server.proto.Message;
 import org.apache.logging.log4j.LogManager;
@@ -37,46 +38,44 @@ public class MapToolConnection {
 
   private final LocalPlayer player;
   private ClientConnection connection;
-  private Handshake handshake;
-  private Runnable onCompleted;
+  private ServerConfig config;
 
-  public MapToolConnection(ServerConfig config, LocalPlayer player) throws IOException {
-
-    this.connection =
-        ConnectionFactory.getInstance().createClientConnection(player.getName(), config);
+  public MapToolConnection(ServerConfig config, LocalPlayer player) {
+    this.config = config;
     this.player = player;
-    this.handshake = new ClientHandshake(connection, player);
-    onCompleted = () -> {};
   }
 
-  public void setOnCompleted(Runnable onCompleted) {
-    if (onCompleted == null) this.onCompleted = () -> {};
-    else this.onCompleted = onCompleted;
-  }
-
-  public void start() throws IOException, ExecutionException, InterruptedException {
-    connection.addMessageHandler(handshake);
-    handshake.addObserver(
-        (ignore) -> {
-          connection.removeMessageHandler(handshake);
-          if (handshake.isSuccessful()) {
-            onCompleted.run();
-          } else {
-            // For client side only show the error message as its more likely to make sense
-            // for players, the exception is logged just in case more info is required
-            var exception = handshake.getException();
-            if (exception != null) {
-              log.warn(exception);
-            }
-            MapTool.showError(handshake.getErrorMessage());
-            connection.close();
-            onCompleted.run();
-            AppActions.disconnectFromServer();
-          }
-        });
-    // this triggers the handshake from the server side
-    connection.open();
-    handshake.startHandshake();
+  public CompletableFuture start() {
+    var future = new CompletableFuture();
+    Executors.newSingleThreadExecutor()
+        .submit(
+            () -> {
+              try {
+                this.connection =
+                    ConnectionFactory.getInstance()
+                        .createClientConnection(player.getName(), config);
+                new ClientHandshake(connection, player)
+                    .execute()
+                    .exceptionally(
+                        t -> {
+                          log.warn(t);
+                          return new HandshakeResult(false, t.toString());
+                        })
+                    .thenApply(
+                        (result) -> {
+                          if (!result.successful()) {
+                            MapTool.showError(result.errorMessage());
+                            connection.close();
+                            AppActions.disconnectFromServer();
+                          }
+                          future.complete(null);
+                          return result;
+                        });
+              } catch (Throwable t) {
+                future.completeExceptionally(t);
+              }
+            });
+    return future;
   }
 
   public void addMessageHandler(ClientMessageHandler handler) {

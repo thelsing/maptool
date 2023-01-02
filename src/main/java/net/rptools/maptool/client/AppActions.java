@@ -2302,30 +2302,29 @@ public class AppActions {
 
                   // Connect to server
                   Player.Role playerType = (Player.Role) dialog.getRoleCombo().getSelectedItem();
-                  Runnable onConnected =
-                      () -> {
-                        // connecting
-                        MapTool.getFrame()
-                            .getConnectionStatusPanel()
-                            .setStatus(ConnectionStatusPanel.Status.server);
-                        MapTool.addLocalMessage(
-                            MessageUtil.getFormattedSystemMsg(
-                                I18N.getText("msg.info.startServer")));
-                      };
+                  Runnable onConnected = () -> {};
 
-                  if (playerType == Player.Role.GM) {
-                    MapTool.createConnection(
-                        config,
-                        new LocalPlayer(
-                            dialog.getUsernameTextField().getText(), playerType, gmPassword),
-                        onConnected);
-                  } else {
-                    MapTool.createConnection(
-                        config,
-                        new LocalPlayer(
-                            dialog.getUsernameTextField().getText(), playerType, playerPassword),
-                        onConnected);
-                  }
+                  MapTool.createConnection(
+                          config,
+                          new LocalPlayer(
+                              dialog.getUsernameTextField().getText(),
+                              playerType,
+                              playerType == Role.GM ? gmPassword : playerPassword))
+                      .thenRun(
+                          () -> {
+                            // connecting
+                            MapTool.getFrame()
+                                .getConnectionStatusPanel()
+                                .setStatus(ConnectionStatusPanel.Status.server);
+                            MapTool.addLocalMessage(
+                                MessageUtil.getFormattedSystemMsg(
+                                    I18N.getText("msg.info.startServer")));
+                          })
+                      .exceptionally(
+                          (t) -> {
+                            MapTool.showError(t.toString());
+                            return null;
+                          });
                 } catch (UnknownHostException uh) {
                   MapTool.showError("msg.error.invalidLocalhost", uh);
                   failed = true;
@@ -2336,9 +2335,7 @@ public class AppActions {
                     | InvalidAlgorithmParameterException
                     | InvalidKeySpecException
                     | NoSuchPaddingException
-                    | InvalidKeyException
-                    | ExecutionException
-                    | InterruptedException e) {
+                    | InvalidKeyException e) {
                   MapTool.showError("msg.error.initializeCrypto", e);
                   failed = true;
                 } catch (PasswordDatabaseException pwde) {
@@ -2422,22 +2419,33 @@ public class AppActions {
                       prefs.getUsePublicKey()
                           ? new PasswordGenerator().getPassword()
                           : prefs.getPassword();
-                  MapTool.createConnection(
-                      config,
-                      new LocalPlayer(prefs.getUsername(), prefs.getRole(), password),
-                      () -> {
-                        MapTool.getFrame().hideGlassPane();
-                        MapTool.getFrame()
-                            .showFilledGlassPane(
-                                new StaticMessageDialog(I18N.getText("msg.info.campaignLoading")));
-                      });
 
-                } catch (UnknownHostException e1) {
-                  MapTool.showError("msg.error.unknownHost", e1);
-                  failed = true;
-                } catch (IOException e1) {
-                  MapTool.showError("msg.error.failedLoadCampaign", e1);
-                  failed = true;
+                  MapTool.createConnection(
+                          config, new LocalPlayer(prefs.getUsername(), prefs.getRole(), password))
+                      .thenRun(
+                          () -> {
+                            MapTool.getFrame().hideGlassPane();
+                            MapTool.getFrame()
+                                .showFilledGlassPane(
+                                    new StaticMessageDialog(
+                                        I18N.getText("msg.info.campaignLoading")));
+                          })
+                      .exceptionally(
+                          t -> {
+                            log.error(t);
+                            if (t instanceof UnknownHostException e1) {
+                              MapTool.showError("msg.error.unknownHost", e1);
+                              //      failed = true;
+                            } else if (t instanceof IOException e1) {
+                              MapTool.showError("msg.error.failedLoadCampaign", e1);
+                              //           failed = true;
+                            } else {
+                              MapTool.showError(t.toString());
+                            }
+                            return null;
+                          })
+                      .get();
+
                 } catch (NoSuchAlgorithmException
                     | InvalidKeySpecException
                     | ExecutionException
