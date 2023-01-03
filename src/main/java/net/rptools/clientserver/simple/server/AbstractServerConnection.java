@@ -20,12 +20,11 @@ import net.rptools.clientserver.simple.AbstractConnection;
 import net.rptools.clientserver.simple.DisconnectHandler;
 import net.rptools.clientserver.simple.MessageHandler;
 import net.rptools.clientserver.simple.client.ClientConnection;
-import net.rptools.maptool.server.Handshake;
-import net.rptools.maptool.server.HandshakeObserver;
+import net.rptools.maptool.server.HandshakeResult;
 import org.apache.log4j.Logger;
 
 public abstract class AbstractServerConnection extends AbstractConnection
-    implements MessageHandler, DisconnectHandler, ServerConnection, HandshakeObserver {
+    implements MessageHandler, DisconnectHandler, ServerConnection {
 
   private static final Logger log = Logger.getLogger(AbstractServerConnection.class);
   //    private final ReaperThread reaperThread;
@@ -141,16 +140,20 @@ public abstract class AbstractServerConnection extends AbstractConnection
   protected void handleConnection(ClientConnection conn)
       throws ExecutionException, InterruptedException {
     var handshake = handshakeProvider.getConnectionHandshake(conn);
-    handshake.addObserver(this);
     // Make sure the client is allowed
-    handshake.startHandshake();
+    handshake
+        .execute()
+        .exceptionally(
+            t -> {
+              log.error(t);
+              return new HandshakeResult(false, t.toString(), conn);
+            })
+        .thenAccept(this::onCompleted);
   }
 
-  public void onCompleted(Handshake handshake) {
-    handshake.removeObserver(this);
-    var conn = handshake.getConnection();
-    handshakeProvider.releaseHandshake(conn);
-    if (handshake.isSuccessful()) {
+  private void onCompleted(HandshakeResult handshakeResult) {
+    var conn = handshakeResult.getConnection();
+    if (handshakeResult.isSuccessful()) {
       conn.addMessageHandler(this);
       conn.addDisconnectHandler(this);
 

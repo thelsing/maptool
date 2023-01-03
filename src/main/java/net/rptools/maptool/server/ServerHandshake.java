@@ -21,10 +21,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -74,9 +72,6 @@ public class ServerHandshake implements Handshake, MessageHandler {
   /** The connection to the client. */
   private final ClientConnection connection;
 
-  /** Observers that want to be notified when the status changes. */
-  private final List<HandshakeObserver> observerList = new CopyOnWriteArrayList<>();
-
   /** The index in the array for the GM handshake challenge, only used for role based auth */
   private static final int GM_CHALLENGE = 0;
   /** The index in the array for the Player handshake challenge, only used for role based auth */
@@ -90,12 +85,6 @@ public class ServerHandshake implements Handshake, MessageHandler {
   /** The username for the new public key easy connect request. */
   private String easyConnectName;
 
-  /**
-   * Any exception that occurred that causes an error, {@code null} if no exception which causes an
-   * error has occurred.
-   */
-  private Exception exception;
-
   /** The player that this connection is for. */
   private Player player;
 
@@ -108,6 +97,10 @@ public class ServerHandshake implements Handshake, MessageHandler {
   private MD5Key playerPublicKeyMD5;
 
   private final boolean useEasyConnect;
+
+  private Exception exception;
+
+  private CompletableFuture<HandshakeResult> future;
 
   /**
    * Creates a new {@code ServerHandshake} instance.
@@ -123,24 +116,17 @@ public class ServerHandshake implements Handshake, MessageHandler {
     this.useEasyConnect = useEasyConnect;
   }
 
-  @Override
-  public boolean isSuccessful() {
+  private boolean isSuccessful() {
     return currentState == State.Success;
   }
 
-  @Override
-  public synchronized String getErrorMessage() {
+  private synchronized String getErrorMessage() {
     return errorMessage;
   }
 
   @Override
   public synchronized ClientConnection getConnection() {
     return connection;
-  }
-
-  @Override
-  public synchronized Exception getException() {
-    return exception;
   }
 
   @Override
@@ -154,10 +140,6 @@ public class ServerHandshake implements Handshake, MessageHandler {
 
   private synchronized void setErrorMessage(String errorMessage) {
     this.errorMessage = errorMessage;
-  }
-
-  private synchronized void setException(Exception exception) {
-    this.exception = exception;
   }
 
   private synchronized void setCurrentState(State state) {
@@ -256,9 +238,8 @@ public class ServerHandshake implements Handshake, MessageHandler {
       }
     } catch (Exception e) {
       log.warn(e.toString());
-      setException(e);
       setCurrentState(State.Error);
-      setErrorMessage(e.getMessage());
+      exception = e;
       notifyObservers();
     }
   }
@@ -561,41 +542,26 @@ public class ServerHandshake implements Handshake, MessageHandler {
     return State.AwaitingClientPublicKeyAuth;
   }
 
-  /**
-   * Adds an observer to the handshake process.
-   *
-   * @param observer the observer of the handshake process.
-   */
-  public synchronized void addObserver(HandshakeObserver observer) {
-    observerList.add(observer);
-  }
-
-  /**
-   * Removes an observer from the handshake process.
-   *
-   * @param observer the observer of the handshake process.
-   */
-  public synchronized void removeObserver(HandshakeObserver observer) {
-    observerList.remove(observer);
-  }
-
   /** Notifies observers that the handshake has completed or errored out.. */
   private synchronized void notifyObservers() {
     if (getEasyConnectName() != null) {
       SwingUtilities.invokeLater(
           () -> MapTool.getFrame().getConnectionPanel().removeAwaitingApproval(easyConnectName));
     }
-    for (var observer : observerList) observer.onCompleted(this);
+    connection.removeMessageHandler(this);
+    if (exception != null) {
+      future.completeExceptionally(exception);
+    } else {
+      future.complete(new HandshakeResult(isSuccessful(), getErrorMessage(), connection));
+    }
   }
 
   @Override
-  public void startHandshake() {
+  public CompletableFuture<HandshakeResult> execute() {
+    future = new CompletableFuture();
+    connection.addMessageHandler(this);
     setCurrentState(State.AwaitingClientInit);
-  }
-
-  @Override
-  public CompletableFuture execute() {
-    return null;
+    return future;
   }
 
   /** The states that the server side of the server side of the handshake process can be in. */

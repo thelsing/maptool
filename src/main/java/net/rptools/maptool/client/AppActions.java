@@ -2302,7 +2302,6 @@ public class AppActions {
 
                   // Connect to server
                   Player.Role playerType = (Player.Role) dialog.getRoleCombo().getSelectedItem();
-                  Runnable onConnected = () -> {};
 
                   MapTool.createConnection(
                           config,
@@ -2320,15 +2319,11 @@ public class AppActions {
                                 MessageUtil.getFormattedSystemMsg(
                                     I18N.getText("msg.info.startServer")));
                           })
-                      .exceptionally(
-                          (t) -> {
-                            MapTool.showError(t.toString());
-                            return null;
-                          });
+                      .get();
                 } catch (UnknownHostException uh) {
                   MapTool.showError("msg.error.invalidLocalhost", uh);
                   failed = true;
-                } catch (IOException ioe) {
+                } catch (IOException | InterruptedException | ExecutionException ioe) {
                   MapTool.showError("msg.error.failedConnect", ioe);
                   failed = true;
                 } catch (NoSuchAlgorithmException
@@ -2345,7 +2340,7 @@ public class AppActions {
 
                 if (failed) {
                   try {
-                    MapTool.startPersonalServer(campaign);
+                    MapTool.startPersonalServer(campaign).get();
                   } catch (IOException
                       | NoSuchAlgorithmException
                       | InvalidKeySpecException

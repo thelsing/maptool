@@ -14,4 +14,44 @@
  */
 package net.rptools.maptool.server;
 
-public record HandshakeResult(boolean successful, String errorMessage) {}
+import net.rptools.clientserver.simple.client.ClientConnection;
+
+public class HandshakeResult {
+  private boolean successful;
+  private String errorMessage;
+
+  private ClientConnection connection;
+
+  public HandshakeResult(boolean successful, String errorMessage, ClientConnection connection) {
+    this.successful = successful;
+    this.errorMessage = errorMessage;
+    this.connection = connection;
+  }
+
+  /**
+   * Returns if the handshake has been successful or not.
+   *
+   * @return {@code true} if the handshake has been successful, {code false} if it has failed.
+   */
+  public boolean isSuccessful() {
+    return successful;
+  }
+
+  /**
+   * Returns the message for the error -- if any -- that occurred during the handshake.
+   *
+   * @return the message for the error that occurred during handshake.
+   */
+  public String getErrorMessage() {
+    return errorMessage;
+  }
+
+  /**
+   * Returns the connection for this {@code ServerHandshake}.
+   *
+   * @return the connection for this {@code ServerHandshake}.
+   */
+  public ClientConnection getConnection() {
+    return connection;
+  }
+}

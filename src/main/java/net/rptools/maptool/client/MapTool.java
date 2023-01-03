@@ -1155,7 +1155,7 @@ public class MapTool {
     return player;
   }
 
-  public static void startPersonalServer(Campaign campaign)
+  public static CompletableFuture startPersonalServer(Campaign campaign)
       throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, ExecutionException,
           InterruptedException {
     ServerConfig config = ServerConfig.createPersonalServerConfig();
@@ -1167,7 +1167,7 @@ public class MapTool {
     String username = AppPreferences.getDefaultUserName();
     LocalPlayer localPlayer = (LocalPlayer) playerDatabase.getPlayer(username);
     // Connect to server
-    MapTool.createConnection(config, localPlayer)
+    return MapTool.createConnection(config, localPlayer)
         .thenRun(
             () -> {
               // connecting
@@ -1181,23 +1181,27 @@ public class MapTool {
     MapTool.player = player;
     MapTool.getFrame().getCommandPanel().clearAllIdentities();
 
-    MapToolConnection clientConn = new MapToolConnection(config, player);
+    var future =
+        CompletableFuture.supplyAsync(
+                () -> {
+                  MapToolConnection clientConn = new MapToolConnection(config, player);
 
-    clientConn.addActivityListener(clientFrame.getActivityMonitor());
-    clientConn.addDisconnectHandler(new ServerDisconnectHandler());
-
-    return clientConn
-        .start()
-        .thenRun(
-            () -> {
-              clientConn.addMessageHandler(handler);
-              // LATER: I really, really, really don't like this startup pattern
-              if (clientConn.isAlive()) {
-                conn = clientConn;
-              }
-              clientFrame.getLookupTablePanel().updateView();
-              clientFrame.getInitiativePanel().updateView();
-            });
+                  clientConn.addActivityListener(clientFrame.getActivityMonitor());
+                  clientConn.addDisconnectHandler(new ServerDisconnectHandler());
+                  return clientConn;
+                })
+            .thenCompose(clientConn -> clientConn.start())
+            .thenAccept(
+                (clientConn) -> {
+                  clientConn.addMessageHandler(handler);
+                  // LATER: I really, really, really don't like this startup pattern
+                  if (clientConn.isAlive()) {
+                    conn = clientConn;
+                  }
+                  clientFrame.getLookupTablePanel().updateView();
+                  clientFrame.getInitiativePanel().updateView();
+                });
+    return future;
   }
 
   public static void closeConnection() throws IOException {

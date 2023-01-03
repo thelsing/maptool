@@ -18,7 +18,6 @@ import static net.rptools.maptool.server.proto.Message.MessageTypeCase.HEARTBEAT
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import net.rptools.clientserver.ConnectionFactory;
 import net.rptools.clientserver.simple.client.ClientConnection;
 import net.rptools.maptool.client.ui.ActivityMonitorPanel;
@@ -43,38 +42,39 @@ public class MapToolConnection {
   public MapToolConnection(ServerConfig config, LocalPlayer player) {
     this.config = config;
     this.player = player;
+    try {
+      this.connection =
+          ConnectionFactory.getInstance().createClientConnection(player.getName(), config);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  public CompletableFuture start() {
-    var future = new CompletableFuture();
-    Executors.newSingleThreadExecutor()
-        .submit(
-            () -> {
-              try {
-                this.connection =
-                    ConnectionFactory.getInstance()
-                        .createClientConnection(player.getName(), config);
-                new ClientHandshake(connection, player)
-                    .execute()
-                    .exceptionally(
-                        t -> {
-                          log.warn(t);
-                          return new HandshakeResult(false, t.toString());
-                        })
-                    .thenApply(
-                        (result) -> {
-                          if (!result.successful()) {
-                            MapTool.showError(result.errorMessage());
-                            connection.close();
-                            AppActions.disconnectFromServer();
-                          }
-                          future.complete(null);
-                          return result;
-                        });
-              } catch (Throwable t) {
-                future.completeExceptionally(t);
-              }
-            });
+  public CompletableFuture<MapToolConnection> start() {
+    var future = new CompletableFuture<MapToolConnection>();
+
+    try {
+      new ClientHandshake(connection, player)
+          .execute()
+          .exceptionally(
+              t -> {
+                log.error(t);
+                return new HandshakeResult(false, t.toString(), connection);
+              })
+          .thenAccept(
+              (result) -> {
+                if (!result.isSuccessful()) {
+                  MapTool.showError(result.getErrorMessage());
+                  connection.close();
+                  AppActions.disconnectFromServer();
+                }
+                future.complete(this);
+              });
+    } catch (Throwable t) {
+      log.error(t);
+      future.completeExceptionally(t);
+    }
+
     return future;
   }
 

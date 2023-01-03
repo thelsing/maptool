@@ -24,11 +24,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
@@ -86,8 +83,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
   private final ClientConnection connection;
   /** The player for the client. */
   private final LocalPlayer player;
-  /** Observers that want to be notified when the status changes. */
-  private final List<HandshakeObserver> observerList = new CopyOnWriteArrayList<>();
+
   /** Message for any error that has occurred, {@code null} if no error has occurred. */
   private String errorMessage;
 
@@ -102,7 +98,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
    * Any exception that occurred that causes an error, {@code null} if no exception which causes an
    * error has occurred.
    */
-  private Exception exception;
+  private Throwable exception;
 
   /** The current state of the handshake process. */
   private State currentState = State.AwaitingUseAuthType;
@@ -130,8 +126,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
     this.easyConnectWindowListener = easyConnectWindowListener;
   }
 
-  @Override
-  public void startHandshake() throws ExecutionException, InterruptedException {
+  private void startHandshake() throws ExecutionException, InterruptedException {
     var md5key = CipherUtil.publicKeyMD5(new PublicPrivateKeyStore().getKeys().get().publicKey());
     var clientInitMsg =
         ClientInitMsg.newBuilder()
@@ -148,16 +143,14 @@ public class ClientHandshake implements Handshake, MessageHandler {
   public CompletableFuture<HandshakeResult> execute() {
     future = new CompletableFuture<>();
     connection.addMessageHandler(this);
-    Executors.newSingleThreadExecutor()
-        .submit(
-            () -> {
-              try {
-                connection.open();
-                startHandshake();
-              } catch (Throwable t) {
-                future.completeExceptionally(t);
-              }
-            });
+
+    try {
+      connection.open();
+      startHandshake();
+    } catch (Throwable t) {
+      log.error(t);
+      future.completeExceptionally(t);
+    }
 
     return future;
   }
@@ -234,11 +227,8 @@ public class ClientHandshake implements Handshake, MessageHandler {
 
     } catch (Throwable t) {
       log.warn(t.toString());
-      exception = (Exception) t;
-      connection.removeMessageHandler(this);
+      exception = t;
       currentState = State.Error;
-      errorMessage = I18N.getText("Handshake.msg.incorrectPassword");
-      future.completeExceptionally(t);
       notifyObservers();
     }
   }
@@ -388,44 +378,28 @@ public class ClientHandshake implements Handshake, MessageHandler {
     notifyObservers();
   }
 
-  @Override
-  public void addObserver(HandshakeObserver observer) {
-    observerList.add(observer);
-  }
-
-  @Override
-  public void removeObserver(HandshakeObserver observer) {
-    observerList.remove(observer);
-  }
-
   /** Notifies observers that the handshake has completed or errored out.. */
   private void notifyObservers() {
     SwingUtilities.invokeLater(this::closeEasyConnectDialog);
     connection.removeMessageHandler(this);
-    future.complete(new HandshakeResult(isSuccessful(), getErrorMessage()));
-    for (var observer : observerList) {
-      observer.onCompleted(this);
+    if (exception != null) {
+      future.completeExceptionally(exception);
+    } else {
+      future.complete(new HandshakeResult(isSuccessful(), getErrorMessage(), connection));
     }
   }
 
-  @Override
-  public boolean isSuccessful() {
+  private boolean isSuccessful() {
     return currentState == State.Success;
   }
 
-  @Override
-  public String getErrorMessage() {
+  private String getErrorMessage() {
     return errorMessage;
   }
 
   @Override
   public ClientConnection getConnection() {
     return connection;
-  }
-
-  @Override
-  public Exception getException() {
-    return exception;
   }
 
   @Override
