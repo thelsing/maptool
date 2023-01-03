@@ -14,18 +14,13 @@
  */
 package net.rptools.maptool.server;
 
-import net.rptools.clientserver.simple.client.ClientConnection;
-
 public class HandshakeResult {
-  private boolean successful;
-  private String errorMessage;
+  private final boolean successful;
+  private final String errorMessage;
 
-  private ClientConnection connection;
-
-  public HandshakeResult(boolean successful, String errorMessage, ClientConnection connection) {
+  public HandshakeResult(boolean successful, String errorMessage) {
     this.successful = successful;
     this.errorMessage = errorMessage;
-    this.connection = connection;
   }
 
   /**
@@ -44,14 +39,5 @@ public class HandshakeResult {
    */
   public String getErrorMessage() {
     return errorMessage;
-  }
-
-  /**
-   * Returns the connection for this {@code ServerHandshake}.
-   *
-   * @return the connection for this {@code ServerHandshake}.
-   */
-  public ClientConnection getConnection() {
-    return connection;
   }
 }

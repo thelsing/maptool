@@ -385,7 +385,7 @@ public class ClientHandshake implements Handshake, MessageHandler {
     if (exception != null) {
       future.completeExceptionally(exception);
     } else {
-      future.complete(new HandshakeResult(isSuccessful(), getErrorMessage(), connection));
+      future.complete(getResult());
     }
   }
 
@@ -395,6 +395,11 @@ public class ClientHandshake implements Handshake, MessageHandler {
 
   private String getErrorMessage() {
     return errorMessage;
+  }
+
+  @Override
+  public HandshakeResult getResult() {
+    return new HandshakeResult(isSuccessful(), getErrorMessage());
   }
 
   @Override

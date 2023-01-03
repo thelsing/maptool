@@ -20,6 +20,7 @@ import net.rptools.clientserver.simple.AbstractConnection;
 import net.rptools.clientserver.simple.DisconnectHandler;
 import net.rptools.clientserver.simple.MessageHandler;
 import net.rptools.clientserver.simple.client.ClientConnection;
+import net.rptools.maptool.server.Handshake;
 import net.rptools.maptool.server.HandshakeResult;
 import org.apache.log4j.Logger;
 
@@ -146,14 +147,19 @@ public abstract class AbstractServerConnection extends AbstractConnection
         .exceptionally(
             t -> {
               log.error(t);
-              return new HandshakeResult(false, t.toString(), conn);
+              return new HandshakeResult(false, t.toString());
             })
-        .thenAccept(this::onCompleted);
+        .thenAccept(
+            result -> {
+              onCompleted(handshake);
+              handshakeProvider.onCompleted(handshake);
+            });
   }
 
-  private void onCompleted(HandshakeResult handshakeResult) {
-    var conn = handshakeResult.getConnection();
-    if (handshakeResult.isSuccessful()) {
+  private void onCompleted(Handshake handshake) {
+    var result = handshake.getResult();
+    var conn = handshake.getConnection();
+    if (result.isSuccessful()) {
       conn.addMessageHandler(this);
       conn.addDisconnectHandler(this);
 

@@ -35,6 +35,13 @@ public interface Handshake extends MessageHandler {
    */
   Player getPlayer();
 
+  /**
+   * Returns the current handshake result.
+   *
+   * @return the current handshake result.
+   */
+  HandshakeResult getResult();
+
   /** Starts the handshake process. */
   CompletableFuture<HandshakeResult> execute();
 }

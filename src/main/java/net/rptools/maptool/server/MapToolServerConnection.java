@@ -172,4 +172,17 @@ public class MapToolServerConnection implements ServerObserver, HandshakeProvide
   public void removeObserver(ServerObserver observer) {
     connection.removeObserver(observer);
   }
+
+  public void onCompleted(Handshake handshake) {
+    var result = handshake.getResult();
+    if (result.isSuccessful()) {
+      Player player = handshake.getPlayer();
+
+      if (player != null) {
+        playerMap.put(handshake.getConnection().getId().toUpperCase(), player);
+      }
+    } else {
+      log.error("Handshake failure: {}", result.getErrorMessage());
+    }
+  }
 }

@@ -59,7 +59,7 @@ public class MapToolConnection {
           .exceptionally(
               t -> {
                 log.error(t);
-                return new HandshakeResult(false, t.toString(), connection);
+                return new HandshakeResult(false, t.toString());
               })
           .thenAccept(
               (result) -> {

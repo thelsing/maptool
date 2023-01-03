@@ -552,7 +552,7 @@ public class ServerHandshake implements Handshake, MessageHandler {
     if (exception != null) {
       future.completeExceptionally(exception);
     } else {
-      future.complete(new HandshakeResult(isSuccessful(), getErrorMessage(), connection));
+      future.complete(getResult());
     }
   }
 
@@ -562,6 +562,11 @@ public class ServerHandshake implements Handshake, MessageHandler {
     connection.addMessageHandler(this);
     setCurrentState(State.AwaitingClientInit);
     return future;
+  }
+
+  @Override
+  public HandshakeResult getResult() {
+    return new HandshakeResult(isSuccessful(), getErrorMessage());
   }
 
   /** The states that the server side of the server side of the handshake process can be in. */
