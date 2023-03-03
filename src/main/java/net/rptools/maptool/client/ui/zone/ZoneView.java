@@ -54,7 +54,7 @@ public class ZoneView {
   private record ContributedLight(LitArea litArea, LightInfo lightInfo) {
 
     public static ContributedLight forDaylight(Area visibleArea) {
-      return new ContributedLight(new LitArea(1, visibleArea), null);
+      return new ContributedLight(new LitArea(0, visibleArea), null);
     }
   }
 
@@ -161,9 +161,6 @@ public class ZoneView {
 
   private final Map<Zone.TopologyType, AreaTree> topologyTrees =
       new EnumMap<>(Zone.TopologyType.class);
-
-  /** Lumen for personal vision (darkvision). */
-  private static final int LUMEN_VISION = 100;
 
   /**
    * Construct ZoneView from zone. Build lightSourceMap, and add ZoneView to Zone as listener.
@@ -368,13 +365,11 @@ public class ZoneView {
     }
 
     final var litAreas = new ArrayList<ContributedLight>();
-    var lumens = lightSource.getLumens();
-    if (lumens == 0) {
-      lumens = LUMEN_VISION;
-    }
 
     // Tracks the cummulative inner ranges of light sources so that we can cut them out of the
     // outer ranges and end up with disjoint sets, even when magnifying.
+    // Note that this "hole punching" has nothing to do with lumen strength, it's just a way of
+    // making smaller ranges act as lower bounds for larger ranges.
     final var cummulativeNotTransformedArea = new Area();
     for (final var light : lightSource.getLightList()) {
       final var notScaledLightArea =
@@ -383,18 +378,57 @@ public class ZoneView {
         continue;
       }
       final var lightArea = new Area(notScaledLightArea);
-      lightArea.subtract(cummulativeNotTransformedArea);
 
-      if (lightSource.getType() == LightSource.Type.NORMAL && multiplier != 1) {
+      // Lowlight vision does not magnify darkness.
+      if (multiplier != 1
+          && lightSource.getType() == LightSource.Type.NORMAL
+          && light.getLumens() >= 0) {
         lightArea.transform(magnifyTransform);
       }
+
+      lightArea.subtract(cummulativeNotTransformedArea);
       lightArea.transform(translateTransform);
       lightArea.intersect(lightSourceVisibleArea);
 
       litAreas.add(
-          new ContributedLight(new LitArea(lumens, lightArea), new LightInfo(lightSource, light)));
+          new ContributedLight(
+              new LitArea(light.getLumens(), lightArea), new LightInfo(lightSource, light)));
 
       cummulativeNotTransformedArea.add(notScaledLightArea);
+    }
+
+    // Magnification can cause different ranges for a single light source to overlap. This is not
+    // fundamentally a problem, but does open the possibility that different ranges are rendered
+    // overtop one another. So here we subtract any stronger ranges (higher lumens values) from
+    // weaker ranges (lower lumens values).
+
+    final var cummulativeStrongerArea = new Area();
+    // The light source may have produced both light and darkness, so make sure darkness is treated
+    // as stronger than light.
+    litAreas.sort(
+        (lhs, rhs) -> {
+          final var lhsLumens = lhs.litArea().lumens();
+          final var rhsLumens = rhs.litArea().lumens();
+          final var comparison = Integer.compare(lhsLumens, rhsLumens);
+          if (comparison == 0) {
+            // Exactly equal.
+            return 0;
+          }
+
+          final var absComparison = Integer.compare(Math.abs(lhsLumens), Math.abs(rhsLumens));
+          if (absComparison != 0) {
+            // Different magnitudes. Order large to small.
+            return -absComparison;
+          }
+
+          // Same magnitude, different sign. Put light (positive) after darkness as it's weaker.
+          return comparison;
+        });
+    for (final var litArea : litAreas) {
+      // Update to not include any stronger areas.
+      final var originalArea = new Area(litArea.litArea().area());
+      litArea.litArea().area().subtract(cummulativeStrongerArea);
+      cummulativeStrongerArea.add(originalArea);
     }
 
     return litAreas;
@@ -455,6 +489,13 @@ public class ZoneView {
         illuminationKey, key -> getUpToDateIlluminator(key).getIllumination());
   }
 
+  /**
+   * Add personal lights and daylight for a token, as well as any normal lights if the token is
+   * temporary.
+   *
+   * @param token
+   * @return All extra light contributions to be made for this token.
+   */
   private @Nonnull List<ContributedLight> getPersonalTokenContributions(Token token) {
     if (!token.getHasSight()) {
       return Collections.emptyList();
@@ -472,9 +513,17 @@ public class ZoneView {
       final var tokenVisibleArea = getTokenVisibleArea(token);
 
       if (zone.getVisionType() != Zone.VisionType.NIGHT) {
-        final var contributedLight = ContributedLight.forDaylight(tokenVisibleArea);
         // Treat the entire visible area like a light source of minimal lumens.
+        final var contributedLight = ContributedLight.forDaylight(tokenVisibleArea);
         personalLights.add(contributedLight);
+      }
+
+      if (token.hasLightSources()
+          && !lightSourceMap
+              .getOrDefault(LightSource.Type.NORMAL, Collections.emptySet())
+              .contains(token.getId())) {
+        // This accounts for temporary tokens (such as during an Expose Last Path)
+        personalLights.addAll(calculateLitAreas(token, sight.getMultiplier()));
       }
 
       if (sight.hasPersonalLightSource()) {
@@ -697,14 +746,9 @@ public class ZoneView {
 
             // Calculate the area covered by this particular range.
             Area lightArea = lightSource.getArea(token, zone, light);
-            if (lightArea == null) {
-              continue;
-            }
             lightArea.transform(AffineTransform.getTranslateInstance(p.x, p.y));
             lightArea.intersect(visibleArea);
-            lightList.add(
-                new DrawableLight(
-                    LightSource.Type.AURA, light.getPaint(), visibleArea, lightSource.getLumens()));
+            lightList.add(new DrawableLight(light.getPaint(), visibleArea, light.getLumens()));
           }
         }
       }
@@ -774,10 +818,7 @@ public class ZoneView {
                       ? lumensLevel.get().darknessArea()
                       : lumensLevel.get().lightArea());
               return new DrawableLight(
-                  laud.lightInfo().lightSource().getType(),
-                  laud.lightInfo().light().getPaint(),
-                  obscuredArea,
-                  laud.litArea.lumens());
+                  laud.lightInfo().light().getPaint(), obscuredArea, laud.litArea.lumens());
             })
         .filter(Objects::nonNull)
         .toList();
