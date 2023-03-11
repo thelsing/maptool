@@ -2084,8 +2084,13 @@ public class PointerTool extends DefaultTool {
     }
     gmNotes = marker.getGMNotes();
 
-    boolean showGMNotes = !stubOnly && MapTool.getPlayer().isGM() && !StringUtil.isEmpty(gmNotes);
-    boolean showNotes = !stubOnly && !StringUtil.isEmpty(notes);
+    var notesWithoutTags =
+        Optional.ofNullable(notes).map(s -> s.replaceAll("<[^>]*>", "")).orElse(null);
+    var gmNotesWithoutTags =
+        Optional.ofNullable(gmNotes).map(s -> s.replaceAll("<[^>]*>", "")).orElse(null);
+
+    boolean showGMNotes = !stubOnly && MapTool.getPlayer().isGM() && !StringUtil.isEmpty(gmNotesWithoutTags);
+    boolean showNotes = !stubOnly && !StringUtil.isEmpty(notesWithoutTags);
 
     StringBuilder builder = new StringBuilder();
     builder.append(
@@ -2186,9 +2191,6 @@ public class PointerTool extends DefaultTool {
       builder.append("</span></b><br>");
     }
     if (showNotes) {
-      if (!notes.startsWith("<html")) {
-        notes = notes.replaceAll("\n", "<br>");
-      }
       if (showGMNotes) {
         notes = notes.replaceAll("</html>", "");
         notes = notes.replaceAll("</body>", "");
@@ -2204,9 +2206,6 @@ public class PointerTool extends DefaultTool {
         builder.append("<b><span class='title'>GM Notes</span></b><br>");
         gmNotes = gmNotes.replaceAll("<html[^>]*>", "");
         gmNotes = gmNotes.replaceAll("<body[^>]*>", "");
-      }
-      if (!gmNotes.startsWith("<html")) {
-        gmNotes = gmNotes.replaceAll("\n", "<br>");
       }
       builder.append(gmNotes);
     }
