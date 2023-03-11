@@ -21,13 +21,16 @@ import net.rptools.clientserver.simple.DisconnectHandler;
 import net.rptools.clientserver.simple.MessageHandler;
 import net.rptools.clientserver.simple.client.ClientConnection;
 import net.rptools.maptool.server.Handshake;
+import net.rptools.maptool.server.HandshakeObserver;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import net.rptools.maptool.server.HandshakeResult;
 import org.apache.log4j.Logger;
 
 public abstract class AbstractServerConnection extends AbstractConnection
     implements MessageHandler, DisconnectHandler, ServerConnection {
 
-  private static final Logger log = Logger.getLogger(AbstractServerConnection.class);
+  private static final Logger log = LogManager.getLogger(AbstractServerConnection.class);
   //    private final ReaperThread reaperThread;
 
   private final Map<String, ClientConnection> clients =

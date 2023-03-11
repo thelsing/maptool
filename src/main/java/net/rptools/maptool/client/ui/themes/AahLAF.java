@@ -12,16 +12,23 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.model;
+package net.rptools.maptool.client.ui.themes;
 
-public enum Direction {
-  NW,
-  N,
-  NE,
-  W,
-  CENTER,
-  E,
-  SW,
-  S,
-  SE
+import com.formdev.flatlaf.FlatLightLaf;
+
+public class AahLAF extends FlatLightLaf {
+  public static final String NAME = "Aah";
+
+  public static boolean setup() {
+    return setup(new AahLAF());
+  }
+
+  public static void installLafInfo() {
+    installLafInfo(NAME, AahLAF.class);
+  }
+
+  @Override
+  public String getName() {
+    return NAME;
+  }
 }
