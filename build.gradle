@@ -303,7 +303,7 @@ dependencies {
 
     // For Sentry bug reporting
     implementation group: 'io.sentry', name: 'sentry', version: '1.7.29'
-    implementation group: 'io.sentry', name: 'sentry-log4j2', version: '1.7.29'
+    implementation group: 'io.sentry', name: 'sentry-log4j2', version: '6.16.0'
 
     // parsing of configuration data
     implementation group: 'org.apache.commons', name: 'commons-configuration2', version: '2.7'
