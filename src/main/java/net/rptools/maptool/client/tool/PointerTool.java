@@ -2042,7 +2042,7 @@ public class PointerTool extends DefaultTool {
   }
 
   private String createHoverNote(Token marker, boolean stubOnly) {
-    var notes = StringUtil.htmlize(marker.getNotes());
+    var notes = StringUtil.htmlize(marker.getNotes(), marker.getNotesType());
     if (notes != null) {
       var text = notes;
       text = text.replaceAll("white-space: pre-wrap", "");
@@ -2052,7 +2052,7 @@ public class PointerTool extends DefaultTool {
       notes = marker.getNotes();
     }
 
-    var gmNotes = StringUtil.htmlize(marker.getGMNotes());
+    var gmNotes = StringUtil.htmlize(marker.getGMNotes(), marker.getGmNotesType());
     if (gmNotes != null) {
       var text = gmNotes;
       text = text.replaceAll("white-space: pre-wrap", "");
