@@ -1142,10 +1142,6 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     replaceComponent("propertiesPanel", "propertiesTable", buttonsAndPropertyTable);
   }
 
-  public void initTokenDetails() {
-
-  }
-
   public void initTokenLayoutPanel() {
     TokenLayoutPanel layoutPanel = new TokenLayoutPanel();
     layoutPanel.setPreferredSize(new Dimension(150, 125));
@@ -1575,7 +1571,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
               // If NPC, lets not overwrite the Name, it may be "Creature 229" or such, GM
               // name is enough
-             getGmNameField().setText(heroLabData.getName());
+              getGmNameField().setText(heroLabData.getName());
               if (heroLabData.isAlly()) {
                 getTypeCombo().setSelectedItem(Type.PC);
                 getNameField().setText(heroLabData.getName());
