@@ -64,9 +64,17 @@ public class HtmlEditorSplit extends JPanel {
     return gui.getSelectedText();
   }
 
+  public void clearSelectedText() {
+    gui.clearSelectedText();
+  }
+
   @Override
   public void setEnabled(boolean enabled) {
     super.setEnabled(enabled);
     gui.setEnabled(enabled);
+  }
+
+  public void replaceSelection(String replacement) {
+    gui.replaceSelection(replacement);
   }
 }

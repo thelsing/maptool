@@ -12,7 +12,7 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.token.edit;
+package net.rptools.maptool.client.ui.token.dialog.edit;
 
 import com.jidesoft.combobox.MultilineStringExComboBox;
 import com.jidesoft.combobox.PopupPanel;
@@ -83,6 +83,8 @@ import net.rptools.maptool.model.player.Player;
 import net.rptools.maptool.util.ExtractHeroLab;
 import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.ImageManager;
+import net.rptools.maptool.util.StringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
@@ -123,6 +125,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   public EditTokenDialog() {
     super(new TokenPropertiesDialog().$$$getRootComponent$$$());
     panelInit();
+  }
+
+  public void initNameFields() {
+    getNameField().addMouseListener(new MouseHandler(getNameField()));
+    getGmNameField().addMouseListener(new MouseHandler(getGmNameField()));
+    getSpeechNameField().addMouseListener(new MouseHandler(getSpeechNameField()));
   }
 
   public void initGMNotesEditorPane() {
@@ -167,7 +175,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
     getRootPane().setDefaultButton(getOKButton());
     setGmNotesEnabled(MapTool.getPlayer().isGM());
-    getComponent("@GMName").setEnabled(MapTool.getPlayer().isGM());
+    getGmNameField().setEnabled(MapTool.getPlayer().isGM());
 
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
@@ -989,6 +997,10 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JTextField) getComponent("@name");
   }
 
+  private JTextField getGmNameField() {
+    return (JTextField) getComponent("@GMName");
+  }
+
   private JTextField getSpeechNameField() {
     return (JTextField) getComponent("@speechName");
   }
@@ -1131,7 +1143,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   }
 
   public void initTokenDetails() {
-    // tokenGMNameLabel = panel.getLabel("tokenGMNameLabel");
+
   }
 
   public void initTokenLayoutPanel() {
@@ -1563,7 +1575,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
               // If NPC, lets not overwrite the Name, it may be "Creature 229" or such, GM
               // name is enough
-              ((JTextField) getComponent("@GMName")).setText(heroLabData.getName());
+             getGmNameField().setText(heroLabData.getName());
               if (heroLabData.isAlly()) {
                 getTypeCombo().setSelectedItem(Type.PC);
                 getNameField().setText(heroLabData.getName());
@@ -1994,9 +2006,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
   // HANDLER
   public static class MouseHandler extends MouseAdapter {
 
-    HtmlEditorSplit source;
+    JTextField source;
 
-    public MouseHandler(HtmlEditorSplit source) {
+    public MouseHandler(JTextField source) {
       this.source = source;
     }
 
@@ -2034,6 +2046,23 @@ public class EditTokenDialog extends AbeillePanel<Token> {
               MapTool.getFrame().getCommandPanel().getCommandTextArea().requestFocusInWindow();
             });
         menu.add(sendAsEmoteItem);
+        JMenuItem translateItem =
+            new JMenuItem(I18N.getString("EditTokenDialog.menu.notes.translate"));
+        translateItem.addActionListener(
+            e12 -> {
+              String selectedText = source.getSelectedText();
+              var text = selectedText;
+              if (StringUtils.isEmpty(text)) {
+                text = source.getText();
+              }
+              var translation = StringUtil.translateText(text);
+              if (!StringUtils.isEmpty(selectedText)) {
+                source.replaceSelection(translation);
+              } else {
+                source.setText(translation);
+              }
+            });
+        menu.add(translateItem);
         menu.show((JComponent) e.getSource(), e.getX(), e.getY());
       }
     }

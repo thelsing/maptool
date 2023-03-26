@@ -12,7 +12,7 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.token.edit;
+package net.rptools.maptool.client.ui.token.dialog.edit;
 
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
@@ -71,7 +71,7 @@ public class TokenPropertiesDialog {
         final JPanel panel1 = new JPanel();
         panel1.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
         panel1.setName("notesPanel");
-        panel1.setVisible(false);
+        panel1.setVisible(true);
         tabPanel.addTab(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "EditTokenDialog.tab.notes"), panel1);
         panel1.add(playerNotesEditor, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final JPanel panel2 = new JPanel();
@@ -263,7 +263,7 @@ public class TokenPropertiesDialog {
         panel4.add(button4, new GridConstraints(15, 0, 1, 3, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
         final JPanel panel7 = new JPanel();
         panel7.setLayout(new GridLayoutManager(1, 1, new Insets(4, 4, 4, 4), -1, -1));
-        panel7.setVisible(true);
+        panel7.setVisible(false);
         tabPanel.addTab(this.$$$getMessageFromBundle$$$("net/rptools/maptool/language/i18n", "EditTokenDialog.tab.state"), panel7);
         final JScrollPane scrollPane1 = new JScrollPane();
         scrollPane1.setHorizontalScrollBarPolicy(31);

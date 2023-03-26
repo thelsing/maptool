@@ -14,6 +14,8 @@
  */
 package net.rptools.maptool.util;
 
+import com.deepl.api.TextResult;
+import com.deepl.api.Translator;
 import com.vladsch.flexmark.ext.gfm.strikethrough.StrikethroughExtension;
 import com.vladsch.flexmark.ext.tables.TablesExtension;
 import com.vladsch.flexmark.html.HtmlRenderer;
@@ -24,12 +26,19 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
+import net.rptools.maptool.client.AppPreferences;
+import net.rptools.maptool.client.MapTool;
 import org.apache.commons.lang.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
 /** @author Tylere */
 public class StringUtil {
+
+  private static Logger logger = LogManager.getLogger(StringUtil.class);
   private static NumberFormat nf = NumberFormat.getNumberInstance();
   private static final int MIN_FRACTION_DIGITS = 0;
 
@@ -306,8 +315,29 @@ public class StringUtil {
     return htmlRenderer.render(document);
   }
 
+  private static Translator translator;
+
+  public static void resetTranslator() {
+    translator = null;
+  }
+
+  public static String translateText(String text) {
+    if (translator == null) {
+      String authKey = AppPreferences.getDeepLApiKey();
+      translator = new Translator(authKey);
+    }
+    try {
+      TextResult result = translator.translateText(text, null, Locale.getDefault().getLanguage());
+      return result.getText();
+    } catch (Exception e) {
+      logger.error(e.toString());
+      MapTool.showError("Error for translation", e);
+      return text;
+    }
+  }
+
   public static String htmlize(String input, String type) {
-    if(StringUtils.isEmpty(input)) {
+    if (StringUtils.isEmpty(input)) {
       return "";
     }
 

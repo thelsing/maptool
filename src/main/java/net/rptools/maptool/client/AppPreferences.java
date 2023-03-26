@@ -31,6 +31,7 @@ import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.GridFactory;
 import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
+import net.rptools.maptool.util.StringUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -526,6 +527,8 @@ public class AppPreferences {
 
   private static final String KEY_RENDER_QUALITY = "renderScaleQuality";
 
+  private static final String KEY_DEEPL_API_KEY = "deepLApiKey";
+
   private static final RenderQuality DEFAULT_RENDER_QUALITY = RenderQuality.LOW_SCALING;
 
   public enum RenderQuality {
@@ -600,6 +603,15 @@ public class AppPreferences {
       }
     }
     return renderQuality;
+  }
+
+  public static void setDeepLApiKey(String key) {
+    prefs.put(KEY_DEEPL_API_KEY, key);
+    StringUtil.resetTranslator();
+  }
+
+  public static String getDeepLApiKey() {
+    return prefs.get(KEY_DEEPL_API_KEY, "");
   }
 
   public static void setTypingNotificationDuration(int ms) {

@@ -142,6 +142,7 @@ public class PreferencesDialog extends JDialog {
   private final JCheckBox fitGMView;
   private final JCheckBox fillSelectionCheckBox;
   private final JTextField frameRateCapTextField;
+  private final JTextField deepLApiKeyTextField;
 
   private final JComboBox<LocalizedComboItem> renderPerformanceComboBox;
   private final JTextField defaultUsername;
@@ -305,6 +306,7 @@ public class PreferencesDialog extends JDialog {
     saveReminderCheckBox = panel.getCheckBox("saveReminderCheckBox");
     fillSelectionCheckBox = panel.getCheckBox("fillSelectionCheckBox");
     frameRateCapTextField = panel.getTextField("frameRateCapTextField");
+    deepLApiKeyTextField = panel.getTextField("deepLApiKeyTextField");
     renderPerformanceComboBox = panel.getComboBox("renderPerformanceComboBox");
 
     defaultUsername = panel.getTextField("defaultUsername");
@@ -560,7 +562,16 @@ public class PreferencesDialog extends JDialog {
                 return StringUtil.parseInteger(value);
               }
             });
-
+    deepLApiKeyTextField.addFocusListener(
+        new FocusAdapter() {
+          @Override
+          public void focusLost(FocusEvent e) {
+            if (!e.isTemporary()) {
+              StringBuilder deepLApiKey = new StringBuilder(deepLApiKeyTextField.getText());
+              AppPreferences.setDeepLApiKey(deepLApiKey.toString());
+            }
+          }
+        });
     renderPerformanceComboBox.setModel(
         getLocalizedModel(renderPerformanceComboItems, AppPreferences.getRenderQuality().name()));
     renderPerformanceComboBox.addItemListener(
@@ -1068,6 +1079,7 @@ public class PreferencesDialog extends JDialog {
     saveReminderCheckBox.setSelected(AppPreferences.getSaveReminder());
     fillSelectionCheckBox.setSelected(AppPreferences.getFillSelectionBox());
     frameRateCapTextField.setText(Integer.toString(AppPreferences.getFrameRateCap()));
+    deepLApiKeyTextField.setText(AppPreferences.getDeepLApiKey());
     defaultUsername.setText(AppPreferences.getDefaultUserName());
     // initEnableServerSyncCheckBox.setSelected(AppPreferences.getInitEnableServerSync());
     autoSaveSpinner.setValue(AppPreferences.getAutoSaveIncrement());
