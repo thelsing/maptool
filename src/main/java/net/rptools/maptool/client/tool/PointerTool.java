@@ -2043,25 +2043,7 @@ public class PointerTool extends DefaultTool {
 
   private String createHoverNote(Token marker, boolean stubOnly) {
     var notes = StringUtil.htmlize(marker.getNotes(), marker.getNotesType());
-    if (!StringUtils.isEmpty(notes)) {
-      var text = notes;
-      text = text.replaceAll("white-space: pre-wrap", "");
-      text = text.replaceAll("white-space: pre", "");
-      text = text.replaceAll("size=\"[^\"]*\"", "");
-      marker.setNotes(text);
-      notes = marker.getNotes();
-    }
-
     var gmNotes = StringUtil.htmlize(marker.getGMNotes(), marker.getGmNotesType());
-    if (!StringUtils.isEmpty(gmNotes)) {
-      var text = gmNotes;
-      text = text.replaceAll("white-space: pre-wrap", "");
-      text = text.replaceAll("white-space: pre", "");
-      text = text.replaceAll("size=\"[^\"]*\"", "");
-      marker.setGMNotes(text);
-    }
-    gmNotes = marker.getGMNotes();
-
     boolean showGMNotes = !stubOnly && MapTool.getPlayer().isGM() && !StringUtil.isEmpty(gmNotes);
     boolean showNotes = !stubOnly && !StringUtil.isEmpty(notes);
 
