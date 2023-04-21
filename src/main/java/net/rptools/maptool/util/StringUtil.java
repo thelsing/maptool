@@ -34,7 +34,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
-/** @author Tylere */
+/**
+ * @author Tylere
+ */
 public class StringUtil {
 
   private static Logger logger = LogManager.getLogger(StringUtil.class);

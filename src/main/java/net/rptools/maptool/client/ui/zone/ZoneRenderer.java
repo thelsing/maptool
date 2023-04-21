@@ -618,8 +618,7 @@ public class ZoneRenderer extends JComponent
   /**
    * Remove the token from: {@link #tokenLocationCache}, {@link #flipImageMap}, {@link
    * #flipIsoImageMap}, {@link #labelRenderingCache}. Set the {@link #visibleScreenArea}, {@link
-   * #tokenStackMap}, {@link #drawableLights}, {@link #drawableAuras} to null. Flush the token from
-   * the zoneView.
+   * #tokenStackMap} to null. Flush the token from {@link #zoneView}.
    *
    * @param token the token to flush
    */
@@ -639,13 +638,12 @@ public class ZoneRenderer extends JComponent
     // This could also be smarter
     tokenStackMap = null;
 
-    drawableLights = null;
-    drawableAuras = null;
-
     zoneView.flush(token);
   }
 
-  /** @return the ZoneView */
+  /**
+   * @return the ZoneView
+   */
   public ZoneView getZoneView() {
     return zoneView;
   }
@@ -668,20 +666,13 @@ public class ZoneRenderer extends JComponent
     flushDrawableRenderer();
     flipImageMap.clear();
     flipIsoImageMap.clear();
-    drawableLights = null;
-    drawableAuras = null;
     zoneView.flushFog();
 
     isLoaded = false;
   }
 
-  /**
-   * Set the {@link #drawableLights} and {@link #drawableAuras} to null, flush the zoneView, and
-   * repaint.
-   */
+  /** Flush the {@link #zoneView} and repaint. */
   public void flushLight() {
-    drawableLights = null;
-    drawableAuras = null;
     zoneView.flush();
     repaintDebouncer.dispatch();
   }
@@ -692,7 +683,9 @@ public class ZoneRenderer extends JComponent
     repaintDebouncer.dispatch();
   }
 
-  /** @return the Zone */
+  /**
+   * @return the Zone
+   */
   public Zone getZone() {
     return zone;
   }
@@ -1045,12 +1038,10 @@ public class ZoneRenderer extends JComponent
   }
 
   /**
-   * This method clears {@link #drawableLights}, {@link #drawableAuras}, {@link #visibleScreenArea},
-   * and {@link #lastView}. It also flushes the {@link #zoneView}.
+   * This method clears {@link #visibleScreenArea} and {@link #lastView}. It also flushes the {@link
+   * #zoneView}.
    */
   public void invalidateCurrentViewCache() {
-    drawableLights = null;
-    drawableAuras = null;
     visibleScreenArea = null;
     lastView = null;
   }
@@ -1423,24 +1414,32 @@ public class ZoneRenderer extends JComponent
   private void renderLights(Graphics2D g, PlayerView view) {
     // Collect and organize lights
     timer.start("renderLights:getLights");
-    if (drawableLights == null) {
-      timer.start("renderLights:populateCache");
-      drawableLights = new ArrayList<>(zoneView.getDrawableLights(view));
-      timer.stop("renderLights:populateCache");
-    }
-    timer.start("renderLights:filterLights");
+    final var drawableLights = zoneView.getDrawableLights(view);
+    timer.stop("renderLights:getLights");
 
     if (AppState.isShowLights()) {
       // Lighting enabled.
       timer.start("renderLights:renderLightOverlay");
+      final var overlayBlending =
+          switch (zone.getLightingStyle()) {
+            case OVERTOP -> AlphaComposite.SrcOver.derive(
+                AppPreferences.getLightOverlayOpacity() / 255.f);
+            case ENVIRONMENTAL -> LightingComposite.OverlaidLights;
+          };
+      final var overlayFillColor =
+          switch (zone.getLightingStyle()) {
+            case OVERTOP -> new Color(0, 0, 0, 0);
+            case ENVIRONMENTAL -> Color.black;
+          };
+
       renderLightOverlay(
           g,
           LightingComposite.BlendedLights,
-          LightingComposite.OverlaidLights,
-          LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
+          overlayBlending,
+          view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
           drawableLights,
           Color.black,
-          Color.black);
+          overlayFillColor);
       timer.stop("renderLights:renderLightOverlay");
     }
 
@@ -1470,14 +1469,8 @@ public class ZoneRenderer extends JComponent
     }
   }
 
-  /** Caches the lights to be drawn as returned ZoneView. */
-  private List<DrawableLight> drawableLights;
-  /** Holds the auras from lightSourceMap after they have been combined. */
-  private List<DrawableLight> drawableAuras;
-
   /**
-   * Get the list of auras from lightSourceMap, combine them, store them in drawableAuras, and draw
-   * them.
+   * Render the auras.
    *
    * @param g the Graphics2D object.
    * @param view the player view.
@@ -1485,9 +1478,7 @@ public class ZoneRenderer extends JComponent
   private void renderAuras(Graphics2D g, PlayerView view) {
     // Setup
     timer.start("renderAuras:getAuras");
-    if (drawableAuras == null) {
-      drawableAuras = new ArrayList<>(zoneView.getDrawableAuras());
-    }
+    final var drawableAuras = zoneView.getDrawableAuras();
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
@@ -1502,24 +1493,6 @@ public class ZoneRenderer extends JComponent
     timer.stop("renderAuras:renderAuraOverlay");
   }
 
-  private void addLitAreaToLumensOverlay(
-      Graphics2D overlayG, Area area, float shade, float opacity) {
-    overlayG.setPaint(new Color(shade, shade, shade, opacity));
-
-    timer.start("renderLumensOverlay:drawLights:fillArea");
-    overlayG.fill(area);
-    timer.stop("renderLumensOverlay:drawLights:fillArea");
-
-    final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
-    if (borderThickness > 0) {
-      timer.start("renderLumensOverlay:drawLights:drawArea");
-      overlayG.setStroke(new BasicStroke((float) borderThickness));
-      overlayG.setPaint(Color.black);
-      overlayG.draw(area);
-      timer.stop("renderLumensOverlay:drawLights:drawArea");
-    }
-  }
-
   private void renderLumensOverlay(
       Graphics2D g,
       PlayerView view,
@@ -1527,7 +1500,7 @@ public class ZoneRenderer extends JComponent
       float overlayOpacity) {
     g = (Graphics2D) g.create();
 
-    final var lumensLevels = zoneView.getLumensLevels(view);
+    final var disjointLumensLevels = zoneView.getDisjointObscuredLumensLevels(view);
 
     timer.start("renderLumensOverlay:allocateBuffer");
     try (final var bufferHandle = tempBufferPool.acquire()) {
@@ -1535,13 +1508,14 @@ public class ZoneRenderer extends JComponent
       timer.stop("renderLumensOverlay:allocateBuffer");
 
       Graphics2D newG = lumensOverlay.createGraphics();
+      newG.setComposite(AlphaComposite.SrcOver.derive(overlayOpacity));
       SwingUtil.useAntiAliasing(newG);
 
       // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
       newG.setPaint(
           zone.getVisionType() == Zone.VisionType.NIGHT
-              ? new Color(0, 0, 0, overlayOpacity)
-              : new Color(1.f, 1.f, 1.f, 0.f));
+              ? new Color(0.f, 0.f, 0.f, 1.f)
+              : new Color(0.f, 0.f, 0.f, 0.f));
       newG.fillRect(0, 0, lumensOverlay.getWidth(), lumensOverlay.getHeight());
 
       if (clipStyle != null && visibleScreenArea != null) {
@@ -1564,11 +1538,10 @@ public class ZoneRenderer extends JComponent
       timer.stop("renderLumensOverlay:setTransform");
 
       timer.start("renderLumensOverlay:drawLumens");
-      // Lumens are ordered to be weak to strong. That works for us as well will draw the stronger
+      // Lumens are ordered to be weak to strong. That works for us as we will draw the stronger
       // areas overtop the weaker areas using `AlphaComposite.Src` to make sure the stronger one
       // "wins".
-      newG.setComposite(AlphaComposite.Src);
-      for (final var lumensLevel : lumensLevels) {
+      for (final var lumensLevel : disjointLumensLevels) {
         final var lumensStrength = lumensLevel.lumensStrength();
 
         // Light is weaker than darkness, so do it first.
@@ -1587,15 +1560,36 @@ public class ZoneRenderer extends JComponent
           lightShade *= lightShade;
           lightOpacity = 1.f;
         }
-        addLitAreaToLumensOverlay(newG, lumensLevel.lightArea(), lightShade, lightOpacity);
 
-        addLitAreaToLumensOverlay(newG, lumensLevel.darknessArea(), 0, 1.f);
+        timer.start("renderLumensOverlay:drawLights:fillArea");
+        newG.setPaint(new Color(lightShade, lightShade, lightShade, lightOpacity));
+        newG.fill(lumensLevel.lightArea());
+
+        newG.setPaint(new Color(0.f, 0.f, 0.f, 1.f));
+        newG.fill(lumensLevel.darknessArea());
+        timer.stop("renderLumensOverlay:drawLights:fillArea");
       }
+
+      // Now draw borders around each region if configured.
+      final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
+      if (borderThickness > 0) {
+        newG.setStroke(
+            new BasicStroke(
+                (float) borderThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        newG.setComposite(AlphaComposite.SrcOver);
+        newG.setPaint(new Color(0.f, 0.f, 0.f, 1.f));
+        for (final var lumensLevel : disjointLumensLevels) {
+          timer.start("renderLumensOverlay:drawLights:drawArea");
+          newG.draw(lumensLevel.lightArea());
+          newG.draw(lumensLevel.darknessArea());
+          timer.stop("renderLumensOverlay:drawLights:drawArea");
+        }
+      }
+
       timer.stop("renderLumensOverlay:drawLumens");
       newG.dispose();
 
       timer.start("renderLumensOverlay:drawBuffer");
-      g.setComposite(AlphaComposite.SrcOver.derive(overlayOpacity));
       g.drawImage(lumensOverlay, null, 0, 0);
       timer.stop("renderLumensOverlay:drawBuffer");
     }
@@ -4121,7 +4115,9 @@ public class ZoneRenderer extends JComponent
       }
     }
 
-    /** @return path computation. */
+    /**
+     * @return path computation.
+     */
     public Path<ZonePoint> getGridlessPath() {
       return gridlessPath;
     }

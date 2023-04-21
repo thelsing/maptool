@@ -47,7 +47,7 @@ public class LightSource implements Comparable<LightSource>, Serializable {
 
   // Lumens are now in the individual Lights. This field is only here for backwards compatibility
   // and should not otherwise be used.
-  @Deprecated private final int lumens = Integer.MIN_VALUE;
+  @Deprecated private int lumens = Integer.MIN_VALUE;
 
   /**
    * Constructs a personal light source.
@@ -168,7 +168,9 @@ public class LightSource implements Comparable<LightSource>, Serializable {
     lightList.remove(source);
   }
 
-  /** @return the lights belonging to this LightSource. */
+  /**
+   * @return the lights belonging to this LightSource.
+   */
   public @Nonnull List<Light> getLightList() {
     return Collections.unmodifiableList(lightList);
   }

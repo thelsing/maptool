@@ -1450,7 +1450,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return currentRenderer;
   }
 
-  /** @return the HTML Overlay Panel */
+  /**
+   * @return the HTML Overlay Panel
+   */
   public HTMLOverlayPanel getOverlayPanel() {
     return overlayPanel;
   }
@@ -1721,6 +1723,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
         });
 
     initiativeButton.setBorder(btn.getBorder());
+    initiativeButton.setToolTipText(I18N.getText("tools.initiative.tooltip"));
     fullScreenToolPanel.add(initiativeButton);
 
     // set buttons to uniform size
@@ -2068,7 +2071,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     updateKeyStrokes();
   }
 
-  /** @return Getter for initiativePanel */
+  /**
+   * @return Getter for initiativePanel
+   */
   public InitiativePanel getInitiativePanel() {
     return initiativePanel;
   }
