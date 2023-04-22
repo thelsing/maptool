@@ -70,6 +70,7 @@ import net.rptools.maptool.client.ui.transferprogressdialog.TransferProgressDial
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.utilities.DungeonDraftImporter;
+import net.rptools.maptool.client.utilities.FoundryModuleImporter;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.Layer;
@@ -2926,7 +2927,6 @@ public class AppActions {
 
         @Override
         protected void executeAction() {
-          boolean isConnected = !MapTool.isHostingServer() && !MapTool.isPersonalServer();
           JFileChooser chooser = new MapPreviewFileChooser();
           chooser.setDialogTitle(I18N.getText("action.import.dungeondraft.dialog.title"));
           chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
@@ -2939,6 +2939,36 @@ public class AppActions {
             } catch (IOException ioException) {
               MapTool.showError("dungeondraft.import.ioError", ioException);
             }
+          }
+        }
+      };
+  public static final ClientAction IMPORT_FOUNDRY_MODULE =
+      new ClientAction() {
+        {
+          init("action.import.foundry");
+        }
+
+        @Override
+        public boolean isAvailable() {
+          return MapTool.isHostingServer()
+              || (MapTool.getPlayer() != null && MapTool.getPlayer().isGM());
+        }
+
+        @Override
+        protected void executeAction() {
+          JFileChooser chooser = new MapPreviewFileChooser();
+          chooser.setDialogTitle(I18N.getText("action.import.foundry.dialog.title"));
+          chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+          chooser.setFileFilter(MapTool.getFrame().getFoundryModuleFilter());
+
+          if (chooser.showOpenDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
+          File file = chooser.getSelectedFile();
+          try {
+            new FoundryModuleImporter(file).importVTT();
+            MapTool.showInformation("Done");
+          } catch (IOException ioException) {
+            MapTool.showError("foundry.import.ioError", ioException);
+          }
           }
         }
       };

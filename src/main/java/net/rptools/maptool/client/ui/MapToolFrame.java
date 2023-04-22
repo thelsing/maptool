@@ -211,6 +211,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
       new MTFileFilter(I18N.getText("file.ext.mttable"), "mttable");
   private final FileFilter dungeonDraftFilter =
       new MTFileFilter(I18N.getText("file.ext.dungeondraft"), "dd2vtt", "df2vtt", "uvtt");
+
+  private final FileFilter foundryModuleFilter =
+      new MTFileFilter(I18N.getText("file.ext.foundry"), "zip");
   private EditTokenDialog tokenPropertiesDialog;
 
   private final CampaignPanel campaignPanel = new CampaignPanel();
@@ -825,6 +828,10 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
    */
   public FileFilter getDungeonDraftFilter() {
     return dungeonDraftFilter;
+  }
+
+  public FileFilter getFoundryModuleFilter() {
+    return foundryModuleFilter;
   }
 
   public JFileChooser getLoadPropsFileChooser() {
