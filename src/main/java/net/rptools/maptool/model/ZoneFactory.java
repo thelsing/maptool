@@ -19,7 +19,6 @@ import java.io.File;
 import java.io.IOException;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.AppPreferences;
-import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
 import net.rptools.maptool.model.drawing.DrawableTexturePaint;
 import net.rptools.maptool.util.ImageManager;
@@ -34,11 +33,14 @@ public class ZoneFactory {
     // TODO: I really don't like this being hard wired this way, need to make it a preference or
     // something
     File grassImage =
-        new File(AppUtil.getAppHome("resource/Default/Textures").getAbsolutePath() + "/Grass.png");
+        new File("C:\\Users\\tkunze\\OneDrive\\Desktop\\cos\\art\\woodboard_seemless.jpg");
+    //       new File(AppUtil.getAppHome("resource/Default/Textures").getAbsolutePath() +
+    // "/Grass.png");
     if (grassImage.exists()) {
       try {
         Asset asset =
             Asset.createImageAsset(DEFAULT_MAP_NAME, FileUtils.readFileToByteArray(grassImage));
+        AssetManager.putAsset(asset);
         defaultImageId = asset.getMD5Key();
 
         // Make sure the image is loaded to avoid a flash screen when it becomes visible
