@@ -28,6 +28,7 @@ import java.nio.file.*;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.mappropertiesdialog.MapPropertiesDialog;
@@ -36,6 +37,7 @@ import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.Layer;
 import org.apache.commons.math3.util.Pair;
+import org.jetbrains.annotations.NotNull;
 
 public class FoundryModuleImporter {
 
@@ -67,8 +69,8 @@ public class FoundryModuleImporter {
   private Path systemDir;
 
   private File moduleFile;
-
-  private Map<Pair<String, String>, String> journalContent = new HashMap<>();
+  private String moduleName = "";
+  private Map<String, String> foundryId2Link = new HashMap<>();
   public FoundryModuleImporter(File file) {
     moduleFile = file;
   }
@@ -97,10 +99,10 @@ public class FoundryModuleImporter {
       }
     }
   }
-
   private void importModule(Path moduleJson) throws IOException {
     try (InputStreamReader reader = new InputStreamReader(Files.newInputStream(moduleJson))) {
       var moduleFile = JsonParser.parseReader(reader).getAsJsonObject();
+      moduleName = moduleFile.getAsJsonPrimitive("title").getAsString();
       currentModuleRootDir = moduleJson.getParent();
       for (var pack : moduleFile.getAsJsonArray("packs")) {
         importPack(pack.getAsJsonObject());
@@ -122,13 +124,31 @@ public class FoundryModuleImporter {
       }
       var packFile = JsonParser.parseString(line).getAsJsonObject();
 
+      if (packFile.has("actors")) {
+        var actors = packFile.get("actors");
+        if (actors.isJsonArray()) {
+          for (var actor : actors.getAsJsonArray()) {
+            importActor(actor.getAsJsonObject());
+          }
+        }
+      }
+
+      if (packFile.has("items")) {
+        var items = packFile.get("items");
+        if (items.isJsonArray()) {
+          for (var item : items.getAsJsonArray()) {
+            importItem(item.getAsJsonObject());
+          }
+        }
+      }
+
       if (packFile.has("journal")) {
         var journal = packFile.get("journal");
         if (journal.isJsonArray()) {
           exportJournal(label, journal.getAsJsonArray());
         }
       }
-
+      
       if (packFile.has("scenes")) {
         var scenes = packFile.get("scenes");
         if (scenes.isJsonArray()) {
@@ -139,6 +159,18 @@ public class FoundryModuleImporter {
         }
       }
     }
+  }
+
+  private void importActor(JsonObject actor) {
+    var id = actor.getAsJsonPrimitive("_id").getAsString();
+    var name = actor.getAsJsonPrimitive("name").getAsString();
+    foundryId2Link.put("Actor.%s".formatted(id), "npc \"%s\"".formatted(name));
+  }
+
+  private void importItem(JsonObject item) {
+    var id = item.getAsJsonPrimitive("_id").getAsString();
+    var name = item.getAsJsonPrimitive("name").getAsString();
+    foundryId2Link.put("Item.%s".formatted(id), "item \"%s\"".formatted(name));
   }
 
   private int xOffset = 0;
@@ -225,6 +257,7 @@ public class FoundryModuleImporter {
 
     // If everything has been successful, we can add the zone to the campaign.
     MapTool.addZone(zone);
+    MapTool.getCampaign().getZones()
   }
 
   private void placeNote(Zone zone, JsonObject noteObj, int i) {
@@ -241,10 +274,10 @@ public class FoundryModuleImporter {
     noteToken.setHeight(size);
     noteToken.setX(noteObj.get("x").getAsInt() - xOffset - LIGHT_WIDTH / 2);
     noteToken.setY(noteObj.get("y").getAsInt() - yOffset - LIGHT_HEIGHT / 2);
-    var content = journalContent.get(Pair.create(entryId, pageId));
-    if(content != null) {
-      noteToken.setGMNotes(content);
-    }
+//    var content = journalContent.get(Pair.create(entryId, pageId));
+//    if(content != null) {
+//      noteToken.setGMNotes(content);
+//    }
 
     zone.putToken(noteToken);
   }
@@ -314,14 +347,29 @@ public class FoundryModuleImporter {
     if (!Files.exists(moduleJournalDir)) {
       Files.createDirectory(moduleJournalDir);
     }
+
+    //build index first
     for (var entry : journal) {
       var entryObject = entry.getAsJsonObject();
       var entryId = entryObject.getAsJsonPrimitive("_id").getAsString();
       var name = entryObject.getAsJsonPrimitive("name").getAsString();
-      var entryFile = moduleJournalDir.resolve("%s.html".formatted(name));
-      var entryJsonFile = moduleJournalDir.resolve("%s.json".formatted(name));
+
+      for (var page : entryObject.getAsJsonArray("pages")) {
+        var pageObject = page.getAsJsonObject();
+        var pageId = pageObject.getAsJsonPrimitive("_id").getAsString();
+        var pageName = pageObject.getAsJsonPrimitive("name").getAsString();
+        foundryId2Link.put("JournalEntry.%s.JournalEntryPage.%s".formatted(entryId, pageId), "note \"%s@%s:%s\"".formatted(pageName, moduleName, name));
+      }
+    }
+
+
+    for (var entry : journal) {
+      var entryObject = entry.getAsJsonObject();
+      var entryId = entryObject.getAsJsonPrimitive("_id").getAsString();
+      var name = entryObject.getAsJsonPrimitive("name").getAsString();
       var pageSet = new HashMap<Integer, String>();
       var jsonExport = new JsonObject();
+
       for (var page : entryObject.getAsJsonArray("pages")) {
         var pageObject = page.getAsJsonObject();
         var sort = pageObject.getAsJsonPrimitive("sort").getAsInt();
@@ -330,16 +378,17 @@ public class FoundryModuleImporter {
         var pageName = pageObject.getAsJsonPrimitive("name").getAsString();
         var titleObject = pageObject.getAsJsonObject("title");
         var builder = new StringBuilder();
-
         var titleLevel = titleObject.getAsJsonPrimitive("level").getAsInt();
         builder.append("<h%d>%s</h%d>\n".formatted(titleLevel, pageName, titleLevel));
         switch (type) {
           case "text" -> {
             var content = pageObject.getAsJsonObject("text").getAsJsonPrimitive("content").getAsString();;
-            journalContent.put(Pair.create(entryId, pageId), content);
-            builder.append(content);
-            jsonExport.addProperty(pageName, content);
 
+            content = FixUpLinks(entryId, content);
+            content = FixUpImages(content);
+            content = FixRolls(content);
+            builder.append(content);
+            jsonExport.addProperty(pageName, builder.toString());
           }
           case "pdf" -> {
             var src = pageObject.get("src");
@@ -364,6 +413,8 @@ public class FoundryModuleImporter {
         }
         pageSet.put(sort, builder.toString());
       }
+
+      var entryFile = moduleJournalDir.resolve("%s.html".formatted(name));
       try (var fs =
           new PrintWriter(
               Files.newOutputStream(
@@ -376,8 +427,8 @@ public class FoundryModuleImporter {
         fs.println("</body>");
         fs.println("</html>");
       }
-      try (var fs =
-                   new PrintWriter(
+      var entryJsonFile = moduleJournalDir.resolve("%s_%s.json".formatted(moduleName, name));
+      try (var fs = new PrintWriter(
                            Files.newOutputStream(
                                    entryJsonFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
         fs.print(jsonExport);
@@ -385,6 +436,55 @@ public class FoundryModuleImporter {
     }
   }
 
+  private String FixUpImages(String content) throws IOException {
+    var pattern = Pattern.compile("<img src=\\\"([^\\ ]+)\\\"");
+    var matcher = pattern.matcher(content);
+    while (matcher.find()) {
+      var toReplace = matcher.group(1);
+      var imagePath = currentModuleRootDir.resolve(toReplace.substring("modules".length()));
+
+      byte[] tokenImageBytes = Files.readAllBytes(imagePath);
+      Asset asset = Asset.createImageAsset(imagePath.getFileName().toString(), tokenImageBytes);
+      AssetManager.putAsset(asset);
+      content = content.replace(toReplace, "asset://%s".formatted(asset.getMD5Key()));
+    }
+    return content;
+  }
+
+  @NotNull
+  private String FixUpLinks(String entryId, String content) {
+    var pattern = Pattern.compile("@UUID\\[([^]]+)]\\{([^}]+)}");
+    var matcher = pattern.matcher(content);
+    while (matcher.find()) {
+      var toReplace = matcher.group();
+      var key = matcher.group(1);
+      var value = matcher.group(2);
+
+      if(key.startsWith(".")) {
+        key = "JournalEntry.%s.JournalEntryPage%s".formatted(entryId,key);
+      }
+
+      if(!foundryId2Link.containsKey(key)) {
+        System.out.println();
+      } else {
+        content = content.replace(toReplace, "[%s](%s)".formatted(value, foundryId2Link.get(key)));
+      }
+    }
+    return content;
+  }
+
+  @NotNull
+  private String FixRolls(String content) {
+    var pattern = Pattern.compile("\\[\\[/r ([^]]+)]]");
+    var matcher = pattern.matcher(content);
+    while (matcher.find()) {
+      var toReplace = matcher.group();
+      var key = matcher.group(1);
+
+      content = content.replace(toReplace, key);
+    }
+    return content;
+  }
   private void placeLights(Zone zone, JsonObject light, int number) {
     Token lightToken = new Token("light %d".formatted(number), lightSourceAsset.getMD5Key());
     lightToken.setLayer(Layer.OBJECT);
