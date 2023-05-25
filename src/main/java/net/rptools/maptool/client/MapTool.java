@@ -209,6 +209,7 @@ public class MapTool {
     } else {
       msg = I18N.getText(msgKey) + "<br/>" + t.toString();
     }
+    msg = msg.replace("\n", "<br/>");
     return msg;
   }
 
@@ -1376,6 +1377,29 @@ public class MapTool {
         .getCurrentZoneRenderer()
         .getZone()
         .setTopologyTypes(AppPreferences.getTopologyTypes());
+
+    final var enabledDeveloperOptions = DeveloperOptions.getEnabledOptions();
+    if (!enabledDeveloperOptions.isEmpty()) {
+      final var message = new StringBuilder();
+      message
+          .append("<p>")
+          .append(I18N.getText("Preferences.developer.info.developerOptionsInUse"))
+          .append("</p><ul>");
+      for (final var option : enabledDeveloperOptions) {
+        message.append("<li>").append(option.getLabel()).append("</li>");
+      }
+      message
+          .append("</ul><p>")
+          .append(
+              I18N.getText(
+                  "Preferences.developer.info.developerOptionsInUsePost",
+                  I18N.getText("menu.edit"),
+                  I18N.getText("action.preferences"),
+                  I18N.getText("Preferences.tab.developer")))
+          .append("</p>");
+
+      showWarning(message.toString());
+    }
   }
 
   /**

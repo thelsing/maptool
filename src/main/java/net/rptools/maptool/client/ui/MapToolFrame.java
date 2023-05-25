@@ -1975,11 +1975,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private void removeWindowsF10() {
     InputMap imap = menuBar.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
     Object action = imap.get(KeyStroke.getKeyStroke("F10"));
-    if (log.isInfoEnabled())
-      log.info(
-          "Removing the F10 key from the menuBar's InputMap; it did "
-              + (action == null ? "not" : "")
-              + " exist");
+    log.info(
+        "Removing the F10 key from the menuBar's InputMap; it {} exist",
+        (action == null ? "did not" : "did"));
     ActionMap amap = menuBar.getActionMap();
     amap.getParent().remove(action);
   }
@@ -2035,8 +2033,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
         // We're looking for MacroButton here, but we're adding AbstractActions below... Is this
         // right? XXX
         if (o instanceof MacroButton) {
-          if (log.isDebugEnabled())
-            log.debug("Removing MacroButton " + ((MacroButton) o).getButtonText());
+          log.debug("Removing MacroButton {}", ((MacroButton) o).getButtonText());
           c.getActionMap().remove(o);
         }
       }
