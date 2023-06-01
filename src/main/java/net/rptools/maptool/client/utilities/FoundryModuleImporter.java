@@ -26,17 +26,21 @@ import java.io.*;
 import java.net.URLDecoder;
 import java.nio.file.*;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.MapTool;
+import net.rptools.maptool.client.functions.MacroFunctions;
 import net.rptools.maptool.client.ui.mappropertiesdialog.MapPropertiesDialog;
 import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.Layer;
-import org.apache.commons.math3.util.Pair;
+import net.rptools.parser.ParserException;
+import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 
 public class FoundryModuleImporter {
@@ -71,11 +75,16 @@ public class FoundryModuleImporter {
   private File moduleFile;
   private String moduleName = "";
   private Map<String, String> foundryId2Link = new HashMap<>();
+
+  private Map<String, String> entryNames = new HashMap<>();
+  private Map<Pair<String, String>, String> pageNames = new HashMap<>();
   public FoundryModuleImporter(File file) {
     moduleFile = file;
   }
 
+  private Zone libTokenZone;
   public void importVTT() throws IOException {
+    libTokenZone = MapTool.getCampaign().getZones().stream().filter(z -> z.getName().equals("00.DM")).findFirst().get();
     var path =
         Paths.get("C:\\Users\\tkunze\\Downloads\\cos-bluewater-pk.zip" /*moduleFile.getPath()*/);
     var system = Paths.get("C:\\Users\\tkunze\\Downloads\\dnd5e-release-2.1.5.zip");
@@ -145,7 +154,7 @@ public class FoundryModuleImporter {
       if (packFile.has("journal")) {
         var journal = packFile.get("journal");
         if (journal.isJsonArray()) {
-          exportJournal(label, journal.getAsJsonArray());
+          importJournal(label, journal.getAsJsonArray());
         }
       }
       
@@ -257,7 +266,6 @@ public class FoundryModuleImporter {
 
     // If everything has been successful, we can add the zone to the campaign.
     MapTool.addZone(zone);
-    MapTool.getCampaign().getZones()
   }
 
   private void placeNote(Zone zone, JsonObject noteObj, int i) {
@@ -274,10 +282,29 @@ public class FoundryModuleImporter {
     noteToken.setHeight(size);
     noteToken.setX(noteObj.get("x").getAsInt() - xOffset - LIGHT_WIDTH / 2);
     noteToken.setY(noteObj.get("y").getAsInt() - yOffset - LIGHT_HEIGHT / 2);
-//    var content = journalContent.get(Pair.create(entryId, pageId));
-//    if(content != null) {
-//      noteToken.setGMNotes(content);
-//    }
+
+    var entryName = entryNames.get(entryId);
+    var pageName = pageNames.get(Pair.with(entryId, pageId));
+
+    var libTokenName = "Lib:%s:%s".formatted(moduleName, entryName);
+    MacroButtonProperties mbp = new MacroButtonProperties(noteToken.getMacroNextIndex());
+
+    mbp.setLabel("Notebook");
+    mbp.setSaveLocation("Token");
+    mbp.setCommand("\n" +
+            "[h:value=getLibProperty(\"Value\",\"%s\")]\n".formatted(libTokenName) +
+            "[h:description=json.get(value,\"%s\")]\n".formatted(pageName) +
+            "[h,if(isGM()==1):share=0;share=1]\n" +
+            "[macro(\"Content@Lib:Notebook\"):\"key=%s;description=\"+encode(description)+\";tokenName=%s;share=\"+share]".formatted(pageName, libTokenName)
+    );
+
+    try {
+      MacroFunctions.setMacroProps(mbp, "minWidth=120;fontColor=white;color=gray50;", ";");
+    } catch (ParserException e) {
+      throw new RuntimeException(e);
+    }
+    mbp.setAllowPlayerEdits(false);
+    noteToken.saveMacro(mbp);
 
     zone.putToken(noteToken);
   }
@@ -341,7 +368,7 @@ public class FoundryModuleImporter {
     zone.putToken(token);
   }
 
-  private void exportJournal(String label, JsonArray journal) throws IOException {
+  private void importJournal(String label, JsonArray journal) throws IOException {
     var journalDir = Paths.get("C:\\Users\\tkunze\\OneDrive\\Desktop\\lobjournal");
     var moduleJournalDir = journalDir.resolve(label);
     if (!Files.exists(moduleJournalDir)) {
@@ -353,11 +380,13 @@ public class FoundryModuleImporter {
       var entryObject = entry.getAsJsonObject();
       var entryId = entryObject.getAsJsonPrimitive("_id").getAsString();
       var name = entryObject.getAsJsonPrimitive("name").getAsString();
+      entryNames.put(entryId, name);
 
       for (var page : entryObject.getAsJsonArray("pages")) {
         var pageObject = page.getAsJsonObject();
         var pageId = pageObject.getAsJsonPrimitive("_id").getAsString();
         var pageName = pageObject.getAsJsonPrimitive("name").getAsString();
+        pageNames.put(Pair.with(entryId, pageId), pageName);
         foundryId2Link.put("JournalEntry.%s.JournalEntryPage.%s".formatted(entryId, pageId), "note \"%s@%s:%s\"".formatted(pageName, moduleName, name));
       }
     }
@@ -427,13 +456,30 @@ public class FoundryModuleImporter {
         fs.println("</body>");
         fs.println("</html>");
       }
-      var entryJsonFile = moduleJournalDir.resolve("%s_%s.json".formatted(moduleName, name));
-      try (var fs = new PrintWriter(
-                           Files.newOutputStream(
-                                   entryJsonFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
-        fs.print(jsonExport);
-      }
+
+      var notebookToken = new Token("Lib:%s:%s".formatted(moduleName, name), new MD5Key("d3b2ba7ef282bf9ebe403b793fccffe7"));
+      notebookToken.setProperty("Settings", "{\"theme\":\"GitHub\"}");
+      notebookToken.setProperty("Value", jsonExport.toString());
+      addNotebookMacro(notebookToken, notebookToken.getName());
+      notebookToken.setPropertyType("Notebook");
+      libTokenZone.putToken(notebookToken);
     }
+  }
+
+  private static void addNotebookMacro(Token notebookToken, String targetTokeName) {
+    MacroButtonProperties mbp = new MacroButtonProperties(notebookToken.getMacroNextIndex());
+
+    mbp.setLabel("Notebook");
+    mbp.setSaveLocation("Token");
+    mbp.setCommand("[macro('Index@lib:Notebook'):'%s']".formatted(targetTokeName));
+
+    try {
+      MacroFunctions.setMacroProps(mbp, "minWidth=120;fontColor=white;color=gray50;", ";");
+    } catch (ParserException e) {
+      throw new RuntimeException(e);
+    }
+    mbp.setAllowPlayerEdits(false);
+    notebookToken.saveMacro(mbp);
   }
 
   private String FixUpImages(String content) throws IOException {

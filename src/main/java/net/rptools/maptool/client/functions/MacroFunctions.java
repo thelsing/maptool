@@ -237,7 +237,7 @@ public class MacroFunctions extends AbstractFunction {
    * @param delim the delimiter
    * @throws ParserException if user doesn't have permission
    */
-  public void setMacroProps(MacroButtonProperties mbp, String propString, String delim)
+  public static void setMacroProps(MacroButtonProperties mbp, String propString, String delim)
       throws ParserException {
     JsonElement json;
 
@@ -338,7 +338,7 @@ public class MacroFunctions extends AbstractFunction {
    * @param val The input string.
    * @return the boolean value of the input string.
    */
-  private boolean boolVal(String val) {
+  private static boolean boolVal(String val) {
     if ("true".equalsIgnoreCase(val)) {
       return true;
     }
