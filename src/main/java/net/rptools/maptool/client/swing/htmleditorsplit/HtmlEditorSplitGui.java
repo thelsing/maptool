@@ -14,6 +14,7 @@
  */
 package net.rptools.maptool.client.swing.htmleditorsplit;
 
+import com.formdev.flatlaf.util.StringUtils;
 import java.awt.*;
 import java.awt.event.*;
 import javafx.application.Platform;
@@ -189,6 +190,23 @@ public class HtmlEditorSplitGui {
                     });
               });
           menu.getItems().add(sendAsEmoteItem);
+          MenuItem translateItem =
+              new MenuItem(I18N.getString("EditTokenDialog.menu.notes.translate"));
+          translateItem.setOnAction(
+              e12 -> {
+                String selectedText = getSelectedText();
+                String text = selectedText;
+                if (StringUtils.isEmpty(text)) {
+                  text = getText();
+                }
+                var translation = StringUtil.translateText(text);
+                if (!StringUtils.isEmpty(selectedText)) {
+                  replaceSelection(translation);
+                } else {
+                  setText(translation);
+                }
+              });
+          menu.getItems().add(translateItem);
           htmlEditor.setContextMenu(menu);
           Scene scene = new Scene(htmlEditor);
           htmlEditor.setHtmlText(text);
@@ -262,6 +280,11 @@ public class HtmlEditorSplitGui {
           + "    } else if (document.selection && document.selection.type != \"Control\") {\n"
           + "        text = document.selection.createRange().text;\n"
           + "    }\n"
+          + "    return text;\n"
+          + "})()";
+
+  public static final String UNSELECT_TEXT =
+      "(function getSelectionText() {\n"
           + "    if (window.getSelection) {\n"
           + "      if (window.getSelection().empty) {  // Chrome\n"
           + "        window.getSelection().empty();\n"
@@ -271,8 +294,24 @@ public class HtmlEditorSplitGui {
           + "    } else if (document.selection) {  // IE?\n"
           + "      document.selection.empty();\n"
           + "    }"
-          + "    return text;\n"
           + "})()";
+
+  public static final String REPLACE_SELECTED_TEXT =
+      "(function replaceSelection(replacement){\n"
+          + "    var selected, range;\n"
+          + "    if (window.getSelection) {\n"
+          + "        selected= window.getSelection();\n"
+          + "        if (selected.rangeCount) {\n"
+          + "            range = selected.getRangeAt(0);\n"
+          + "            range.deleteContents();\n"
+          + "            range.insertNode(document.createTextNode(replacement));\n"
+          + "        }\n"
+          + "    } else if (document.selection && document.selection.createRange) {\n"
+          + "        range = document.selection.createRange();\n"
+          + "        range.text = replacement;\n"
+          + "    }\n"
+          + " \n"
+          + "})";
 
   public String getSelectedText() {
     var selectedTab = tabPanel.getSelectedComponent();
@@ -289,9 +328,44 @@ public class HtmlEditorSplitGui {
     }
   }
 
+  public void clearSelectedText() {
+    var selectedTab = tabPanel.getSelectedComponent();
+    if (selectedTab.equals(htmlTab)) {
+      WebView webView = (WebView) htmlEditor.lookup("WebView");
+      if (webView == null) {
+        return;
+      }
+      WebEngine engine = webView.getEngine();
+      engine.executeScript(UNSELECT_TEXT);
+    } else {
+      sourceTextArea.setSelectionStart(0);
+      sourceTextArea.setSelectionEnd(0);
+    }
+  }
+
   public void setEnabled(boolean enabled) {
     sourceTextArea.setEnabled(enabled);
     Platform.runLater(() -> htmlEditor.setDisable(!enabled));
     tabPanel.setEnabled(enabled);
+  }
+
+  public void replaceSelection(String replacement) {
+    var selectedTab = tabPanel.getSelectedComponent();
+    if (selectedTab.equals(htmlTab)) {
+      WebView webView = (WebView) htmlEditor.lookup("WebView");
+      if (webView == null) {
+        return;
+      }
+      WebEngine engine = webView.getEngine();
+      var script =
+          REPLACE_SELECTED_TEXT
+              + "('"
+              + replacement.replaceAll("'", "\\'").replaceAll("\n", "\\n")
+              + "')";
+      engine.executeScript(script);
+    } else {
+      sourceTextArea.setSelectionStart(0);
+      sourceTextArea.setSelectionEnd(0);
+    }
   }
 }

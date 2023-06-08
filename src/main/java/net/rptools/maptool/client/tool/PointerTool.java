@@ -59,6 +59,7 @@ import net.rptools.maptool.util.TokenUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.util.Strings;
 
 /**
  * This is the pointer tool from the top-level of the toolbar. It allows tokens to be selected and
@@ -487,8 +488,16 @@ public class PointerTool extends DefaultTool {
             showHandout(token);
             return;
           }
-          // MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
-          showHover(token);
+          if (e.isMetaDown()) {
+            MapTool.getFrame().showTokenPropertiesDialog(token, renderer);
+          } else if (Strings.isEmpty(token.getNotes()) && Strings.isEmpty(token.getGMNotes())) {
+            var macros = token.getMacroList(true);
+            if (macros.size() >= 1) {
+              macros.get(0).executeMacro(token.getId());
+            }
+          } else {
+            showHover(token);
+          }
         }
       }
       return;

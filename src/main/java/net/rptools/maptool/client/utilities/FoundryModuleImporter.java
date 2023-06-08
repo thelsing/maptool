@@ -26,11 +26,9 @@ import java.io.*;
 import java.net.URLDecoder;
 import java.nio.file.*;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
-
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.functions.MacroFunctions;
@@ -47,11 +45,9 @@ public class FoundryModuleImporter {
 
   private static final int WALL_VBL_WIDTH = 3;
 
-
   /** Stroke to use to create VBL path for walls. */
   private static final BasicStroke WALL_VBL_STROKE =
       new BasicStroke(WALL_VBL_WIDTH, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);
-
 
   /** Width of the Light source icon. */
   private static final int LIGHT_WIDTH = 20;
@@ -61,8 +57,9 @@ public class FoundryModuleImporter {
   /** Asset to use to represent Light sources. */
   private static final Asset lightSourceAsset =
       Asset.createImageAsset("LightSource", RessourceManager.getImage(Images.LIGHT_SOURCE));
+
   private static final Asset noteAsset =
-          Asset.createImageAsset("note", RessourceManager.getImage(Images.LOOKUP_TABLE_DEFAULT));
+      Asset.createImageAsset("note", RessourceManager.getImage(Images.LOOKUP_TABLE_DEFAULT));
 
   static {
     AssetManager.putAsset(lightSourceAsset);
@@ -78,15 +75,22 @@ public class FoundryModuleImporter {
 
   private Map<String, String> entryNames = new HashMap<>();
   private Map<Pair<String, String>, String> pageNames = new HashMap<>();
+  private Map<Pair<String, String>, MD5Key> pageImages = new HashMap<>();
+
   public FoundryModuleImporter(File file) {
     moduleFile = file;
   }
 
   private Zone libTokenZone;
+
   public void importVTT() throws IOException {
-    libTokenZone = MapTool.getCampaign().getZones().stream().filter(z -> z.getName().equals("00.DM")).findFirst().get();
+    libTokenZone =
+        MapTool.getCampaign().getZones().stream()
+            .filter(z -> z.getName().equals("00.DM"))
+            .findFirst()
+            .get();
     var path =
-        Paths.get("C:\\Users\\tkunze\\Downloads\\cos-bluewater-pk.zip" /*moduleFile.getPath()*/);
+        Paths.get(/*"C:\\Users\\tkunze\\Downloads\\cos-bluewater-pk.zip" */moduleFile.getPath());
     var system = Paths.get("C:\\Users\\tkunze\\Downloads\\dnd5e-release-2.1.5.zip");
     try (var systemFileSystem = FileSystems.newFileSystem(system, new HashMap<>(), null)) {
       systemDir = systemFileSystem.getRootDirectories().iterator().next();
@@ -108,6 +112,7 @@ public class FoundryModuleImporter {
       }
     }
   }
+
   private void importModule(Path moduleJson) throws IOException {
     try (InputStreamReader reader = new InputStreamReader(Files.newInputStream(moduleJson))) {
       var moduleFile = JsonParser.parseReader(reader).getAsJsonObject();
@@ -157,13 +162,13 @@ public class FoundryModuleImporter {
           importJournal(label, journal.getAsJsonArray());
         }
       }
-      
+
       if (packFile.has("scenes")) {
         var scenes = packFile.get("scenes");
         if (scenes.isJsonArray()) {
           for (var scene : scenes.getAsJsonArray()) {
             importScene(scene.getAsJsonObject());
-            break;
+        //    break;
           }
         }
       }
@@ -186,6 +191,11 @@ public class FoundryModuleImporter {
   private int yOffset = 0;
 
   private void importScene(JsonObject scene) throws IOException {
+    String mapName = scene.getAsJsonPrimitive("name").getAsString();
+
+    // I don't want the theater of mind maps for now
+    if(mapName.endsWith(" M"))
+      return;
 
     var background = scene.getAsJsonObject("background");
     var grid = scene.getAsJsonObject("grid");
@@ -210,10 +220,9 @@ public class FoundryModuleImporter {
     var backgroundImagePath = currentModuleRootDir.resolve(imageString);
 
     byte[] imageBytes = Files.readAllBytes(backgroundImagePath);
-    String mapName = scene.getAsJsonPrimitive("name").getAsString();
     Asset asset = Asset.createImageAsset(backgroundImagePath.getFileName().toString(), imageBytes);
     AssetManager.putAsset(asset);
-    zone.setName(mapName);
+    zone.setName("%s: %s".formatted(moduleName, mapName));
     int width = scene.getAsJsonPrimitive("width").getAsInt();
     int height = scene.getAsJsonPrimitive("height").getAsInt();
     double padding = scene.getAsJsonPrimitive("padding").getAsDouble();
@@ -231,12 +240,12 @@ public class FoundryModuleImporter {
 
     // handle token
     var tokens = scene.getAsJsonArray("tokens");
-    for (int i = 0; i<tokens.size(); i++) {
+    for (int i = 0; i < tokens.size(); i++) {
       handleToken(tokens.get(i).getAsJsonObject(), zone, i);
     }
 
     var tiles = scene.getAsJsonArray("tiles");
-    for (int i = 0; i<tiles.size(); i++) {
+    for (int i = 0; i < tiles.size(); i++) {
       handleToken(tiles.get(i).getAsJsonObject(), zone, i);
     }
 
@@ -255,12 +264,12 @@ public class FoundryModuleImporter {
     }
 
     var notes = scene.getAsJsonArray("notes");
-    for ( int i = 0; i < notes.size(); i++) {
+    for (int i = 0; i < notes.size(); i++) {
       placeNote(zone, notes.get(i).getAsJsonObject(), i);
     }
 
     var lights = scene.getAsJsonArray("lights");
-    for ( int i = 0; i < lights.size(); i++) {
+    for (int i = 0; i < lights.size(); i++) {
       placeLights(zone, lights.get(i).getAsJsonObject(), i);
     }
 
@@ -272,7 +281,17 @@ public class FoundryModuleImporter {
     var name = noteObj.getAsJsonPrimitive("text").getAsString();
     var size = noteObj.getAsJsonPrimitive("iconSize").getAsInt();
     var entryId = noteObj.getAsJsonPrimitive("entryId").getAsString();
-    var pageId = noteObj.getAsJsonPrimitive("pageId").getAsString();
+    var pageId = "";
+    var pageIdTag = noteObj.get("pageId");
+    if(!pageIdTag.isJsonNull()) {
+      pageId = pageIdTag.getAsString();
+    }
+
+    var entryName = entryNames.get(entryId);
+    if(Strings.isEmpty(name) && !Strings.isEmpty(entryName)) {
+      name = entryName;
+    }
+
     Token noteToken = new Token(name, noteAsset.getMD5Key());
     noteToken.setLayer(Layer.OBJECT);
     noteToken.setVisible(false);
@@ -283,21 +302,31 @@ public class FoundryModuleImporter {
     noteToken.setX(noteObj.get("x").getAsInt() - xOffset - LIGHT_WIDTH / 2);
     noteToken.setY(noteObj.get("y").getAsInt() - yOffset - LIGHT_HEIGHT / 2);
 
-    var entryName = entryNames.get(entryId);
-    var pageName = pageNames.get(Pair.with(entryId, pageId));
+    var pageKey = Pair.with(entryId, pageId);
+    if(pageImages.containsKey(pageKey))
+    {
+      noteToken.setPortraitImage(pageImages.get(pageKey));
+    }
+
+    var pageName = pageNames.get(pageKey);
 
     var libTokenName = "Lib:%s:%s".formatted(moduleName, entryName);
     MacroButtonProperties mbp = new MacroButtonProperties(noteToken.getMacroNextIndex());
 
     mbp.setLabel("Notebook");
     mbp.setSaveLocation("Token");
-    mbp.setCommand("\n" +
-            "[h:value=getLibProperty(\"Value\",\"%s\")]\n".formatted(libTokenName) +
-            "[h:description=json.get(value,\"%s\")]\n".formatted(pageName) +
-            "[h,if(isGM()==1):share=0;share=1]\n" +
-            "[macro(\"Content@Lib:Notebook\"):\"key=%s;description=\"+encode(description)+\";tokenName=%s;share=\"+share]".formatted(pageName, libTokenName)
-    );
+    if(Strings.isEmpty(pageId)) {
+      mbp.setCommand("[macro('Index@lib:Notebook'):'%s']".formatted(libTokenName));
+    } else {
 
+      mbp.setCommand(
+              "\n"
+                      + "[h:value=getLibProperty(\"Value\",\"%s\")]\n".formatted(libTokenName)
+                      + "[h:description=json.get(value,\"%s\")]\n".formatted(pageName)
+                      + "[h,if(isGM()==1):share=0;share=1]\n"
+                      + "[macro(\"Content@Lib:Notebook\"):\"key=%s;description=\"+encode(description)+\";tokenName=%s;share=\"+share]"
+                      .formatted(pageName, libTokenName));
+    }
     try {
       MacroFunctions.setMacroProps(mbp, "minWidth=120;fontColor=white;color=gray50;", ";");
     } catch (ParserException e) {
@@ -313,13 +342,20 @@ public class FoundryModuleImporter {
     var tokenTexture = tokenObj.getAsJsonObject("texture");
     var src = URLDecoder.decode(tokenTexture.getAsJsonPrimitive("src").getAsString());
     Path tokenImagePath = null;
-    if (src.startsWith("modules")) {
-      tokenImagePath = currentModuleRootDir.resolve(src.substring("modules".length()));
-    } else {
-      tokenImagePath = systemDir.resolve(src.substring("systems/dnd5e".length()));
+    Asset asset = null;
+    try {
+      if (src.startsWith("modules")) {
+        tokenImagePath = currentModuleRootDir.resolve(src.substring("modules".length()));
+      } else {
+        tokenImagePath = systemDir.resolve(src.substring("systems/dnd5e".length()));
+      }
+      byte[] tokenImageBytes = Files.readAllBytes(tokenImagePath);
+      asset = Asset.createImageAsset(tokenImagePath.getFileName().toString(), tokenImageBytes);
+
+    } catch (Exception ex) {
+      MapTool.showInformation("could not find image: %s ; skipping".formatted(src));
+      asset = Asset.createImageAsset("unknown", RessourceManager.getImage(Images.UNKNOWN));
     }
-    byte[] tokenImageBytes = Files.readAllBytes(tokenImagePath);
-    Asset asset = Asset.createImageAsset(tokenImagePath.getFileName().toString(), tokenImageBytes);
     AssetManager.putAsset(asset);
 
     var grid = zone.getGrid();
@@ -331,8 +367,10 @@ public class FoundryModuleImporter {
       isTile = false;
     }
 
+
+
     var token = new Token(name, asset.getMD5Key());
-    if(isTile){
+    if (isTile) {
       token.setLayer(Layer.BACKGROUND);
       token.setSnapToScale(false);
     } else {
@@ -369,13 +407,13 @@ public class FoundryModuleImporter {
   }
 
   private void importJournal(String label, JsonArray journal) throws IOException {
-    var journalDir = Paths.get("C:\\Users\\tkunze\\OneDrive\\Desktop\\lobjournal");
+ /*   var journalDir = Paths.get("C:\\Users\\tkunze\\OneDrive\\Desktop\\lobjournal");
     var moduleJournalDir = journalDir.resolve(label);
     if (!Files.exists(moduleJournalDir)) {
       Files.createDirectory(moduleJournalDir);
-    }
+    }*/
 
-    //build index first
+    // build index first
     for (var entry : journal) {
       var entryObject = entry.getAsJsonObject();
       var entryId = entryObject.getAsJsonPrimitive("_id").getAsString();
@@ -387,10 +425,11 @@ public class FoundryModuleImporter {
         var pageId = pageObject.getAsJsonPrimitive("_id").getAsString();
         var pageName = pageObject.getAsJsonPrimitive("name").getAsString();
         pageNames.put(Pair.with(entryId, pageId), pageName);
-        foundryId2Link.put("JournalEntry.%s.JournalEntryPage.%s".formatted(entryId, pageId), "note \"%s@%s:%s\"".formatted(pageName, moduleName, name));
+        foundryId2Link.put(
+            "JournalEntry.%s.JournalEntryPage.%s".formatted(entryId, pageId),
+            "note \"%s@%s:%s\"".formatted(pageName, moduleName, name));
       }
     }
-
 
     for (var entry : journal) {
       var entryObject = entry.getAsJsonObject();
@@ -411,10 +450,12 @@ public class FoundryModuleImporter {
         builder.append("<h%d>%s</h%d>\n".formatted(titleLevel, pageName, titleLevel));
         switch (type) {
           case "text" -> {
-            var content = pageObject.getAsJsonObject("text").getAsJsonPrimitive("content").getAsString();;
+            var content =
+                pageObject.getAsJsonObject("text").getAsJsonPrimitive("content").getAsString();
+            ;
 
             content = FixUpLinks(entryId, content);
-            content = FixUpImages(content);
+            content = FixUpImages(Pair.with(entryId, pageId), content);
             content = FixRolls(content);
             builder.append(content);
             jsonExport.addProperty(pageName, builder.toString());
@@ -442,7 +483,7 @@ public class FoundryModuleImporter {
         }
         pageSet.put(sort, builder.toString());
       }
-
+/*
       var entryFile = moduleJournalDir.resolve("%s.html".formatted(name));
       try (var fs =
           new PrintWriter(
@@ -455,9 +496,12 @@ public class FoundryModuleImporter {
         }
         fs.println("</body>");
         fs.println("</html>");
-      }
+      }*/
 
-      var notebookToken = new Token("Lib:%s:%s".formatted(moduleName, name), new MD5Key("d3b2ba7ef282bf9ebe403b793fccffe7"));
+      var notebookToken =
+          new Token(
+              "Lib:%s:%s".formatted(moduleName, name),
+              new MD5Key("d3b2ba7ef282bf9ebe403b793fccffe7"));
       notebookToken.setProperty("Settings", "{\"theme\":\"GitHub\"}");
       notebookToken.setProperty("Value", jsonExport.toString());
       addNotebookMacro(notebookToken, notebookToken.getName());
@@ -482,16 +526,20 @@ public class FoundryModuleImporter {
     notebookToken.saveMacro(mbp);
   }
 
-  private String FixUpImages(String content) throws IOException {
+  private String FixUpImages(Pair<String, String> pageKey, String content) throws IOException {
     var pattern = Pattern.compile("<img src=\\\"([^\\ ]+)\\\"");
     var matcher = pattern.matcher(content);
     while (matcher.find()) {
       var toReplace = matcher.group(1);
-      var imagePath = currentModuleRootDir.resolve(toReplace.substring("modules".length()));
+      var match = toReplace.substring("modules".length());
+      var imagePath = currentModuleRootDir.resolve(URLDecoder.decode(match));
 
       byte[] tokenImageBytes = Files.readAllBytes(imagePath);
       Asset asset = Asset.createImageAsset(imagePath.getFileName().toString(), tokenImageBytes);
       AssetManager.putAsset(asset);
+      if(!pageImages.containsKey(pageKey)) {
+        pageImages.put(pageKey, asset.getMD5Key());
+      }
       content = content.replace(toReplace, "asset://%s".formatted(asset.getMD5Key()));
     }
     return content;
@@ -506,11 +554,11 @@ public class FoundryModuleImporter {
       var key = matcher.group(1);
       var value = matcher.group(2);
 
-      if(key.startsWith(".")) {
-        key = "JournalEntry.%s.JournalEntryPage%s".formatted(entryId,key);
+      if (key.startsWith(".")) {
+        key = "JournalEntry.%s.JournalEntryPage%s".formatted(entryId, key);
       }
 
-      if(!foundryId2Link.containsKey(key)) {
+      if (!foundryId2Link.containsKey(key)) {
         System.out.println();
       } else {
         content = content.replace(toReplace, "[%s](%s)".formatted(value, foundryId2Link.get(key)));
@@ -531,6 +579,7 @@ public class FoundryModuleImporter {
     }
     return content;
   }
+
   private void placeLights(Zone zone, JsonObject light, int number) {
     Token lightToken = new Token("light %d".formatted(number), lightSourceAsset.getMD5Key());
     lightToken.setLayer(Layer.OBJECT);

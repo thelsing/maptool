@@ -603,7 +603,7 @@ public class Token implements Cloneable {
 
   public boolean isMarker() {
     return isStamp()
-        && (!StringUtil.isEmpty(notes) || !StringUtil.isEmpty(gmNotes) || portraitImage != null);
+        && (!StringUtil.isEmpty(notes) || !StringUtil.isEmpty(gmNotes) || portraitImage != null ||  hasMacros(true));
   }
 
   public String getPropertyType() {
