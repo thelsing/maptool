@@ -38,6 +38,7 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
@@ -53,6 +54,7 @@ import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer.SelectionSet;
 import net.rptools.maptool.language.I18N;
+import net.rptools.maptool.model.sheet.stats.StatSheetProperties;
 import net.rptools.maptool.server.Mapper;
 import net.rptools.maptool.server.proto.TerrainModifierOperationDto;
 import net.rptools.maptool.server.proto.TokenDto;
@@ -62,6 +64,7 @@ import net.rptools.maptool.util.StringUtil;
 import net.rptools.parser.ParserException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
 /**
  * This object represents the placeable objects on a map. For example an icon that represents a
@@ -94,6 +97,9 @@ public class Token implements Cloneable {
 
   private boolean beingImpersonated = false;
   private GUID exposedAreaGUID = new GUID();
+
+  /** The stat sheet properties for the token. */
+  @Nullable private StatSheetProperties statSheet;
 
   /** the only way to make Gson apply strict evaluation to JsonObjects, apparently. see #2396 */
   private static final TypeAdapter<JsonObject> strictGsonObjectAdapter =
@@ -279,7 +285,8 @@ public class Token implements Cloneable {
   private String layer = Zone.Layer.TOKEN.toString();
   private transient Zone.Layer actualLayer;
 
-  private String propertyType = Campaign.DEFAULT_TOKEN_PROPERTY_TYPE;
+  private String propertyType =
+      MapTool.getCampaign().getCampaignProperties().getDefaultTokenPropertyType();
 
   private Integer facing = null;
 
@@ -290,7 +297,7 @@ public class Token implements Cloneable {
   private transient Color visionOverlayColor;
 
   // Jamz: allow token alpha channel modification
-  private float tokenOpacity = 1.0f;
+  private @Nonnull Float tokenOpacity = 1.0f;
 
   private String speechName = "";
 
@@ -338,7 +345,10 @@ public class Token implements Cloneable {
   /** The notes that are displayed for this token. */
   private String notes;
 
+  private String notesType = SyntaxConstants.SYNTAX_STYLE_NONE;
+
   private String gmNotes;
+  private String gmNotesType = SyntaxConstants.SYNTAX_STYLE_NONE;
 
   private String gmName;
 
@@ -426,8 +436,10 @@ public class Token implements Cloneable {
 
     name = token.name;
     notes = token.notes;
+    notesType = token.notesType;
     gmName = token.gmName;
     gmNotes = token.gmNotes;
+    gmNotesType = token.gmNotesType;
     label = token.label;
 
     isFlippedX = token.isFlippedX;
@@ -486,6 +498,7 @@ public class Token implements Cloneable {
     terrainModifiersIgnored.addAll(token.terrainModifiersIgnored);
     speechName = token.speechName != null ? token.speechName : "";
     allowURIAccess = token.allowURIAccess;
+    statSheet = token.statSheet;
   }
 
   public Token() {}
@@ -500,6 +513,8 @@ public class Token implements Cloneable {
     if (macroMap != null) {
       loadOldMacros();
     }
+
+    propertyType = MapTool.getCampaign().getCampaignProperties().getDefaultTokenPropertyType();
   }
 
   /**
@@ -530,7 +545,7 @@ public class Token implements Cloneable {
      * propertyType, give a choice; or incorporate in the Campaign Properties window a marker for
      * what is default for new tokens.
      */
-    propertyType = getPropertyType();
+    propertyType = MapTool.getCampaign().getCampaignProperties().getDefaultTokenPropertyType();
 
     /**
      * Jamz: Like propertyType, why shouldn't sight be kept if it matches exists? Many creatures
@@ -619,6 +634,14 @@ public class Token implements Cloneable {
     gmNotes = notes;
   }
 
+  public String getGmNotesType() {
+    return gmNotesType;
+  }
+
+  public void setGmNotesType(String type) {
+    gmNotesType = type;
+  }
+
   public String getGMName() {
     if (MapTool.getPlayer().isGM() || MapTool.getParser().isMacroTrusted()) {
       return gmName;
@@ -659,41 +682,27 @@ public class Token implements Cloneable {
     return haloColor;
   }
 
+  /**
+   * @return The token opacity, in the range [0.0f, 1.0f].
+   */
   public float getTokenOpacity() {
-    if (tokenOpacity <= 0.0f) {
-      tokenOpacity = 1.0f;
-    }
-
     return tokenOpacity;
   }
 
   /**
-   * Set the token opacity from a string trimmed to [0.05f, 1.0f]
-   *
-   * @param alpha the String of the opacity value.
-   * @return the float of the opacity
-   */
-  public float setTokenOpacity(String alpha) {
-    return setTokenOpacity(Float.parseFloat(alpha));
-  }
-
-  /**
-   * Set the token opacity from a float trimmed to [0.05f, 1.0f]
+   * Set the token opacity from a float trimmed to [0.0f, 1.0f]
    *
    * @param alpha the float of the opacity.
-   * @return the float of the opacity trimmed.
    */
-  public float setTokenOpacity(float alpha) {
+  public void setTokenOpacity(float alpha) {
     if (alpha > 1.0f) {
       alpha = 1.0f;
     }
-    if (alpha <= 0.0f) {
-      alpha = 0.05f;
+    if (alpha < 0.0f) {
+      alpha = 0.0f;
     }
 
     tokenOpacity = alpha;
-
-    return tokenOpacity;
   }
 
   /**
@@ -907,8 +916,8 @@ public class Token implements Cloneable {
     return imageTableName;
   }
 
-  public void addLightSource(LightSource source, Direction direction) {
-    lightSourceList.add(new AttachedLightSource(source, direction));
+  public void addLightSource(LightSource source) {
+    lightSourceList.add(new AttachedLightSource(source));
   }
 
   public void removeLightSourceType(LightSource.Type lightType) {
@@ -1018,7 +1027,9 @@ public class Token implements Cloneable {
     return false;
   }
 
-  /** @return false if lightSourceList is null or empty, and true otherwise */
+  /**
+   * @return false if lightSourceList is null or empty, and true otherwise
+   */
   public boolean hasLightSources() {
     return !lightSourceList.isEmpty();
   }
@@ -1032,7 +1043,9 @@ public class Token implements Cloneable {
     ownerList.add(playerId);
   }
 
-  /** @return true if the token is owned by all or has explicit owners. */
+  /**
+   * @return true if the token is owned by all or has explicit owners.
+   */
   public synchronized boolean hasOwners() {
     return ownerType == OWNER_TYPE_ALL || !ownerList.isEmpty();
   }
@@ -1051,7 +1064,9 @@ public class Token implements Cloneable {
     }
   }
 
-  /** @return the set of owner names of the token. */
+  /**
+   * @return the set of owner names of the token.
+   */
   public Set<String> getOwners() {
     return Collections.unmodifiableSet(ownerList);
   }
@@ -1309,12 +1324,16 @@ public class Token implements Cloneable {
     this.scaleY = scaleY;
   }
 
-  /** @return Returns the snapScale. */
+  /**
+   * @return Returns the snapScale.
+   */
   public boolean isSnapToScale() {
     return snapToScale;
   }
 
-  /** @param snapScale The snapScale to set. */
+  /**
+   * @param snapScale The snapScale to set.
+   */
   public void setSnapToScale(boolean snapScale) {
     this.snapToScale = snapScale;
   }
@@ -1323,17 +1342,23 @@ public class Token implements Cloneable {
     this.isVisible = visible;
   }
 
-  /** @return isVisible */
+  /**
+   * @return isVisible
+   */
   public boolean isVisible() {
     return isVisible;
   }
 
-  /** @return the visibleOnlyToOwner */
+  /**
+   * @return the visibleOnlyToOwner
+   */
   public boolean isVisibleOnlyToOwner() {
     return visibleOnlyToOwner;
   }
 
-  /** @param visibleOnlyToOwner the visibleOnlyToOwner to set */
+  /**
+   * @param visibleOnlyToOwner the visibleOnlyToOwner to set
+   */
   public void setVisibleOnlyToOwner(boolean visibleOnlyToOwner) {
     this.visibleOnlyToOwner = visibleOnlyToOwner;
   }
@@ -1680,7 +1705,9 @@ public class Token implements Cloneable {
     return new Point2D.Double(offsetX, offsetY);
   }
 
-  /** @return the String of the sightType */
+  /**
+   * @return the String of the sightType
+   */
   public String getSightType() {
     return sightType;
   }
@@ -1845,16 +1872,11 @@ public class Token implements Cloneable {
       }
     }
     try {
-      if (log.isDebugEnabled()) {
-        log.debug(
-            "Evaluating property: '"
-                + key
-                + "' for token "
-                + getName()
-                + "("
-                + getId()
-                + ")----------------------------------------------------------------------------------");
-      }
+      log.debug(
+          "Evaluating property: '{}' for token {} ({})----------------------------------------------------------------------------------",
+          key,
+          getName(),
+          getId());
       val = MapTool.getParser().parseLine(resolver, this, val.toString());
     } catch (ParserException pe) {
       log.debug("Ignoring Parse Exception, continuing to evaluate {}", key);
@@ -1874,12 +1896,16 @@ public class Token implements Cloneable {
     return val;
   }
 
-  /** @return all property names, all in lowercase. */
+  /**
+   * @return all property names, all in lowercase.
+   */
   public Set<String> getPropertyNames() {
     return getPropertyMap().keySet();
   }
 
-  /** @return all property names, preserving their case. */
+  /**
+   * @return all property names, preserving their case.
+   */
   public Set<String> getPropertyNamesRaw() {
     return getPropertyMap().keySetRaw();
   }
@@ -1901,9 +1927,7 @@ public class Token implements Cloneable {
       macroPropertiesMap.put(prop.getIndex(), prop);
     }
     macroMap = null;
-    if (log.isDebugEnabled()) {
-      log.debug("Token.loadOldMacros() set up " + macroPropertiesMap.size() + " new macros.");
-    }
+    log.debug("Token.loadOldMacros() set up {} new macros.", macroPropertiesMap.size());
   }
 
   public int getMacroNextIndex() {
@@ -1977,9 +2001,7 @@ public class Token implements Cloneable {
       macroPropertiesMap.clear();
     }
     for (MacroButtonProperties macro : newMacroList) {
-      if (macro.getLabel() == null
-          || macro.getLabel().trim().length() == 0
-          || macro.getCommand().trim().length() == 0) {
+      if (macro.getLabel().trim().length() == 0 || macro.getCommand().trim().length() == 0) {
         continue;
       }
       macroPropertiesMap.put(macro.getIndex(), macro);
@@ -2064,14 +2086,26 @@ public class Token implements Cloneable {
     return matches.keySet();
   }
 
-  /** @return Getter for notes */
+  /**
+   * @return Getter for notes
+   */
   public String getNotes() {
     return notes;
   }
 
-  /** @param aNotes Setter for notes */
+  /**
+   * @param aNotes Setter for notes
+   */
   public void setNotes(String aNotes) {
     notes = aNotes;
+  }
+
+  public String getNotesType() {
+    return notesType;
+  }
+
+  public void setNotesType(String type) {
+    notesType = type;
   }
 
   public boolean isFlippedY() {
@@ -2139,7 +2173,9 @@ public class Token implements Cloneable {
     return anchorY;
   }
 
-  /** @return the scale of the token layout */
+  /**
+   * @return the scale of the token layout
+   */
   public double getSizeScale() {
     return sizeScale;
   }
@@ -2229,6 +2265,8 @@ public class Token implements Cloneable {
     notes = (String) td.get(TokenTransferData.NOTES);
     gmNotes = (String) td.get(TokenTransferData.GM_NOTES);
     gmName = (String) td.get(TokenTransferData.GM_NAME);
+
+    propertyType = MapTool.getCampaign().getCampaignProperties().getDefaultTokenPropertyType();
 
     // Get the image and portrait for the token
     Asset asset = createAssetFromIcon(td.getToken());
@@ -2508,15 +2546,33 @@ public class Token implements Cloneable {
       lastPath = null;
     }
 
+    if (notesType == null) {
+      notesType = SyntaxConstants.SYNTAX_STYLE_NONE;
+    }
+
+    if (gmNotesType == null) {
+      gmNotesType = SyntaxConstants.SYNTAX_STYLE_NONE;
+    }
+
+    // Pre 1.13
+    if (tokenOpacity == null) {
+      tokenOpacity = 1.f;
+    }
+    tokenOpacity = Math.max(0.f, Math.min(tokenOpacity, 1.f));
+
     return this;
   }
 
-  /** @param exposedAreaGUID the exposedAreaGUID to set */
+  /**
+   * @param exposedAreaGUID the exposedAreaGUID to set
+   */
   public void setExposedAreaGUID(GUID exposedAreaGUID) {
     this.exposedAreaGUID = exposedAreaGUID;
   }
 
-  /** @return the exposedAreaGUID */
+  /**
+   * @return the exposedAreaGUID
+   */
   public GUID getExposedAreaGUID() {
     return exposedAreaGUID;
   }
@@ -2535,7 +2591,9 @@ public class Token implements Cloneable {
     }
   }
 
-  /** @return is token an image/lib token */
+  /**
+   * @return is token an image/lib token
+   */
   public boolean isImgOrLib() {
     return (getName().toLowerCase().startsWith("image:")
         || getName().toLowerCase().startsWith("lib:"));
@@ -2708,7 +2766,7 @@ public class Token implements Cloneable {
         setIsAlwaysVisible(parameters.get(0).getBoolValue());
         break;
       case setTokenOpacity:
-        setTokenOpacity(parameters.get(0).getStringValue());
+        setTokenOpacity(Float.parseFloat(parameters.get(0).getStringValue()));
         break;
       case setTerrainModifier:
         setTerrainModifier(parameters.get(0).getDoubleValue());
@@ -2771,9 +2829,7 @@ public class Token implements Cloneable {
         break;
       case addLightSource:
         lightChanged = true;
-        addLightSource(
-            LightSource.fromDto(parameters.get(0).getLightSource()),
-            Direction.valueOf(parameters.get(1).getStringValue()));
+        addLightSource(LightSource.fromDto(parameters.get(0).getLightSource()));
         break;
       case setHasSight:
         if (hasLightSources()) {
@@ -2903,6 +2959,8 @@ public class Token implements Cloneable {
     token.notes = dto.hasNotes() ? dto.getNotes().getValue() : "";
     token.gmNotes = dto.hasGmNotes() ? dto.getGmNotes().getValue() : "";
     token.gmName = dto.hasGmName() ? dto.getGmName().getValue() : "";
+    token.notesType = dto.getNotesType();
+    token.gmNotesType = dto.getGmNotesType();
 
     dto.getStateMap()
         .forEach(
@@ -2924,6 +2982,9 @@ public class Token implements Cloneable {
     token.speechMap.putAll(dto.getSpeechMap());
     token.heroLabData = dto.hasHeroLabData() ? HeroLabData.fromDto(dto.getHeroLabData()) : null;
     token.allowURIAccess = dto.getAllowUriAccess();
+    if (dto.hasStatSheetProperties()) {
+      token.statSheet = StatSheetProperties.fromDto(dto.getStatSheetProperties());
+    }
     return token;
   }
 
@@ -3026,9 +3087,11 @@ public class Token implements Cloneable {
     if (notes != null) {
       dto.setNotes(StringValue.of(notes));
     }
+    dto.setNotesType(notesType);
     if (gmNotes != null) {
       dto.setGmNotes(StringValue.of(gmNotes));
     }
+    dto.setGmNotesType(gmNotesType);
     if (gmName != null) {
       dto.setGmName(StringValue.of(gmName));
     }
@@ -3050,6 +3113,46 @@ public class Token implements Cloneable {
       dto.setHeroLabData(heroLabData.toDto());
     }
     dto.setAllowUriAccess(allowURIAccess);
+    if (statSheet != null) {
+      dto.setStatSheetProperties(StatSheetProperties.toDto(statSheet));
+    }
     return dto.build();
+  }
+
+  /**
+   * Returns the Stat Sheet properties for this token. If no stat sheet is set, the default stat for
+   * the token type is returned.
+   *
+   * @return The of the stat sheet for this token.
+   */
+  public StatSheetProperties getStatSheet() {
+    if (statSheet == null) {
+      return MapTool.getCampaign().getTokenTypeDefaultSheetId(propertyType);
+    }
+    return statSheet;
+  }
+
+  /**
+   * Sets the id of the stat sheet for this token. If null, the token will use the default stat
+   * sheet for the token type.
+   *
+   * @param statSheet the stat sheet properties for this token.
+   */
+  public void setStatSheet(StatSheetProperties statSheet) {
+    this.statSheet = statSheet;
+  }
+
+  /**
+   * Returns if the token is using the default stat sheet for its token type.
+   *
+   * @return <code>true</code> if using the default stat sheet.
+   */
+  public boolean usingDefaultStatSheet() {
+    return statSheet == null;
+  }
+
+  /** Use the default stat sheet for the tokens token type. */
+  public void useDefaultStatSheet() {
+    setStatSheet(null);
   }
 }

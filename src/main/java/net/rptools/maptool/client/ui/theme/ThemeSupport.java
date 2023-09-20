@@ -15,29 +15,32 @@
 package net.rptools.maptool.client.ui.theme;
 
 import com.formdev.flatlaf.FlatIconColors;
-import com.formdev.flatlaf.IntelliJTheme;
-import com.formdev.flatlaf.IntelliJTheme.ThemeLaf;
+import com.formdev.flatlaf.FlatLaf;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.jidesoft.plaf.LookAndFeelFactory;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Image;
+import java.awt.*;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
-import javax.swing.ImageIcon;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.*;
 import net.rptools.maptool.client.AppConstants;
 import net.rptools.maptool.client.MapTool;
+import net.rptools.maptool.client.ui.themes.AahLAF;
+import net.rptools.maptool.client.ui.themes.AahLAF_LP;
+import net.rptools.maptool.client.ui.themes.AahLAF_SP;
+import net.rptools.maptool.client.ui.themes.AahLAF_VLP;
 import net.rptools.maptool.events.MapToolEventBus;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Class used to implement Theme support for MapTool. */
 public class ThemeSupport {
+
+  private static final Logger log = LogManager.getLogger(ThemeSupport.class);
 
   public enum ThemeColor {
     RED(
@@ -96,7 +99,6 @@ public class ThemeSupport {
       this.lightIconColor = lightIconColor;
       this.darkIconColor = darkIconColor;
     }
-    ;
 
     String getPropertyName() {
       return propertyName;
@@ -135,10 +137,7 @@ public class ThemeSupport {
    * @param imagePath the path to an example image of the theme
    */
   public record ThemeDetails(
-      String name,
-      Class<? extends IntelliJTheme.ThemeLaf> themeClass,
-      String imagePath,
-      boolean dark) {}
+      String name, Class<? extends FlatLaf> themeClass, String imagePath, boolean dark) {}
 
   /** The list of themes that are available. */
   public static final ThemeDetails[] THEMES =
@@ -475,6 +474,10 @@ public class ThemeSupport {
             com.formdev.flatlaf.intellijthemes.FlatXcodeDarkIJTheme.class,
             "Xcode-Dark.png",
             true),
+        new ThemeDetails("Aah", AahLAF.class, "Aah.png", false),
+        new ThemeDetails("Aah(Large Print)", AahLAF_LP.class, "Aah-LP.png", false),
+        new ThemeDetails("Aah(Small Print)", AahLAF_SP.class, "Aah-SP.png", false),
+        new ThemeDetails("Aah(Very Large Print)", AahLAF_VLP.class, "Aah-VLP.png", false),
       };
 
   /** The current theme being used. */
@@ -484,7 +487,7 @@ public class ThemeSupport {
   private static ThemeDetails pendingThemeDetails = currentThemeDetails;
 
   /** The current look and feel in use. */
-  private static IntelliJTheme.ThemeLaf currentLaf;
+  private static FlatLaf currentLaf;
 
   /** Should the chat window use the colors from the theme. */
   private static boolean useThemeColorsForChat = false;
@@ -501,8 +504,11 @@ public class ThemeSupport {
    * @throws UnsupportedLookAndFeelException if the look and feel is not supported.
    */
   public static void loadTheme()
-      throws NoSuchMethodException, InvocationTargetException, InstantiationException,
-          IllegalAccessException, UnsupportedLookAndFeelException {
+      throws NoSuchMethodException,
+          InvocationTargetException,
+          InstantiationException,
+          IllegalAccessException,
+          UnsupportedLookAndFeelException {
     JsonObject theme = readTheme();
 
     String themeName = theme.getAsJsonPrimitive("theme").getAsString();
@@ -533,7 +539,7 @@ public class ThemeSupport {
    *
    * @param laf the look and feel to use.
    */
-  private static void setLaf(ThemeLaf laf) {
+  private static void setLaf(FlatLaf laf) {
     currentLaf = laf;
   }
 
@@ -640,10 +646,15 @@ public class ThemeSupport {
         || themeDetails.imagePath.isEmpty()) {
       return new ImageIcon();
     } else {
-      var imageIcon =
-          new ImageIcon(
-              ThemeSupport.class.getResource(IMAGE_PATH + themeDetails.imagePath),
-              themeDetails.name);
+      var imageLocation = IMAGE_PATH + themeDetails.imagePath;
+      log.info("Retrieving resource for theme name={} from location={}", themeName, imageLocation);
+      var imageURL = ThemeSupport.class.getResource(imageLocation);
+      if (imageURL == null) {
+        log.warn(
+            "Failed to retrieve resource for theme name={} from url={}, using empty ImageIcon");
+        return new ImageIcon();
+      }
+      var imageIcon = new ImageIcon(imageURL, themeDetails.name);
       if (dimension != null && dimension.width > 0 && dimension.height > 0) {
         imageIcon.setImage(
             imageIcon

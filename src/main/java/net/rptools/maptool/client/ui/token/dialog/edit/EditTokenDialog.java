@@ -12,7 +12,7 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.token.edit;
+package net.rptools.maptool.client.ui.token.dialog.edit;
 
 import com.jidesoft.combobox.MultilineStringExComboBox;
 import com.jidesoft.combobox.PopupPanel;
@@ -67,6 +67,7 @@ import net.rptools.maptool.client.swing.ColorWell;
 import net.rptools.maptool.client.swing.GenericDialog;
 import net.rptools.maptool.client.swing.htmleditorsplit.HtmlEditorSplit;
 import net.rptools.maptool.client.ui.ImageAssetPanel;
+import net.rptools.maptool.client.ui.sheet.stats.StatSheetComboBoxRenderer;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.token.BarTokenOverlay;
@@ -80,6 +81,10 @@ import net.rptools.maptool.model.Token.Type;
 import net.rptools.maptool.model.Zone.Layer;
 import net.rptools.maptool.model.library.LibraryManager;
 import net.rptools.maptool.model.player.Player;
+import net.rptools.maptool.model.sheet.stats.StatSheet;
+import net.rptools.maptool.model.sheet.stats.StatSheetLocation;
+import net.rptools.maptool.model.sheet.stats.StatSheetManager;
+import net.rptools.maptool.model.sheet.stats.StatSheetProperties;
 import net.rptools.maptool.util.ExtractHeroLab;
 import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.ImageManager;
@@ -121,12 +126,40 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
   /** Create a new token notes dialog. */
   public EditTokenDialog() {
-    super(new TokenPropertiesDialog().$$$getRootComponent$$$());
+    super(new TokenPropertiesDialog().getRootComponent());
     panelInit();
   }
 
   public void initGMNotesEditorPane() {
     setGmNotesEnabled(MapTool.getPlayer().isGM());
+  }
+
+  public void initStatSheetComboBoxes() {
+    var sheetCombo = getStatSheetCombo();
+    sheetCombo.setRenderer(new StatSheetComboBoxRenderer());
+    var locationCombo = getStatSheetLocationCombo();
+    Arrays.stream(StatSheetLocation.values()).forEach(locationCombo::addItem);
+    sheetCombo.addActionListener(
+        l -> {
+          var sheet = (StatSheet) sheetCombo.getSelectedItem();
+          var ssManager = new StatSheetManager();
+          boolean usingDefault =
+              sheet != null && (sheet.name() == null && sheet.namespace() == null);
+          if (sheet == null || ssManager.isLegacyStatSheet(sheet) || usingDefault) {
+            locationCombo.setEnabled(false);
+            locationCombo.setSelectedItem(null);
+          } else {
+            locationCombo.setEnabled(true);
+            var tokenSheet = getModel().getStatSheet();
+            if (tokenSheet != null) {
+              locationCombo.setSelectedItem(tokenSheet.location());
+            } else {
+              var sheetProp =
+                  MapTool.getCampaign().getTokenTypeDefaultSheetId(getModel().getPropertyType());
+              locationCombo.setSelectedItem(sheetProp.location());
+            }
+          }
+        });
   }
 
   public void initTerrainModifierOperationComboBox() {
@@ -173,6 +206,21 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
     setLibTokenPaneEnabled(token.isLibToken());
     validateLibTokenURIAccess(getNameField().getName());
+    var combo = getStatSheetCombo();
+    combo.removeAllItems();
+    // Default Entry
+    var defaultSS =
+        new StatSheet(null, I18N.getText("token.statSheet.useDefault"), null, Set.of(), null);
+    combo.addItem(defaultSS);
+    var ssManager = new StatSheetManager();
+    ssManager.getStatSheets(token.getPropertyType()).stream()
+        .sorted(Comparator.comparing(StatSheet::description))
+        .forEach(ss -> combo.addItem(ss));
+    if (token.usingDefaultStatSheet()) {
+      combo.setSelectedItem(defaultSS);
+    } else {
+      combo.setSelectedItem(new StatSheetManager().getStatSheet(token.getStatSheet().id()));
+    }
     dialog.showDialog();
   }
 
@@ -209,8 +257,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     // ICON
     getTokenIconPanel().setImageId(token.getImageAssetId());
 
-    // NOTES
+    // NOTES, GM NOTES. Due to the way things happen on different gui threads, the type must be set
+    // before the text
+    // otherwise the wrong values can get populated when the tab change listener fires.
+    getGMNotesEditor().setTextType(token.getGmNotesType());
     getGMNotesEditor().setText(token.getGMNotes());
+    getPlayerNotesEditor().setTextType(token.getNotesType());
     getPlayerNotesEditor().setText(token.getNotes());
 
     // TYPE
@@ -516,6 +568,14 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     return (JComboBox) getComponent("type");
   }
 
+  public JComboBox getStatSheetCombo() {
+    return (JComboBox) getComponent("statSheetComboBox");
+  }
+
+  public JComboBox getStatSheetLocationCombo() {
+    return (JComboBox) getComponent("statSheetLocationComboBox");
+  }
+
   public void initTokenIconPanel() {
     getTokenIconPanel().setPreferredSize(new Dimension(100, 100));
     getTokenIconPanel().setMinimumSize(new Dimension(100, 100));
@@ -686,7 +746,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
     // NOTES
     token.setGMNotes(getGMNotesEditor().getText());
+    token.setGmNotesType(getGMNotesEditor().getTextType());
     token.setNotes(getPlayerNotesEditor().getText());
+    token.setNotesType(getPlayerNotesEditor().getTextType());
 
     // SIZE
     token.setSnapToScale(getSizeCombo().getSelectedIndex() != 0);
@@ -718,10 +780,10 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
     // Get the states
     Component[] stateComponents = getStatesPanel().getComponents();
-    Component barPanel = null;
+    Container barPanel = null;
     for (Component stateComponent : stateComponents) {
       if ("bar".equals(stateComponent.getName())) {
-        barPanel = stateComponent;
+        barPanel = (Container) stateComponent;
         continue;
       }
       Component[] components = ((Container) stateComponent).getComponents();
@@ -734,10 +796,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
 
     // BARS
     if (barPanel != null) {
-      Component[] bars = ((Container) barPanel).getComponents();
-      for (int i = 0; i < bars.length; i += 2) {
-        JCheckBox cb = (JCheckBox) ((Container) bars[i]).getComponent(1);
-        JSlider bar = (JSlider) bars[i + 1];
+      for (var barContainer : barPanel.getComponents()) {
+        var barComponents = ((Container) barContainer).getComponents();
+
+        JSlider bar = (JSlider) barComponents[1];
+        JCheckBox cb = (JCheckBox) barComponents[2];
+
         BigDecimal value =
             cb.isSelected() ? null : new BigDecimal(bar.getValue()).divide(new BigDecimal(100));
         token.setState(bar.getName(), value);
@@ -779,6 +843,19 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     }
     // SHAPE
     token.setShape((Token.TokenShape) getShapeCombo().getSelectedItem());
+
+    // Stat Sheet
+    var ss = (StatSheet) getStatSheetCombo().getSelectedItem();
+    if (ss == null || (ss.name() == null && ss.namespace() == null)) {
+      token.useDefaultStatSheet();
+    } else {
+      var ssManager = new StatSheetManager();
+      var location = (StatSheetLocation) getStatSheetLocationCombo().getSelectedItem();
+      if (location == null) {
+        location = StatSheetLocation.BOTTOM_LEFT;
+      }
+      token.setStatSheet(new StatSheetProperties(ssManager.getId(ss), location));
+    }
 
     // Macros
     token.setSpeechMap(((KeyValueTableModel) getSpeechTable().getModel()).getMap());
@@ -942,7 +1019,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     }
   }
 
-  /** @return Getter for tokenSaved */
+  /**
+   * @return Getter for tokenSaved
+   */
   public boolean isTokenSaved() {
     return tokenSaved;
   }
@@ -1381,7 +1460,9 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     getVisibilityToleranceSpinner().setModel(new SpinnerNumberModel(2, 1, 9, 1));
   }
 
-  /** @param regenerate Only regenerate topology from token image when needed */
+  /**
+   * @param regenerate Only regenerate topology from token image when needed
+   */
   protected void updateAutoGeneratedTopology(boolean regenerate) {
     if (getTokenTopologyPanel().getAutoGenerated()) {
       getTokenTopologyPanel().setInProgress(true);

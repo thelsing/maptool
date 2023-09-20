@@ -15,19 +15,11 @@
 package net.rptools.maptool.client;
 
 import com.jidesoft.docking.DockableFrame;
-import java.awt.Dimension;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.Toolkit;
-import java.awt.Transparency;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -37,46 +29,27 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import javax.crypto.NoSuchPaddingException;
-import javax.swing.AbstractAction;
-import javax.swing.Action;
-import javax.swing.ImageIcon;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JComponent;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
-import javax.swing.JTextPane;
-import javax.swing.KeyStroke;
-import javax.swing.SwingWorker;
+import javax.swing.*;
 import javax.swing.text.BadLocationException;
 import net.rptools.lib.FileUtil;
 import net.rptools.lib.MD5Key;
+import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.tool.boardtool.BoardTool;
 import net.rptools.maptool.client.tool.gridtool.GridTool;
-import net.rptools.maptool.client.ui.AppMenuBar;
-import net.rptools.maptool.client.ui.ConnectionStatusPanel;
-import net.rptools.maptool.client.ui.MapToolFrame;
+import net.rptools.maptool.client.ui.*;
 import net.rptools.maptool.client.ui.MapToolFrame.MTFrame;
-import net.rptools.maptool.client.ui.PreviewPanelFileChooser;
-import net.rptools.maptool.client.ui.StaticMessageDialog;
-import net.rptools.maptool.client.ui.SysInfoDialog;
-import net.rptools.maptool.client.ui.addon.AddOnLibrariesDialog;
+import net.rptools.maptool.client.ui.addon.AddOnLibrariesDialogView;
 import net.rptools.maptool.client.ui.addresource.AddResourceDialog;
 import net.rptools.maptool.client.ui.assetpanel.AssetPanel;
 import net.rptools.maptool.client.ui.assetpanel.Directory;
-import net.rptools.maptool.client.ui.campaignexportdialog.CampaignExportDialog;
 import net.rptools.maptool.client.ui.campaignproperties.CampaignPropertiesDialog;
 import net.rptools.maptool.client.ui.connectioninfodialog.ConnectionInfoDialog;
 import net.rptools.maptool.client.ui.connections.ClientConnectionPanel;
@@ -84,12 +57,8 @@ import net.rptools.maptool.client.ui.connecttoserverdialog.ConnectToServerDialog
 import net.rptools.maptool.client.ui.connecttoserverdialog.ConnectToServerDialogPreferences;
 import net.rptools.maptool.client.ui.exportdialog.ExportDialog;
 import net.rptools.maptool.client.ui.htmlframe.HTMLOverlayManager;
-import net.rptools.maptool.client.ui.io.FTPClient;
-import net.rptools.maptool.client.ui.io.FTPTransferObject;
+import net.rptools.maptool.client.ui.io.*;
 import net.rptools.maptool.client.ui.io.FTPTransferObject.Direction;
-import net.rptools.maptool.client.ui.io.LoadSaveImpl;
-import net.rptools.maptool.client.ui.io.ProgressBarList;
-import net.rptools.maptool.client.ui.io.UpdateRepoDialog;
 import net.rptools.maptool.client.ui.mappropertiesdialog.MapPropertiesDialog;
 import net.rptools.maptool.client.ui.players.PlayerDatabaseDialog;
 import net.rptools.maptool.client.ui.preferencesdialog.PreferencesDialog;
@@ -102,43 +71,19 @@ import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.utilities.DungeonDraftImporter;
 import net.rptools.maptool.language.I18N;
-import net.rptools.maptool.model.Asset;
-import net.rptools.maptool.model.AssetManager;
-import net.rptools.maptool.model.Campaign;
-import net.rptools.maptool.model.CampaignFactory;
-import net.rptools.maptool.model.CampaignProperties;
-import net.rptools.maptool.model.CellPoint;
-import net.rptools.maptool.model.ExposedAreaMetaData;
-import net.rptools.maptool.model.GUID;
-import net.rptools.maptool.model.Grid;
-import net.rptools.maptool.model.LookupTable;
-import net.rptools.maptool.model.TextMessage;
-import net.rptools.maptool.model.Token;
-import net.rptools.maptool.model.Zone;
+import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.Layer;
 import net.rptools.maptool.model.Zone.VisionType;
-import net.rptools.maptool.model.ZoneFactory;
-import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.campaign.CampaignManager;
 import net.rptools.maptool.model.drawing.DrawableTexturePaint;
-import net.rptools.maptool.model.player.LocalPlayer;
-import net.rptools.maptool.model.player.PasswordDatabaseException;
-import net.rptools.maptool.model.player.PasswordFilePlayerDatabase;
-import net.rptools.maptool.model.player.PersistedPlayerDatabase;
-import net.rptools.maptool.model.player.Player;
+import net.rptools.maptool.model.player.*;
 import net.rptools.maptool.model.player.Player.Role;
-import net.rptools.maptool.model.player.PlayerDatabase;
-import net.rptools.maptool.model.player.PlayerDatabaseFactory;
 import net.rptools.maptool.model.player.PlayerDatabaseFactory.PlayerDatabaseType;
 import net.rptools.maptool.server.ServerConfig;
 import net.rptools.maptool.server.ServerPolicy;
-import net.rptools.maptool.util.ImageManager;
-import net.rptools.maptool.util.MessageUtil;
-import net.rptools.maptool.util.PasswordGenerator;
-import net.rptools.maptool.util.PersistenceUtil;
+import net.rptools.maptool.util.*;
 import net.rptools.maptool.util.PersistenceUtil.PersistedCampaign;
 import net.rptools.maptool.util.PersistenceUtil.PersistedMap;
-import net.rptools.maptool.util.UPnPUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -230,9 +175,7 @@ public class AppActions {
             }
             // Move to chosen token
             if (chosenOne != null) {
-              renderer.clearSelectedTokens();
-              renderer.centerOn(chosenOne);
-              renderer.updateAfterSelection();
+              renderer.centerOnAndSetSelected(chosenOne);
             }
           }
         }
@@ -295,22 +238,6 @@ public class AppActions {
         }
       };
 
-  public static final Action EXPORT_CAMPAIGN_AS =
-      new AdminClientAction() {
-        {
-          init("action.exportCampaignAs");
-        }
-
-        @Override
-        protected void executeAction() {
-          try {
-            doCampaignExport();
-          } catch (Exception ex) {
-            MapTool.showError("Cannot create the ExportCampaignDialog object", ex);
-          }
-        }
-      };
-
   public static final Action EXPORT_CAMPAIGN_REPO =
       new AdminClientAction() {
 
@@ -323,9 +250,19 @@ public class AppActions {
 
           JFileChooser chooser = MapTool.getFrame().getSaveFileChooser();
 
-          // Get target location
-          if (chooser.showSaveDialog(MapTool.getFrame()) != JFileChooser.APPROVE_OPTION) {
-            return;
+          boolean tryAgain = true;
+          while (tryAgain) {
+            // Get target location
+            if (chooser.showSaveDialog(MapTool.getFrame()) != JFileChooser.APPROVE_OPTION) {
+              return;
+            }
+            var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+            var saveDir = chooser.getSelectedFile().toPath().getParent().toAbsolutePath();
+            if (saveDir.startsWith(installDir)) {
+              MapTool.showWarning("msg.warning.exportRepoToInstallDir");
+            } else {
+              tryAgain = false;
+            }
           }
 
           // Default extension
@@ -938,8 +875,10 @@ public class AppActions {
     }
     if (!tokensToRemove.isEmpty()) {
       MapTool.serverCommand().removeTokens(zone.getId(), tokensToRemove);
-      MapTool.getFrame().getCurrentZoneRenderer().clearSelectedTokens();
-      MapTool.getFrame().getCurrentZoneRenderer().updateAfterSelection();
+      MapTool.getFrame()
+          .getCurrentZoneRenderer()
+          .getSelectionModel()
+          .replaceSelection(Collections.emptyList());
       if (copy) {
         keepIdsOnPaste = true; // pasted tokens should have same ids as cut ones
       }
@@ -1050,8 +989,9 @@ public class AppActions {
     // Only cut if some tokens are selected. Don't want to accidentally
     // lose what might already be in the clipboard.
     if (!tokenList.isEmpty()) {
-      if (tokenCopySet != null)
+      if (tokenCopySet != null) {
         tokenCopySet.clear(); // Just to help out the garbage collector a little bit
+      }
 
       Token topLeft = tokenList.get(0);
       tokenCopySet = new HashSet<Token>();
@@ -1190,8 +1130,7 @@ public class AppActions {
                     token.getX() + gridCopiedFrom.getOffsetX(),
                     token.getY() + gridCopiedFrom.getOffsetY()));
         ZonePoint zp = grid.convert(cp);
-        tokenOffset =
-            new ZonePoint(zp.x - gridCopiedFrom.getOffsetX(), zp.y - gridCopiedFrom.getOffsetY());
+        tokenOffset = new ZonePoint(zp.x - grid.getOffsetX(), zp.y - grid.getOffsetY());
       } else {
         // For gridless sources, gridless destinations, or tokens that are not SnapToGrid: just use
         // the pixel offsets
@@ -1575,6 +1514,44 @@ public class AppActions {
             return;
           }
           renderer.forcePlayersView();
+        }
+      };
+
+  /** This is the menu option turns the lumens overlay on and off. */
+  public static final Action TOGGLE_LUMENS_OVERLAY =
+      new ZoneClientAction() {
+        {
+          init("action.showLumensOverlay");
+        }
+
+        @Override
+        public boolean isSelected() {
+          return AppState.isShowLumensOverlay();
+        }
+
+        @Override
+        protected void executeAction() {
+          AppState.setShowLumensOverlay(!AppState.isShowLumensOverlay());
+          MapTool.getFrame().refresh();
+        }
+      };
+
+  /** This is the menu option turns the lumens overlay on and off. */
+  public static final Action TOGGLE_SHOW_LIGHTS =
+      new ZoneClientAction() {
+        {
+          init("action.showLights");
+        }
+
+        @Override
+        public boolean isSelected() {
+          return AppState.isShowLights();
+        }
+
+        @Override
+        protected void executeAction() {
+          AppState.setShowLights(!AppState.isShowLights());
+          MapTool.getFrame().refresh();
         }
       };
 
@@ -2493,6 +2470,8 @@ public class AppActions {
     MapTool.stopServer();
     MapTool.disconnect();
     MapTool.getFrame().getToolbarPanel().getMapselect().setVisible(true);
+    MapTool.getFrame().getToolbarPanel().setTokenSelectionGroupEnabled(true);
+
     try {
       MapTool.startPersonalServer(campaign);
     } catch (IOException
@@ -2575,6 +2554,12 @@ public class AppActions {
     if (AppState.testBackgroundTaskLock()) {
       MapTool.showError("msg.error.failedLoadCampaignLock");
       return;
+    }
+
+    var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+    var openDir = campaignFile.toPath().getParent().toAbsolutePath();
+    if (openDir.startsWith(installDir)) {
+      MapTool.showWarning("msg.warning.loadCampaignFromInstallDir");
     }
 
     new CampaignLoader(campaignFile).execute();
@@ -2723,32 +2708,33 @@ public class AppActions {
       doSaveCampaignAs(onSuccess);
       return;
     }
+    var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+    var saveDir = AppState.getCampaignFile().toPath().getParent().toAbsolutePath();
+    if (saveDir.startsWith(installDir)) {
+      MapTool.showWarning("msg.warning.saveCampaignToInstallDir");
+      doSaveCampaignAs(onSuccess);
+      return;
+    }
     doSaveCampaign(AppState.getCampaignFile(), onSuccess);
   }
 
   private static void doSaveCampaign(final File file, Runnable onSuccess) {
-    doSaveCampaign(file, null, onSuccess);
-  }
-
-  private static void doSaveCampaign(File file, String campaignVersion, Runnable onSuccess) {
 
     if (AppState.testBackgroundTaskLock()) {
       MapTool.showError("msg.error.failedSaveCampaignLock");
       return;
     }
-    new CampaignSaver(file, campaignVersion, onSuccess).execute();
+    new CampaignSaver(file, onSuccess).execute();
   }
 
   private static class CampaignSaver extends SwingWorker<Object, String> {
 
     private File file;
-    private String campaignVersion;
     private Runnable onSuccess;
     private int maxWaitForLock = 30;
 
-    public CampaignSaver(File file, String campaignVersion, Runnable onSuccess) {
+    public CampaignSaver(File file, Runnable onSuccess) {
       this.file = file;
-      this.campaignVersion = campaignVersion;
       this.onSuccess = onSuccess;
     }
 
@@ -2761,7 +2747,7 @@ public class AppActions {
 
       try {
         long start = System.currentTimeMillis();
-        PersistenceUtil.saveCampaign(MapTool.getCampaign(), file, campaignVersion);
+        PersistenceUtil.saveCampaign(MapTool.getCampaign(), file);
 
         publish(I18N.getString("msg.info.campaignSaved"));
 
@@ -2800,29 +2786,31 @@ public class AppActions {
   }
 
   public static void doSaveCampaignAs(Runnable onSuccess) {
-    JFileChooser chooser = MapTool.getFrame().getSaveCmpgnFileChooser();
-    int saveStatus = chooser.showSaveDialog(MapTool.getFrame());
-    if (saveStatus == JFileChooser.APPROVE_OPTION) {
-      saveAndUpdateCampaignName(null, chooser.getSelectedFile(), onSuccess);
+    boolean tryAgain = true;
+    while (tryAgain) {
+      JFileChooser chooser = MapTool.getFrame().getSaveCmpgnFileChooser();
+      int saveStatus = chooser.showSaveDialog(MapTool.getFrame());
+      if (saveStatus == JFileChooser.APPROVE_OPTION) {
+        var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+        var saveDir = chooser.getSelectedFile().toPath().getParent().toAbsolutePath();
+        if (saveDir.startsWith(installDir)) {
+          MapTool.showWarning("msg.warning.saveCampaignToInstallDir");
+        } else {
+          tryAgain = false;
+          saveAndUpdateCampaignName(chooser.getSelectedFile(), onSuccess);
+        }
+      } else {
+        tryAgain = false;
+      }
     }
   }
 
-  public static void doCampaignExport() {
-    CampaignExportDialog dialog = MapTool.getCampaign().getExportCampaignDialog();
-    dialog.setVisible(true);
-
-    if (dialog.getSaveStatus() == JFileChooser.APPROVE_OPTION) {
-      saveAndUpdateCampaignName(dialog.getVersionText(), dialog.getCampaignFile(), null);
-    }
-  }
-
-  private static void saveAndUpdateCampaignName(
-      String campaignVersion, File selectedFile, Runnable onSuccess) {
+  private static void saveAndUpdateCampaignName(File selectedFile, Runnable onSuccess) {
     File campaignFile = getFileWithExtension(selectedFile, AppConstants.CAMPAIGN_FILE_EXTENSION);
     if (campaignFile.exists() && !MapTool.confirm("msg.confirm.overwriteExistingCampaign")) {
       return;
     }
-    doSaveCampaign(campaignFile, campaignVersion, onSuccess);
+    doSaveCampaign(campaignFile, onSuccess);
     AppState.setCampaignFile(campaignFile);
     AppPreferences.setSaveDir(campaignFile.getParentFile());
     AppMenuBar.getMruManager().addMRUCampaign(AppState.getCampaignFile());
@@ -2858,20 +2846,30 @@ public class AppActions {
           chooser.setFileFilter(MapTool.getFrame().getMapFileFilter());
           chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
           chooser.setSelectedFile(new File(zr.getZone().getName()));
-          if (chooser.showSaveDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
-            try {
+          boolean tryAgain = true;
+          while (tryAgain) {
+            if (chooser.showSaveDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
               File mapFile = chooser.getSelectedFile();
-              mapFile = getFileWithExtension(mapFile, AppConstants.MAP_FILE_EXTENSION);
-              if (mapFile.exists()) {
-                if (!MapTool.confirm("msg.confirm.fileExists")) {
-                  return;
+              var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+              var saveDir = chooser.getSelectedFile().toPath().getParent().toAbsolutePath();
+              if (saveDir.startsWith(installDir)) {
+                MapTool.showWarning("msg.warning.saveMapToInstallDir");
+              } else {
+                tryAgain = false;
+                try {
+                  mapFile = getFileWithExtension(mapFile, AppConstants.MAP_FILE_EXTENSION);
+                  if (mapFile.exists()) {
+                    if (!MapTool.confirm("msg.confirm.fileExists")) {
+                      return;
+                    }
+                  }
+                  PersistenceUtil.saveMap(zr.getZone(), mapFile);
+                  AppPreferences.setSaveMapDir(mapFile.getParentFile());
+                  MapTool.showInformation("msg.info.mapSaved");
+                } catch (IOException ioe) {
+                  MapTool.showError("msg.error.failedSaveMap", ioe);
                 }
               }
-              PersistenceUtil.saveMap(zr.getZone(), mapFile);
-              AppPreferences.setSaveMapDir(mapFile.getParentFile());
-              MapTool.showInformation("msg.info.mapSaved");
-            } catch (IOException ioe) {
-              MapTool.showError("msg.error.failedSaveMap", ioe);
             }
           }
         }
@@ -3259,7 +3257,10 @@ public class AppActions {
 
         @Override
         protected void executeAction() {
-          new AddOnLibrariesDialog().show();
+          var dialog = new AddOnLibrariesDialogView();
+          dialog.pack();
+          SwingUtil.centerOver(dialog, MapTool.getFrame());
+          dialog.setVisible(true);
         }
       };
 

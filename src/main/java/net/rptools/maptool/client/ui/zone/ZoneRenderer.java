@@ -34,12 +34,14 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.*;
+import net.rptools.maptool.client.events.ZoneLoaded;
 import net.rptools.maptool.client.functions.TokenMoveFunctions;
 import net.rptools.maptool.client.swing.ImageBorder;
 import net.rptools.maptool.client.swing.ImageLabel;
@@ -52,13 +54,11 @@ import net.rptools.maptool.client.tool.drawing.OvalExposeTool;
 import net.rptools.maptool.client.tool.drawing.PolygonExposeTool;
 import net.rptools.maptool.client.tool.drawing.RectangleExposeTool;
 import net.rptools.maptool.client.ui.Scale;
-import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
 import net.rptools.maptool.client.ui.theme.Borders;
 import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.token.AbstractTokenOverlay;
 import net.rptools.maptool.client.ui.token.BarTokenOverlay;
-import net.rptools.maptool.client.ui.zone.gdx.GdxRenderer;
 import net.rptools.maptool.client.ui.token.dialog.create.NewTokenDialog;
 import net.rptools.maptool.client.walker.ZoneWalker;
 import net.rptools.maptool.events.MapToolEventBus;
@@ -107,6 +107,8 @@ public class ZoneRenderer extends JComponent
 
   /** The ZoneView constructed from the zone. */
   private final ZoneView zoneView;
+  /** Manages the selected tokens on the zone. */
+  private final SelectionModel selectionModel;
 
   private Scale zoneScale;
   private final DrawableRenderer backgroundDrawableRenderer = new PartitionedDrawableRenderer();
@@ -116,15 +118,9 @@ public class ZoneRenderer extends JComponent
   private final List<ZoneOverlay> overlayList = new ArrayList<ZoneOverlay>();
   private final Map<Zone.Layer, List<TokenLocation>> tokenLocationMap =
       new HashMap<Zone.Layer, List<TokenLocation>>();
-  private Set<GUID> selectedTokenSet = new LinkedHashSet<GUID>();
-  private boolean keepSelectedTokenSet = false;
-  private final List<Set<GUID>> selectedTokenSetHistory = new ArrayList<Set<GUID>>();
   private final List<LabelLocation> labelLocationList = new LinkedList<LabelLocation>();
   private Map<Token, Set<Token>> tokenStackMap;
   private final Map<GUID, SelectionSet> selectionSetMap = new HashMap<GUID, SelectionSet>();
-  // private final Map<Token, TokenLocation> tokenLocationCache = Collections.synchronizedMap(new
-  // HashMap<Token,
-  // TokenLocation>());
   private final Map<Token, TokenLocation> tokenLocationCache = new HashMap<Token, TokenLocation>();
   private final List<TokenLocation> markerLocationList = new ArrayList<TokenLocation>();
   private GeneralPath facingArrow;
@@ -158,15 +154,10 @@ public class ZoneRenderer extends JComponent
 
   private boolean autoResizeStamp = false;
 
-  /** Show blocked grid lines during AStar moving, for debugging... */
-  private boolean showAstarDebugging = false;
-
   /** Store previous view to restore to, eg after GM shows ctrl+shift+space pointer */
   private double previousScale;
 
   private ZonePoint previousZonePoint;
-
-  private boolean skipDrawing;
 
   public enum TokenMoveCompletion {
     TRUE,
@@ -192,6 +183,7 @@ public class ZoneRenderer extends JComponent
     setFocusable(true);
     setZoneScale(new Scale());
     zoneView = new ZoneView(zone);
+    selectionModel = new SelectionModel(zone);
 
     // add(MapTool.getFrame().getFxPanel(), PositionalLayout.Position.NW);
 
@@ -235,10 +227,6 @@ public class ZoneRenderer extends JComponent
     this.autoResizeStamp = value;
   }
 
-  public Map<GUID, SelectionSet> getSelectionSetMap() {
-    return selectionSetMap;
-  }
-
   public boolean isAutoResizeStamp() {
     return autoResizeStamp;
   }
@@ -256,7 +244,7 @@ public class ZoneRenderer extends JComponent
    *
    * @param token the token to center on
    */
-  public void centerOn(Token token) {
+  public void centerOnAndSetSelected(Token token) {
     if (token == null) {
       return;
     }
@@ -267,7 +255,7 @@ public class ZoneRenderer extends JComponent
         .getToolbox()
         .setSelectedTool(token.isToken() ? PointerTool.class : StampTool.class);
 
-    selectToken(token.getId());
+    selectionModel.replaceSelection(Collections.singletonList(token.getId()));
     requestFocusInWindow();
   }
 
@@ -277,29 +265,6 @@ public class ZoneRenderer extends JComponent
 
   public boolean isPathShowing(Token token) {
     return showPathList.contains(token);
-  }
-
-  public void clearShowPaths() {
-    showPathList.clear();
-    // [PNICHOLS04] This call is unnecessary, because we are in a method that is
-    // only called once (from clearSelectedTokens), and the caller requires a
-    // repaint after we return.
-    // repaintDebouncer.dispatch();
-  }
-
-  public List<Token> getShowPathList() {
-    return showPathList;
-  }
-
-  /**
-   * Resets the token panels, fire onTokenSelection, repaints. The impersonation panel is only reset
-   * if no token is currently impersonated.
-   */
-  public void updateAfterSelection() {
-    MapTool.getFrame().getSelectionPanel().reset();
-    MapTool.getFrame().getImpersonatePanel().resetIfNotImpersonating();
-    HTMLFrameFactory.selectedListChanged();
-    repaintDebouncer.dispatch();
   }
 
   public Scale getZoneScale() {
@@ -352,14 +317,8 @@ public class ZoneRenderer extends JComponent
     return false;
   }
 
-  public void addMoveSelectionSet(
-      String playerId, GUID keyToken, Set<GUID> tokenList, boolean clearLocalSelected) {
+  public void addMoveSelectionSet(String playerId, GUID keyToken, Set<GUID> tokenList) {
     // I'm not supposed to be moving a token when someone else is already moving it
-    if (clearLocalSelected) {
-      for (GUID guid : tokenList) {
-        selectedTokenSet.remove(guid);
-      }
-    }
     selectionSetMap.put(keyToken, new SelectionSet(playerId, keyToken, tokenList));
     repaintDebouncer.dispatch(); // Jamz: Seems to have no affect?
   }
@@ -449,7 +408,7 @@ public class ZoneRenderer extends JComponent
     // Lee: check only matters for snap-to-grid
     if (stg) {
       CodeTimer moveTimer = new CodeTimer("ZoneRenderer.commitMoveSelectionSet");
-      moveTimer.setEnabled(AppState.isCollectProfilingData() || log.isDebugEnabled());
+      moveTimer.setEnabled(AppState.isCollectProfilingData());
       moveTimer.setThreshold(1);
 
       moveTimer.start("setup");
@@ -578,11 +537,7 @@ public class ZoneRenderer extends JComponent
       moveTimer.stop("updateTokenTree");
 
       if (moveTimer.isEnabled()) {
-        String results = moveTimer.toString();
-        MapTool.getProfilingNoteFrame().addText(results);
-        if (log.isDebugEnabled()) {
-          log.debug(results);
-        }
+        MapTool.getProfilingNoteFrame().addText(moveTimer.toString());
         moveTimer.clear();
       }
     } else {
@@ -656,9 +611,9 @@ public class ZoneRenderer extends JComponent
   }
 
   /**
-   * Remove the token from: tokenLocationCache, flipImageMap, opacityImageMap, replacementImageMap,
-   * labelRenderingCache. Set the visibleScreenArea, tokenStackMap, drawableLights, drawableAuras to
-   * null. Flush the token from the zoneView.
+   * Remove the token from: {@link #tokenLocationCache}, {@link #flipImageMap}, {@link
+   * #flipIsoImageMap}, {@link #labelRenderingCache}. Set the {@link #visibleScreenArea}, {@link
+   * #tokenStackMap} to null. Flush the token from {@link #zoneView}.
    *
    * @param token the token to flush
    */
@@ -678,16 +633,18 @@ public class ZoneRenderer extends JComponent
     // This could also be smarter
     tokenStackMap = null;
 
-    drawableLights = null;
-    drawableAuras = null;
-
     zoneView.flush(token);
-    GdxRenderer.getInstance().flushFog();
   }
 
-  /** @return the ZoneView */
+  /**
+   * @return the ZoneView
+   */
   public ZoneView getZoneView() {
     return zoneView;
+  }
+
+  public SelectionModel getSelectionModel() {
+    return selectionModel;
   }
 
   /** Clear internal caches and backbuffers */
@@ -704,17 +661,13 @@ public class ZoneRenderer extends JComponent
     flushDrawableRenderer();
     flipImageMap.clear();
     flipIsoImageMap.clear();
-    drawableLights = null;
-    drawableAuras = null;
     zoneView.flushFog();
 
     isLoaded = false;
   }
 
-  /** Set the drawableLights and drawableAuras to null, flush the zoneView, and repaint. */
+  /** Flush the {@link #zoneView} and repaint. */
   public void flushLight() {
-    drawableLights = null;
-    drawableAuras = null;
     zoneView.flush();
     repaintDebouncer.dispatch();
   }
@@ -723,10 +676,11 @@ public class ZoneRenderer extends JComponent
   public void flushFog() {
     visibleScreenArea = null;
     repaintDebouncer.dispatch();
-    GdxRenderer.getInstance().flushFog();
   }
 
-  /** @return the Zone */
+  /**
+   * @return the Zone
+   */
   public Zone getZone() {
     return zone;
   }
@@ -742,7 +696,6 @@ public class ZoneRenderer extends JComponent
   public void moveViewBy(int dx, int dy) {
 
     setViewOffset(getViewOffsetX() + dx, getViewOffsetY() + dy);
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void moveViewByCells(int dx, int dy) {
@@ -760,19 +713,16 @@ public class ZoneRenderer extends JComponent
   public void zoomReset(int x, int y) {
     zoneScale.zoomReset(x, y);
     MapTool.getFrame().getZoomStatusBar().update();
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void zoomIn(int x, int y) {
     zoneScale.zoomIn(x, y);
     MapTool.getFrame().getZoomStatusBar().update();
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void zoomOut(int x, int y) {
     zoneScale.zoomOut(x, y);
     MapTool.getFrame().getZoomStatusBar().update();
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void setView(int x, int y, double scale) {
@@ -781,7 +731,6 @@ public class ZoneRenderer extends JComponent
 
     zoneScale.setScale(scale);
     MapTool.getFrame().getZoomStatusBar().update();
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void enforceView(int x, int y, double scale, int gmWidth, int gmHeight) {
@@ -802,7 +751,6 @@ public class ZoneRenderer extends JComponent
 
     setScale(scale);
     centerOn(new ZonePoint(x, y));
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void restoreView() {
@@ -811,7 +759,6 @@ public class ZoneRenderer extends JComponent
 
     centerOn(previousZonePoint);
     setScale(previousScale);
-    GdxRenderer.getInstance().setScale(zoneScale);
   }
 
   public void forcePlayersView() {
@@ -844,7 +791,7 @@ public class ZoneRenderer extends JComponent
     if (timer == null) {
       timer = new CodeTimer("ZoneRenderer.renderZone");
     }
-    timer.setEnabled(AppState.isCollectProfilingData() || log.isDebugEnabled());
+    timer.setEnabled(AppState.isCollectProfilingData());
     timer.clear();
     timer.setThreshold(10);
     timer.start("paintComponent");
@@ -867,20 +814,16 @@ public class ZoneRenderer extends JComponent
       PlayerView pl = getPlayerView();
       timer.stop("paintComponent:createView");
 
-      skipDrawing = MapTool.getFrame().getGdxPanel().isVisible();
-
       renderZone(bufferG2d, pl);
       int noteVPos = 20;
       if (MapTool.getFrame().areFullScreenToolsShown()) noteVPos += 40;
 
-      if (!AppPreferences.getMapVisibilityWarning()
-          && (!zone.isVisible() && pl.isGMView())
-          && !skipDrawing) {
+      if (!AppPreferences.getMapVisibilityWarning() && (!zone.isVisible() && pl.isGMView())) {
         GraphicsUtil.drawBoxedString(
             bufferG2d, I18N.getText("zone.map_not_visible"), getSize().width / 2, noteVPos);
         noteVPos += 20;
       }
-      if (AppState.isShowAsPlayer() && !skipDrawing) {
+      if (AppState.isShowAsPlayer()) {
         GraphicsUtil.drawBoxedString(
             bufferG2d, I18N.getText("zone.player_view"), getSize().width / 2, noteVPos);
       }
@@ -893,11 +836,7 @@ public class ZoneRenderer extends JComponent
 
     timer.stop("paintComponent");
     if (timer.isEnabled()) {
-      String results = timer.toString();
-      MapTool.getProfilingNoteFrame().addText(results);
-      if (log.isDebugEnabled()) {
-        log.debug(results);
-      }
+      MapTool.getProfilingNoteFrame().addText(timer.toString());
       timer.clear();
     }
   }
@@ -928,7 +867,7 @@ public class ZoneRenderer extends JComponent
    */
   public PlayerView getPlayerView(Player.Role role, boolean selected) {
     List<Token> selectedTokens = null;
-    if (selected && getSelectedTokenSet() != null && !getSelectedTokenSet().isEmpty()) {
+    if (selected && selectionModel.isAnyTokenSelected()) {
       selectedTokens = getSelectedTokensList();
       selectedTokens.removeIf(token -> !token.getHasSight() || !AppUtil.playerOwns(token));
     }
@@ -941,6 +880,10 @@ public class ZoneRenderer extends JComponent
               ? zone.getOwnedTokensWithSight(MapTool.getPlayer())
               : zone.getPlayerTokensWithSight();
     }
+    if (selectedTokens == null || selectedTokens.isEmpty()) {
+      return new PlayerView(role);
+    }
+
     return new PlayerView(role, selectedTokens);
   }
 
@@ -1090,18 +1033,12 @@ public class ZoneRenderer extends JComponent
   }
 
   /**
-   * This method clears {@link #drawableAuras}, {@link #drawableLights}, {@link #visibleScreenArea},
-   * and {@link #lastView}. It also flushes the {@link #zoneView}.
+   * This method clears {@link #visibleScreenArea} and {@link #lastView}. It also flushes the {@link
+   * #zoneView}.
    */
   public void invalidateCurrentViewCache() {
-    drawableLights = null;
-    drawableAuras = null;
     visibleScreenArea = null;
     lastView = null;
-
-    if (zoneView != null) {
-      zoneView.flush();
-    }
   }
 
   /**
@@ -1127,20 +1064,16 @@ public class ZoneRenderer extends JComponent
     }
     // Are we still waiting to show the zone ?
     if (isLoading()) {
-      if (!skipDrawing) {
-        g2d.setColor(Color.black);
-        g2d.fillRect(0, 0, viewRect.width, viewRect.height);
-        GraphicsUtil.drawBoxedString(g2d, loadingProgress, viewRect.width / 2, viewRect.height / 2);
-      }
+      g2d.setColor(Color.black);
+      g2d.fillRect(0, 0, viewRect.width, viewRect.height);
+      GraphicsUtil.drawBoxedString(g2d, loadingProgress, viewRect.width / 2, viewRect.height / 2);
       return;
     }
     if (MapTool.getCampaign().isBeingSerialized()) {
-      if (!skipDrawing) {
-        g2d.setColor(Color.black);
-        g2d.fillRect(0, 0, viewRect.width, viewRect.height);
-        GraphicsUtil.drawBoxedString(
-            g2d, "    Please Wait    ", viewRect.width / 2, viewRect.height / 2);
-      }
+      g2d.setColor(Color.black);
+      g2d.fillRect(0, 0, viewRect.width, viewRect.height);
+      GraphicsUtil.drawBoxedString(
+          g2d, "    Please Wait    ", viewRect.width / 2, viewRect.height / 2);
       return;
     }
     if (zone == null) {
@@ -1181,7 +1114,7 @@ public class ZoneRenderer extends JComponent
       timer.stop("ZoneRenderer-getVisibleArea");
 
       timer.start("createTransformedArea");
-      if (a != null && !a.isEmpty()) {
+      if (!a.isEmpty()) {
         visibleScreenArea = a.createTransformedArea(af);
       }
       timer.stop("createTransformedArea");
@@ -1192,7 +1125,7 @@ public class ZoneRenderer extends JComponent
     {
       // renderMoveSelectionSet() requires exposedFogArea to be properly set
       exposedFogArea = new Area(zone.getExposedArea());
-      if (exposedFogArea != null && zone.hasFog()) {
+      if (zone.hasFog()) {
         if (visibleScreenArea != null && !visibleScreenArea.isEmpty()) {
           exposedFogArea.intersect(visibleScreenArea);
         } else {
@@ -1216,7 +1149,7 @@ public class ZoneRenderer extends JComponent
     timer.stop("calcs-2");
 
     // Rendering pipeline
-    if (zone.drawBoard() && !skipDrawing) {
+    if (zone.drawBoard()) {
       timer.start("board");
       renderBoard(g2d, view);
       timer.stop("board");
@@ -1224,11 +1157,9 @@ public class ZoneRenderer extends JComponent
     if (Zone.Layer.BACKGROUND.isEnabled()) {
       List<DrawnElement> drawables = zone.getBackgroundDrawnElements();
       // if (!drawables.isEmpty()) {
-      if (!skipDrawing) {
-        timer.start("drawableBackground");
-        renderDrawableOverlay(g2d, backgroundDrawableRenderer, view, drawables);
-        timer.stop("drawableBackground");
-      }
+      timer.start("drawableBackground");
+      renderDrawableOverlay(g2d, backgroundDrawableRenderer, view, drawables);
+      timer.stop("drawableBackground");
       // }
       List<Token> background = zone.getBackgroundStamps(false);
       if (!background.isEmpty()) {
@@ -1241,19 +1172,14 @@ public class ZoneRenderer extends JComponent
       // Drawables on the object layer are always below the grid, and...
       List<DrawnElement> drawables = zone.getObjectDrawnElements();
       // if (!drawables.isEmpty()) {
-      if (!skipDrawing) {
-        timer.start("drawableObjects");
-        renderDrawableOverlay(g2d, objectDrawableRenderer, view, drawables);
-        timer.stop("drawableObjects");
-      }
+      timer.start("drawableObjects");
+      renderDrawableOverlay(g2d, objectDrawableRenderer, view, drawables);
+      timer.stop("drawableObjects");
       // }
     }
-
-    if (!skipDrawing) {
-      timer.start("grid");
-      renderGrid(g2d, view);
-      timer.stop("grid");
-    }
+    timer.start("grid");
+    renderGrid(g2d, view);
+    timer.stop("grid");
 
     if (Zone.Layer.OBJECT.isEnabled()) {
       // ... Images on the object layer are always ABOVE the grid.
@@ -1265,19 +1191,16 @@ public class ZoneRenderer extends JComponent
       }
     }
     if (Zone.Layer.TOKEN.isEnabled()) {
+      timer.start("lights");
+      renderLights(g2d, view);
+      timer.stop("lights");
 
-      if (!skipDrawing) {
-        timer.start("lights");
-        renderLights(g2d, view);
-        timer.stop("lights");
-      }
-
-      if (!skipDrawing) {
-        timer.start("auras");
-        renderAuras(g2d, view);
-        timer.stop("auras");
-      }
+      timer.start("auras");
+      renderAuras(g2d, view);
+      timer.stop("auras");
     }
+
+    renderPlayerDarkness(g2d, view);
 
     /**
      * The following sections used to handle rendering of the Hidden (i.e. "GM") layer followed by
@@ -1303,21 +1226,17 @@ public class ZoneRenderer extends JComponent
     if (Zone.Layer.TOKEN.isEnabled()) {
       List<DrawnElement> drawables = zone.getDrawnElements();
       // if (!drawables.isEmpty()) {
-      if (!skipDrawing) {
-        timer.start("drawableTokens");
-        renderDrawableOverlay(g2d, tokenDrawableRenderer, view, drawables);
-        timer.stop("drawableTokens");
-      }
+      timer.start("drawableTokens");
+      renderDrawableOverlay(g2d, tokenDrawableRenderer, view, drawables);
+      timer.stop("drawableTokens");
       // }
 
       if (view.isGMView() && Zone.Layer.GM.isEnabled()) {
         drawables = zone.getGMDrawnElements();
         // if (!drawables.isEmpty()) {
-        if (!skipDrawing) {
-          timer.start("drawableGM");
-          renderDrawableOverlay(g2d, gmDrawableRenderer, view, drawables);
-          timer.stop("drawableGM");
-        }
+        timer.start("drawableGM");
+        renderDrawableOverlay(g2d, gmDrawableRenderer, view, drawables);
+        timer.stop("drawableGM");
         // }
         List<Token> stamps = zone.getGMStamps(false);
         if (!stamps.isEmpty()) {
@@ -1332,12 +1251,9 @@ public class ZoneRenderer extends JComponent
         renderTokens(g2d, tokens, view);
         timer.stop("tokens");
       }
-
-      if (!skipDrawing) {
-        timer.start("unowned movement");
-        showBlockedMoves(g2d, view, getUnOwnedMovementSet(view));
-        timer.stop("unowned movement");
-      }
+      timer.start("unowned movement");
+      showBlockedMoves(g2d, view, getUnOwnedMovementSet(view));
+      timer.stop("unowned movement");
 
       // Moved below, after the renderFog() call...
       // timer.start("owned movement");
@@ -1364,12 +1280,12 @@ public class ZoneRenderer extends JComponent
     // Perhaps we should draw the fog first and use hard fog to determine whether labels need to be
     // drawn?
     // (This method has it's own 'timer' calls)
-    if (AppState.getShowTextLabels() && !skipDrawing) {
+    if (AppState.getShowTextLabels()) {
       renderLabels(g2d, view);
     }
 
     // (This method has it's own 'timer' calls)
-    if (zone.hasFog() && !skipDrawing) {
+    if (zone.hasFog()) {
       renderFog(g2d, view);
     }
 
@@ -1395,11 +1311,9 @@ public class ZoneRenderer extends JComponent
         timer.stop("tokens - figures");
       }
 
-      if (!skipDrawing) {
-        timer.start("owned movement");
-        showBlockedMoves(g2d, view, getOwnedMovementSet(view));
-        timer.stop("owned movement");
-      }
+      timer.start("owned movement");
+      showBlockedMoves(g2d, view, getOwnedMovementSet(view));
+      timer.stop("owned movement");
 
       // Text associated with tokens being moved is added to a list to be drawn after, i.e. on top
       // of, the tokens
@@ -1407,24 +1321,21 @@ public class ZoneRenderer extends JComponent
       // So if one moving token is on top of another moving token, at least the textual identifiers
       // will be
       // visible.
-      if (!skipDrawing) {
-        timer.start("token name/labels");
-        renderRenderables(g2d);
-        timer.stop("token name/labels");
-      }
+      timer.start("token name/labels");
+      renderRenderables(g2d);
+      timer.stop("token name/labels");
     }
 
     // if (zone.visionType ...)
-    if (view.isGMView() && !skipDrawing) {
+    if (view.isGMView()) {
       timer.start("visionOverlayGM");
       renderGMVisionOverlay(g2d, view);
       timer.stop("visionOverlayGM");
-    } else if (!skipDrawing) {
+    } else {
       timer.start("visionOverlayPlayer");
       renderPlayerVisionOverlay(g2d, view);
       timer.stop("visionOverlayPlayer");
     }
-
     timer.start("overlays");
     for (ZoneOverlay overlay : overlayList) {
       String msg = null;
@@ -1474,11 +1385,7 @@ public class ZoneRenderer extends JComponent
     }
   }
 
-  public CodeTimer getCodeTimer() {
-    return timer;
-  }
-
-  public enum LightOverlayClipStyle {
+  private enum LightOverlayClipStyle {
     CLIP_TO_VISIBLE_AREA,
     CLIP_TO_NOT_VISIBLE_AREA,
   }
@@ -1492,14 +1399,7 @@ public class ZoneRenderer extends JComponent
   private final BufferedImagePool tempBufferPool = new BufferedImagePool(2);
 
   /**
-   * Cached set of lights arranged by lumens for some stability. TODO Token draw order would be
-   * nice.
-   */
-  private List<DrawableLight> drawableLights = null;
-
-  /**
-   * Render the lights. Get the lights from drawableLightCache, combine them, put them in
-   * drawableLights, and draw them.
+   * Render the lights.
    *
    * @param g the graphic 2D object
    * @param view the player view
@@ -1507,51 +1407,48 @@ public class ZoneRenderer extends JComponent
   private void renderLights(Graphics2D g, PlayerView view) {
     // Collect and organize lights
     timer.start("renderLights:getLights");
-    if (drawableLights == null) {
-      timer.start("renderLights:populateCache");
-      drawableLights = new ArrayList<>(zoneView.getDrawableLights(view));
-      drawableLights.removeIf(light -> light.getType() != LightSource.Type.NORMAL);
-      timer.stop("renderLights:populateCache");
-    }
-    timer.start("renderLights:filterLights");
-    final var darknessLights =
-        drawableLights.stream().filter(light -> light.getLumens() < 0).toList();
-    final var nonDarknessLights =
-        drawableLights.stream().filter(light -> light.getLumens() >= 0).toList();
-    timer.stop("renderLights:filterLights");
+    final var drawableLights = zoneView.getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
-    timer.start("renderLights:renderLightOverlay");
-    renderLightOverlay(
-        g,
-        AlphaComposite.SrcOver.derive(AppPreferences.getLightOverlayOpacity() / 255.0f),
-        view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
-        nonDarknessLights,
-        new Color(255, 255, 255, 255),
-        1.0f);
-    timer.stop("renderLights:renderLightOverlay");
+    if (AppState.isShowLights()) {
+      // Lighting enabled.
+      timer.start("renderLights:renderLightOverlay");
+      final var overlayBlending =
+          switch (zone.getLightingStyle()) {
+            case OVERTOP -> AlphaComposite.SrcOver.derive(
+                AppPreferences.getLightOverlayOpacity() / 255.f);
+            case ENVIRONMENTAL -> LightingComposite.OverlaidLights;
+          };
+      final var overlayFillColor =
+          switch (zone.getLightingStyle()) {
+            case OVERTOP -> new Color(0, 0, 0, 0);
+            case ENVIRONMENTAL -> Color.black;
+          };
 
-    // Players should not be able to discern the nature of the darkness, so we always render it as
-    // black for them.
-    timer.start("renderLights:renderDarknessOverlay");
-    renderLightOverlay(
-        g,
-        view.isGMView()
-            ? AlphaComposite.SrcOver.derive(AppPreferences.getDarknessOverlayOpacity() / 255.0f)
-            : new SolidColorComposite(0xff000000),
-        view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_NOT_VISIBLE_AREA,
-        darknessLights,
-        new Color(0, 0, 0, 255),
-        1.0f);
-    timer.stop("renderLights:renderDarknessOverlay");
+      renderLightOverlay(
+          g,
+          LightingComposite.BlendedLights,
+          overlayBlending,
+          view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
+          drawableLights,
+          overlayFillColor);
+      timer.stop("renderLights:renderLightOverlay");
+    }
+
+    if (AppState.isShowLumensOverlay()) {
+      // Lumens overlay enabled.
+      timer.start("renderLights:renderLumensOverlay");
+      renderLumensOverlay(
+          g,
+          view,
+          view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
+          AppPreferences.getLumensOverlayOpacity() / 255.0f);
+      timer.stop("renderLights:renderLumensOverlay");
+    }
   }
 
-  /** Holds the auras from lightSourceMap after they have been combined. */
-  private List<DrawableLight> drawableAuras;
-
   /**
-   * Get the list of auras from lightSourceMap, combine them, store them in drawableAuras, and draw
-   * them.
+   * Render the auras.
    *
    * @param g the Graphics2D object.
    * @param view the player view.
@@ -1559,44 +1456,143 @@ public class ZoneRenderer extends JComponent
   private void renderAuras(Graphics2D g, PlayerView view) {
     // Setup
     timer.start("renderAuras:getAuras");
-    if (drawableAuras == null) {
-      drawableAuras = new ArrayList<>(zoneView.getDrawableAuras());
-    }
+    final var drawableAuras = zoneView.getDrawableAuras();
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
     renderLightOverlay(
         g,
         AlphaComposite.SrcOver.derive(AppPreferences.getAuraOverlayOpacity() / 255.0f),
+        AlphaComposite.SrcOver,
         view.isGMView() ? null : LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
         drawableAuras,
-        new Color(255, 255, 255, 150),
-        1.0f);
+        new Color(0, 0, 0, 0));
     timer.stop("renderAuras:renderAuraOverlay");
+  }
+
+  private void renderLumensOverlay(
+      Graphics2D g,
+      PlayerView view,
+      @Nullable LightOverlayClipStyle clipStyle,
+      float overlayOpacity) {
+    g = (Graphics2D) g.create();
+
+    final var disjointLumensLevels = zoneView.getDisjointObscuredLumensLevels(view);
+
+    timer.start("renderLumensOverlay:allocateBuffer");
+    try (final var bufferHandle = tempBufferPool.acquire()) {
+      BufferedImage lumensOverlay = bufferHandle.get();
+      timer.stop("renderLumensOverlay:allocateBuffer");
+
+      Graphics2D newG = lumensOverlay.createGraphics();
+      // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
+      newG.setComposite(AlphaComposite.Src.derive(overlayOpacity));
+      newG.setPaint(
+          zone.getVisionType() == Zone.VisionType.NIGHT
+              ? new Color(0.f, 0.f, 0.f, 1.f)
+              : new Color(0.f, 0.f, 0.f, 0.f));
+      newG.fillRect(0, 0, lumensOverlay.getWidth(), lumensOverlay.getHeight());
+
+      newG.setComposite(AlphaComposite.SrcOver.derive(overlayOpacity));
+      SwingUtil.useAntiAliasing(newG);
+
+      if (clipStyle != null && visibleScreenArea != null) {
+        timer.start("renderLumensOverlay:setClip");
+        Area clip = new Area(g.getClip());
+        switch (clipStyle) {
+          case CLIP_TO_VISIBLE_AREA -> clip.intersect(visibleScreenArea);
+          case CLIP_TO_NOT_VISIBLE_AREA -> clip.subtract(visibleScreenArea);
+        }
+        newG.setClip(clip);
+        g.setClip(clip);
+        timer.stop("renderLumensOverlay:setClip");
+      }
+
+      timer.start("renderLumensOverlay:setTransform");
+      AffineTransform af = new AffineTransform();
+      af.translate(getViewOffsetX(), getViewOffsetY());
+      af.scale(getScale(), getScale());
+      newG.setTransform(af);
+      timer.stop("renderLumensOverlay:setTransform");
+
+      timer.start("renderLumensOverlay:drawLumens");
+      for (final var lumensLevel : disjointLumensLevels) {
+        final var lumensStrength = lumensLevel.lumensStrength();
+
+        // Light is weaker than darkness, so do it first.
+        float lightOpacity;
+        float lightShade;
+        if (lumensStrength == 0) {
+          // This area represents daylight, so draw it as clear despite the low value.
+          lightShade = 1.f;
+          lightOpacity = 0;
+        } else if (lumensStrength >= 100) {
+          // Bright light, render mostly clear.
+          lightShade = 1.f;
+          lightOpacity = 1.f / 10.f;
+        } else {
+          lightShade = Math.max(0.f, Math.min(lumensStrength / 100.f, 1.f));
+          lightShade *= lightShade;
+          lightOpacity = 1.f;
+        }
+
+        timer.start("renderLumensOverlay:drawLights:fillArea");
+        newG.setPaint(new Color(lightShade, lightShade, lightShade, lightOpacity));
+        newG.fill(lumensLevel.lightArea());
+
+        newG.setPaint(new Color(0.f, 0.f, 0.f, 1.f));
+        newG.fill(lumensLevel.darknessArea());
+        timer.stop("renderLumensOverlay:drawLights:fillArea");
+      }
+
+      // Now draw borders around each region if configured.
+      final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
+      if (borderThickness > 0) {
+        newG.setStroke(
+            new BasicStroke(
+                (float) borderThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        newG.setComposite(AlphaComposite.SrcOver);
+        newG.setPaint(new Color(0.f, 0.f, 0.f, 1.f));
+        for (final var lumensLevel : disjointLumensLevels) {
+          timer.start("renderLumensOverlay:drawLights:drawArea");
+          newG.draw(lumensLevel.lightArea());
+          newG.draw(lumensLevel.darknessArea());
+          timer.stop("renderLumensOverlay:drawLights:drawArea");
+        }
+      }
+
+      timer.stop("renderLumensOverlay:drawLumens");
+      newG.dispose();
+
+      timer.start("renderLumensOverlay:drawBuffer");
+      g.drawImage(lumensOverlay, null, 0, 0);
+      timer.stop("renderLumensOverlay:drawBuffer");
+    }
   }
 
   /**
    * Combines a set of lights into an image that is then rendered into the zone.
    *
    * @param g The graphics object used to render the zone.
-   * @param composite The composite used to blend lights together.
+   * @param lightBlending The composite used to blend lights together within the overlay
+   * @param overlayBlending The composite used when blending the overlay with the underlying image.
    * @param clipStyle How to clip the overlay relative to the visible area. Set to null for no extra
    *     clipping.
    * @param lights The lights that will be rendered and blended.
-   * @param defaultPaint A default paint for lights without a paint.
-   * @param overlayOpacity The opacity used when rendering the final overlay on top of the zone.
    */
   private void renderLightOverlay(
       Graphics2D g,
-      Composite composite,
+      Composite lightBlending,
+      Composite overlayBlending,
       @Nullable LightOverlayClipStyle clipStyle,
-      List<DrawableLight> lights,
-      Paint defaultPaint,
-      float overlayOpacity) {
+      Collection<DrawableLight> lights,
+      Paint backgroundFill) {
     if (lights.isEmpty()) {
-      // No points spending resources accomplishing nothing.
+      // No point spending resources accomplishing nothing.
       return;
     }
+
+    g = (Graphics2D) g.create();
 
     // Set up a buffer image for lights to be drawn onto before the map
     timer.start("renderLightOverlay:allocateBuffer");
@@ -1605,7 +1601,9 @@ public class ZoneRenderer extends JComponent
       timer.stop("renderLightOverlay:allocateBuffer");
 
       Graphics2D newG = lightOverlay.createGraphics();
-      SwingUtil.useAntiAliasing(newG);
+      newG.setComposite(AlphaComposite.Src);
+      newG.setPaint(backgroundFill);
+      newG.fillRect(0, 0, lightOverlay.getWidth(), lightOverlay.getHeight());
 
       if (clipStyle != null && visibleScreenArea != null) {
         timer.start("renderLightOverlay:setClip");
@@ -1625,25 +1623,61 @@ public class ZoneRenderer extends JComponent
       newG.setTransform(af);
       timer.stop("renderLightOverlay:setTransform");
 
-      newG.setComposite(composite);
+      newG.setComposite(lightBlending);
 
       // Draw lights onto the buffer image so the map doesn't affect how they blend
       timer.start("renderLightOverlay:drawLights");
       for (var light : lights) {
-        var paint = light.getPaint() != null ? light.getPaint().getPaint() : defaultPaint;
-        newG.setPaint(paint);
+        newG.setPaint(light.getPaint().getPaint());
+        timer.start("renderLightOverlay:fillLight");
         newG.fill(light.getArea());
+        timer.stop("renderLightOverlay:fillLight");
       }
       timer.stop("renderLightOverlay:drawLights");
       newG.dispose();
 
       // Draw the buffer image with all the lights onto the map
       timer.start("renderLightOverlay:drawBuffer");
-      Composite previousComposite = g.getComposite();
-      g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, overlayOpacity));
+      g.setComposite(overlayBlending);
       g.drawImage(lightOverlay, null, 0, 0);
-      g.setComposite(previousComposite);
       timer.stop("renderLightOverlay:drawBuffer");
+    }
+  }
+
+  /**
+   * Draws a solid black overlay wherever a non-GM player should see darkness.
+   *
+   * <p>If {@code view} is a GM view, this renders nothing.
+   *
+   * @param g The graphics object used to render the zone.
+   * @param view The player view.
+   */
+  private void renderPlayerDarkness(Graphics2D g, PlayerView view) {
+    if (view.isGMView()) {
+      // GMs see the darkness rendered as lights, not as blackness.
+      return;
+    }
+
+    final var darkness = zoneView.getIllumination(view).getDarkenedArea();
+    if (darkness.isEmpty()) {
+      // Skip the rendering work if it isn't necessary.
+      return;
+    }
+
+    g = (Graphics2D) g.create();
+    try {
+      timer.start("renderPlayerDarkness:setTransform");
+      AffineTransform af = new AffineTransform();
+      af.translate(getViewOffsetX(), getViewOffsetY());
+      af.scale(getScale(), getScale());
+      g.setTransform(af);
+      timer.stop("renderPlayerDarkness:setTransform");
+
+      g.setComposite(AlphaComposite.Src);
+      g.setPaint(Color.black);
+      g.fill(darkness);
+    } finally {
+      g.dispose();
     }
   }
 
@@ -1684,7 +1718,7 @@ public class ZoneRenderer extends JComponent
    * if there is one.
    */
   private void renderVisionOverlay(Graphics2D g, PlayerView view) {
-    Area currentTokenVisionArea = getVisibleArea(tokenUnderMouse);
+    Area currentTokenVisionArea = zoneView.getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
       return;
     }
@@ -1852,10 +1886,10 @@ public class ZoneRenderer extends JComponent
   }
 
   private void renderFogArea(
-      final Graphics2D buffG, final PlayerView view, Area softFog, Area visibleArea) {
+      final Graphics2D buffG, final PlayerView view, Area softFog, @Nonnull Area visibleArea) {
     if (zoneView.isUsingVision()) {
       buffG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC));
-      if (visibleArea != null && !visibleArea.isEmpty()) {
+      if (!visibleArea.isEmpty()) {
         buffG.setColor(new Color(0, 0, 0, AppPreferences.getFogOverlayOpacity()));
 
         // Fill in the exposed area
@@ -1877,9 +1911,10 @@ public class ZoneRenderer extends JComponent
     }
   }
 
-  private void renderFogOutline(final Graphics2D buffG, PlayerView view, Area visibleArea) {
+  private void renderFogOutline(
+      final Graphics2D buffG, PlayerView view, @Nonnull Area visibleArea) {
     // If there is no visible area, there is no outline that needs rendering.
-    if (zoneView.isUsingVision() && visibleArea != null && !visibleArea.isEmpty()) {
+    if (zoneView.isUsingVision() && !visibleArea.isEmpty()) {
       // Transform the area (not G2D) because we want the drawn line to remain thin.
       AffineTransform af = new AffineTransform();
       af.translate(zoneScale.getOffsetX(), zoneScale.getOffsetY());
@@ -1893,14 +1928,6 @@ public class ZoneRenderer extends JComponent
       buffG.setColor(Color.BLACK);
       buffG.draw(visibleArea);
     }
-  }
-
-  public Area getVisibleArea(Token token) {
-    return zoneView.getVisibleArea(token);
-  }
-
-  public String getLoadingProgress() {
-    return loadingProgress;
   }
 
   public boolean isLoading() {
@@ -1937,11 +1964,13 @@ public class ZoneRenderer extends JComponent
     loadingProgress =
         String.format(
             " Loading Map '%s' - %d/%d Loaded %d/%d Cached",
-            zone.getPlayerAlias(), downloadCount, assetSet.size(), cacheCount, assetSet.size());
+            zone.getDisplayName(), downloadCount, assetSet.size(), cacheCount, assetSet.size());
     isLoaded = loaded;
     if (isLoaded) {
       // Notify the token tree that it should update
       MapTool.getFrame().updateTokenTree();
+
+      new MapToolEventBus().getMainEventBus().post(new ZoneLoaded(zone));
     }
     return !isLoaded;
   }
@@ -2027,7 +2056,7 @@ public class ZoneRenderer extends JComponent
     }
   }
 
-  public Set<SelectionSet> getOwnedMovementSet(PlayerView view) {
+  private Set<SelectionSet> getOwnedMovementSet(PlayerView view) {
     Set<SelectionSet> movementSet = new HashSet<SelectionSet>();
     for (SelectionSet selection : selectionSetMap.values()) {
       if (selection.getPlayerId().equals(MapTool.getPlayer().getName())) {
@@ -2037,7 +2066,7 @@ public class ZoneRenderer extends JComponent
     return movementSet;
   }
 
-  public Set<SelectionSet> getUnOwnedMovementSet(PlayerView view) {
+  private Set<SelectionSet> getUnOwnedMovementSet(PlayerView view) {
     Set<SelectionSet> movementSet = new HashSet<SelectionSet>();
     for (SelectionSet selection : selectionSetMap.values()) {
       if (!selection.getPlayerId().equals(MapTool.getPlayer().getName())) {
@@ -2143,7 +2172,7 @@ public class ZoneRenderer extends JComponent
         }
 
         // Show current Blocked Movement directions for A*
-        if (walker != null && (log.isDebugEnabled() || showAstarDebugging)) {
+        if (walker != null && DeveloperOptions.Toggle.ShowAiDebugging.isEnabled()) {
           Map<CellPoint, Set<CellPoint>> blockedMovesByTarget = walker.getBlockedMoves();
           // Color currentColor = g.getColor();
           for (var entry : blockedMovesByTarget.entrySet()) {
@@ -2714,7 +2743,7 @@ public class ZoneRenderer extends JComponent
     int textOffset = (int) (getScale() * 7 * fontScale); // 7 pixels at 100% zoom & grid size of 50
 
     String distanceText = NumberFormat.getInstance().format(distance);
-    if (log.isDebugEnabled() || showAstarDebugging) {
+    if (DeveloperOptions.Toggle.ShowAiDebugging.isEnabled()) {
       distanceText += " (" + NumberFormat.getInstance().format(distanceWithoutTerrain) + ")";
       fontSize = (int) (fontSize * 0.75);
     }
@@ -2768,10 +2797,6 @@ public class ZoneRenderer extends JComponent
     return list;
   }
 
-  public Token getTokenUnderMouse() {
-    return tokenUnderMouse;
-  }
-
   public Zone.Layer getActiveLayer() {
     return activeLayer != null ? activeLayer : Zone.Layer.TOKEN;
   }
@@ -2783,13 +2808,7 @@ public class ZoneRenderer extends JComponent
    */
   public void setActiveLayer(Zone.Layer layer) {
     activeLayer = layer;
-
-    if (!keepSelectedTokenSet && !selectedTokenSet.isEmpty()) {
-      selectedTokenSet.clear();
-      updateAfterSelection();
-    }
-    keepSelectedTokenSet = false; // Always reset it back, temp boolean only
-
+    selectionModel.replaceSelection(Collections.emptyList());
     repaintDebouncer.dispatch();
   }
 
@@ -3069,10 +3088,6 @@ public class ZoneRenderer extends JComponent
         continue;
       }
       timer.stop("renderTokens:OnscreenCheck");
-
-      if (skipDrawing) {
-        continue;
-      }
 
       // create a per token Graphics object - normally clipped, unless always visible
       Area tokenCellArea = zone.getGrid().getTokenCellArea(tokenBounds);
@@ -3447,6 +3462,12 @@ public class ZoneRenderer extends JComponent
     }
     timer.start("tokenlist-12");
     boolean useIF = MapTool.getServerPolicy().isUseIndividualFOW();
+
+    final var movingTokens = new HashSet<GUID>();
+    for (final var selectionSet : selectionSetMap.values()) {
+      movingTokens.addAll(selectionSet.getTokens());
+    }
+
     // Selection and labels
     for (Token token : tokenPostProcessing) {
       TokenLocation location = tokenLocationCache.get(token);
@@ -3462,7 +3483,9 @@ public class ZoneRenderer extends JComponent
       }
       Rectangle footprintBounds = token.getBounds(zone);
 
-      boolean isSelected = selectedTokenSet.contains(token.getId());
+      // Count moving tokens as "selected" so that a border is drawn around them.
+      boolean isSelected =
+          selectionModel.isSelected(token.getId()) || movingTokens.contains(token.getId());
       if (isSelected) {
         ScreenPoint sp = ScreenPoint.fromZonePoint(this, footprintBounds.x, footprintBounds.y);
         double width = footprintBounds.width * getScale();
@@ -3613,8 +3636,7 @@ public class ZoneRenderer extends JComponent
     // Stacks
     if (!tokenList.isEmpty()
         && !tokenList.get(0).isStamp()) { // TODO: find a cleaner way to indicate token layer
-      if (tokenStackMap != null
-          && !skipDrawing) { // FIXME Needed to prevent NPE but how can it be null?
+      if (tokenStackMap != null) { // FIXME Needed to prevent NPE but how can it be null?
         for (Token token : tokenStackMap.keySet()) {
           Area bounds = getTokenBounds(token);
           if (bounds == null) {
@@ -3649,10 +3671,6 @@ public class ZoneRenderer extends JComponent
     visibleTokenSet = Collections.unmodifiableSet(tempVisTokens);
   }
 
-  public Map<Token, Set<Token>> getTokenStackMap() {
-    return tokenStackMap;
-  }
-
   /**
    * Returns whether the token should be clipped, depending on its bounds, the view, and the visible
    * screen area.
@@ -3662,7 +3680,7 @@ public class ZoneRenderer extends JComponent
    * @param isGMView whether it is the view of a GM
    * @return true if the token is need of clipping, false otherwise
    */
-  public boolean isTokenInNeedOfClipping(Token token, Area tokenCellArea, boolean isGMView) {
+  private boolean isTokenInNeedOfClipping(Token token, Area tokenCellArea, boolean isGMView) {
 
     // can view everything or zone is not using vision = no clipping needed
     if (isGMView || !zoneView.isUsingVision()) return false;
@@ -3691,16 +3709,12 @@ public class ZoneRenderer extends JComponent
     return true;
   }
 
-  public boolean canSeeMarker(Token token) {
+  private boolean canSeeMarker(Token token) {
     return MapTool.getPlayer().isGM() || !StringUtil.isEmpty(token.getNotes());
   }
 
   public Set<GUID> getSelectedTokenSet() {
-    return selectedTokenSet;
-  }
-
-  public void setKeepSelectedTokenSet(boolean keep) {
-    this.keepSelectedTokenSet = keep;
+    return selectionModel.getSelectedTokenIds();
   }
 
   /**
@@ -3724,16 +3738,17 @@ public class ZoneRenderer extends JComponent
   }
 
   /**
-   * A convenience method to get selected tokens ordered by name
+   * A convenience method to get selected tokens that actually exist.
    *
    * @return List of tokens
    */
   public List<Token> getSelectedTokensList() {
     List<Token> tokenList = new ArrayList<Token>();
 
-    for (GUID g : selectedTokenSet) {
-      if (zone.getToken(g) != null) {
-        tokenList.add(zone.getToken(g));
+    for (GUID g : selectionModel.getSelectedTokenIds()) {
+      final var token = zone.getToken(g);
+      if (token != null) {
+        tokenList.add(token);
       }
     }
     // Commented out to preserve selection order
@@ -3763,159 +3778,35 @@ public class ZoneRenderer extends JComponent
   }
 
   /**
-   * Removes a token from the selected set.
-   *
-   * @param tokenGUID the token to remove from the selection
-   */
-  public void deselectToken(GUID tokenGUID) {
-    addToSelectionHistory(selectedTokenSet);
-    selectedTokenSet.remove(tokenGUID);
-    // flushFog = true; // could call flushFog() but also clears visibleScreenArea and I don't know
-    // if we want
-    // that...
-  }
-
-  /**
-   * Adds a token from the selected set, if token is selectable.
-   *
-   * @param tokenGUID the token to add to the selection
-   * @return false if nothing was done because the token wasn't selectable, true otherwise
-   */
-  public boolean selectToken(GUID tokenGUID) {
-    if (!isTokenSelectable(tokenGUID)) {
-      return false;
-    }
-    addToSelectionHistory(selectedTokenSet);
-    selectedTokenSet.add(tokenGUID);
-    return true;
-  }
-
-  /**
-   * Add tokens to the selection.
-   *
-   * @param tokens the collection of tokens to add
-   */
-  public void selectTokens(Collection<GUID> tokens) {
-    for (GUID tokenGUID : tokens) {
-      if (!isTokenSelectable(tokenGUID)) {
-        continue;
-      }
-      selectedTokenSet.add(tokenGUID);
-    }
-    addToSelectionHistory(selectedTokenSet);
-  }
-
-  /**
    * Selects the tokens inside a selection rectangle.
    *
    * @param rect the selection rectangle
    */
-  public void selectTokens(Rectangle rect) {
-    List<GUID> selectedList = new LinkedList<GUID>();
+  public List<GUID> getTokenIdsInBounds(Rectangle rect) {
+    final var tokens = new ArrayList<GUID>();
     for (TokenLocation location : getTokenLocations(getActiveLayer())) {
       if (rect.intersects(location.bounds.getBounds())) {
-        selectedList.add(location.token.getId());
+        tokens.add(location.token.getId());
       }
     }
-    selectTokens(selectedList);
-  }
-
-  /** Clears the set of selected tokens. */
-  public void clearSelectedTokens() {
-    addToSelectionHistory(selectedTokenSet);
-    clearShowPaths();
-    selectedTokenSet.clear();
-  }
-
-  /**
-   * Returns true if the given token is the only one selected, and the selection is valid.
-   *
-   * @param token the token
-   * @return true if the selectedTokenSet size is 1 and contains the token, false otherwise
-   */
-  public boolean isOnlyTokenSelected(Token token) {
-    return selectedTokenSet.size() == 1
-        && token != null
-        && selectedTokenSet.contains(token.getId())
-        && isTokenSelectable(token.getId());
-  }
-
-  /**
-   * Returns true if the given token is selected, there is more than one token selected, and the
-   * token can be selected.
-   *
-   * @param token the token
-   * @return true if the selectedTokenSet size is greater than 1 and contains the token, false
-   *     otherwise
-   */
-  public boolean isSubsetSelected(Token token) {
-    return selectedTokenSet.size() > 1
-        && token != null
-        && selectedTokenSet.contains(token.getId())
-        && isTokenSelectable(token.getId());
-  }
-
-  /**
-   * Reverts the token selection. If the previous selection is empty, keeps reverting until it is
-   * non-empty. Fires onTokenSelection events.
-   */
-  public void undoSelectToken() {
-
-    while (selectedTokenSetHistory.size() > 0) {
-
-      selectedTokenSet = selectedTokenSetHistory.remove(0);
-
-      // user may have deleted some of the tokens that are contained in the selection history.
-      // There could also be tokens in another than the current layer which we don't want to go
-      // back to.
-      // find them and filter them otherwise the selectionSet will have orphaned GUIDs and
-      // they will cause NPE
-      Set<GUID> invalidTokenSet = new HashSet<GUID>();
-      for (GUID guid : selectedTokenSet) {
-        Token token = zone.getToken(guid);
-        if (token == null || token.getLayer() != getActiveLayer()) {
-          invalidTokenSet.add(guid);
-        }
-      }
-      selectedTokenSet.removeAll(invalidTokenSet);
-
-      if (!selectedTokenSet.isEmpty()) break;
-    }
-    // TODO: if selection history is empty, notify the selection panel to
-    // disable the undo button.
-    updateAfterSelection();
-  }
-
-  private void addToSelectionHistory(Set<GUID> selectionSet) {
-    // don't add empty selections to history
-    if (selectionSet.size() == 0) {
-      return;
-    }
-    Set<GUID> history = new HashSet<GUID>(selectionSet);
-    selectedTokenSetHistory.add(0, history);
-
-    // limit the history to a certain size
-    if (selectedTokenSetHistory.size() > 20) {
-      selectedTokenSetHistory.subList(20, selectedTokenSetHistory.size() - 1).clear();
-    }
+    return tokens;
   }
 
   public void cycleSelectedToken(int direction) {
     List<Token> visibleTokens = getTokensOnScreen();
-    Set<GUID> selectedTokenSet = getSelectedTokenSet();
     int newSelection = 0;
 
     if (visibleTokens.size() == 0) {
       return;
     }
-    if (selectedTokenSet.size() > 0) {
+    if (selectionModel.isAnyTokenSelected()) {
       // Find the first selected token on the screen
       for (int i = 0; i < visibleTokens.size(); i++) {
         Token token = visibleTokens.get(i);
         if (!isTokenSelectable(token.getId())) {
           continue;
         }
-        if (getSelectedTokenSet().contains(token.getId())) {
+        if (selectionModel.isSelected(token.getId())) {
           newSelection = i;
           break;
         }
@@ -3931,26 +3822,8 @@ public class ZoneRenderer extends JComponent
     }
 
     // Make the selection
-    clearSelectedTokens();
-    selectToken(visibleTokens.get(newSelection).getId());
-    updateAfterSelection();
-  }
-
-  /**
-   * Convenience function to check if a player owns all the tokens in the selection set
-   *
-   * @return true if every token in selectedTokenSet is owned by the player
-   */
-  public boolean playerOwnsAllSelected() {
-    if (selectedTokenSet.isEmpty()) {
-      return false;
-    }
-    for (GUID tokenGUID : selectedTokenSet) {
-      if (!AppUtil.playerOwns(zone.getToken(tokenGUID))) {
-        return false;
-      }
-    }
-    return true;
+    selectionModel.replaceSelection(
+        Collections.singletonList(visibleTokens.get(newSelection).getId()));
   }
 
   public Area getTokenBounds(Token token) {
@@ -4218,15 +4091,21 @@ public class ZoneRenderer extends JComponent
     private final String playerId;
     private ZoneWalker walker;
     private final Token token;
+
     private Path<ZonePoint> gridlessPath;
     /** Pixel distance (x) from keyToken's origin. */
     private int offsetX;
     /** Pixel distance (y) from keyToken's origin. */
     private int offsetY;
-    // private boolean restrictMovement = true;
+
     private RenderPathWorker renderPathTask;
     private ExecutorService renderPathThreadPool = Executors.newSingleThreadExecutor();
 
+    /**
+     * @param playerId The ID of the player performing the movement.
+     * @param tokenGUID The ID of the leader token, i.e., the token that will pathfind.
+     * @param selectionList The IDs of all tokens being moved.
+     */
     public SelectionSet(String playerId, GUID tokenGUID, Set<GUID> selectionList) {
       selectionSet.addAll(selectionList);
       keyToken = tokenGUID;
@@ -4248,7 +4127,9 @@ public class ZoneRenderer extends JComponent
       }
     }
 
-    /** @return path computation. */
+    /**
+     * @return path computation.
+     */
     public Path<ZonePoint> getGridlessPath() {
       return gridlessPath;
     }
@@ -4301,20 +4182,16 @@ public class ZoneRenderer extends JComponent
           renderPathTask.cancel(true);
         }
 
-        boolean restictMovement = MapTool.getServerPolicy().isUsingAstarPathfinding();
+        boolean restrictMovement =
+            MapTool.getServerPolicy().isUsingAstarPathfinding() && !token.isStamp();
 
         Set<TerrainModifierOperation> terrainModifiersIgnored = token.getTerrainModifiersIgnored();
-
-        // Skip AI Pathfinding if not on the token layer...
-        if (!ZoneRenderer.this.getActiveLayer().equals(Layer.TOKEN)) {
-          restictMovement = false;
-        }
 
         renderPathTask =
             new RenderPathWorker(
                 walker,
                 point,
-                restictMovement,
+                restrictMovement,
                 terrainModifiersIgnored,
                 token.getTransformedTopology(Zone.TopologyType.WALL_VBL),
                 token.getTransformedTopology(Zone.TopologyType.HILL_VBL),
@@ -4649,8 +4526,7 @@ public class ZoneRenderer extends JComponent
       selectThese.add(token.getId());
     }
     // For convenience, select them
-    clearSelectedTokens();
-    selectTokens(selectThese);
+    selectionModel.replaceSelection(selectThese);
 
     if (!isGM) {
       String msg = I18N.getText("Token.dropped.byPlayer", zone.getName(), MapTool.getPlayer());
@@ -4665,7 +4541,6 @@ public class ZoneRenderer extends JComponent
     AppActions.copyTokens(tokens);
     AppActions.updateActions();
     requestFocusInWindow();
-    updateAfterSelection();
   }
 
   /**
@@ -4738,6 +4613,16 @@ public class ZoneRenderer extends JComponent
    */
   @Override
   public void dropActionChanged(DropTargetDragEvent dtde) {}
+
+  @Subscribe
+  private void onSelectionChanged(SelectionModel.SelectionChanged event) {
+    if (event.zone() != zone) {
+      return;
+    }
+
+    showPathList.clear();
+    repaintDebouncer.dispatch();
+  }
 
   @Subscribe
   private void onTokensAdded(TokensAdded event) {

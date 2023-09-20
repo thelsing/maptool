@@ -16,7 +16,6 @@ package net.rptools.maptool.client.ui.zone;
 
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,14 +28,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.rptools.lib.CodeTimer;
+import net.rptools.lib.GeometryUtil;
 import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.vbl.AreaTree;
 import net.rptools.maptool.client.ui.zone.vbl.VisibilitySweepEndpoint;
 import net.rptools.maptool.client.ui.zone.vbl.VisionBlockingAccumulator;
-import net.rptools.maptool.client.walker.astar.ReverseShapePathIterator;
 import net.rptools.maptool.model.AbstractPoint;
 import net.rptools.maptool.model.CellPoint;
 import net.rptools.maptool.model.ExposedAreaMetaData;
@@ -51,7 +51,6 @@ import net.rptools.maptool.model.player.Player.Role;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.locationtech.jts.algorithm.Orientation;
-import org.locationtech.jts.awt.ShapeReader;
 import org.locationtech.jts.awt.ShapeWriter;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -59,7 +58,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineSegment;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Polygon;
-import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.prep.PreparedGeometry;
 import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
 import org.locationtech.jts.geom.util.LineStringExtracter;
@@ -67,30 +65,20 @@ import org.locationtech.jts.operation.union.UnaryUnionOp;
 
 public class FogUtil {
   private static final Logger log = LogManager.getLogger(FogUtil.class);
-  private static final PrecisionModel precisionModel = new PrecisionModel(100000);
-  private static final GeometryFactory geometryFactory = new GeometryFactory(precisionModel);
+  private static final GeometryFactory geometryFactory = GeometryUtil.getGeometryFactory();
 
   /**
    * Return the visible area for an origin, a lightSourceArea and a VBL.
    *
-   * @param x the x vision origin.
-   * @param y the y vision origin.
+   * @param origin the vision origin.
    * @param vision the lightSourceArea.
    * @param topology the VBL topology.
    * @return the visible area.
    */
-  public static Area calculateVisibility(
-      int x, int y, Area vision, AreaTree topology, AreaTree hillVbl, AreaTree pitVbl) {
-    vision = new Area(vision);
-    vision.transform(AffineTransform.getTranslateInstance(x, y));
-
-    final var shapeReader = new ShapeReader(geometryFactory);
+  public static @Nonnull Area calculateVisibility(
+      Point origin, Area vision, AreaTree topology, AreaTree hillVbl, AreaTree pitVbl) {
     // We could use the vision envelope instead, but vision geometry tends to be pretty simple.
-    final var visionGeometry =
-        PreparedGeometryFactory.prepare(
-            shapeReader.read(new ReverseShapePathIterator(vision.getPathIterator(null))));
-
-    final Point origin = new Point(x, y);
+    final var visionGeometry = PreparedGeometryFactory.prepare(GeometryUtil.toJts(vision));
 
     /*
      * Find the visible area for each topology type independently.
@@ -111,7 +99,7 @@ public class FogUtil {
       final var isVisionCompletelyBlocked = consumer.apply(accumulator);
       if (!isVisionCompletelyBlocked) {
         // Vision has been completely blocked by this topology. Short circuit.
-        return null;
+        return new Area();
       }
 
       final var visibleArea =
@@ -125,6 +113,7 @@ public class FogUtil {
     }
 
     // We have to intersect all the results in order to find the true remaining visible area.
+    vision = new Area(vision);
     if (!visibleAreas.isEmpty()) {
       // We intersect in AWT space because JTS can be really finicky about intersection precision.
       var shapeWriter = new ShapeWriter();
@@ -363,7 +352,8 @@ public class FogUtil {
           tokenClone.setY(zp.y);
 
           renderer.flush(tokenClone);
-          Area tokenVision = renderer.getZoneView().getVisibleArea(tokenClone);
+          Area tokenVision =
+              renderer.getZoneView().getVisibleArea(tokenClone, renderer.getPlayerView());
           if (tokenVision != null) {
             Set<GUID> filteredToks = new HashSet<GUID>();
             filteredToks.add(tokenClone.getId());
@@ -374,7 +364,7 @@ public class FogUtil {
         renderer.flush(token);
       } else {
         renderer.flush(token);
-        Area tokenVision = renderer.getVisibleArea(token);
+        Area tokenVision = renderer.getZoneView().getVisibleArea(token, renderer.getPlayerView());
         if (tokenVision != null) {
           Set<GUID> filteredToks = new HashSet<GUID>();
           filteredToks.add(token.getId());
@@ -405,7 +395,7 @@ public class FogUtil {
       token.setY(zp.y);
       renderer.flush(token);
 
-      Area tokenVision = renderer.getZoneView().getVisibleArea(token);
+      Area tokenVision = renderer.getZoneView().getVisibleArea(token, renderer.getPlayerView());
       if (tokenVision != null) {
         Set<GUID> filteredToks = new HashSet<GUID>();
         filteredToks.add(token.getId());
@@ -553,7 +543,7 @@ public class FogUtil {
             tokenClone.setX(zp.x);
             tokenClone.setY(zp.y);
 
-            Area currVisionArea = zoneView.getVisibleArea(tokenClone);
+            Area currVisionArea = zoneView.getVisibleArea(tokenClone, renderer.getPlayerView());
             if (currVisionArea != null) {
               visionArea.add(currVisionArea);
               meta.addToExposedAreaHistory(currVisionArea);

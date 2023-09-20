@@ -24,14 +24,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.swing.*;
 import net.rptools.lib.FileUtil;
-import net.rptools.maptool.client.AppActions;
+import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.AppActions.OpenUrlAction;
-import net.rptools.maptool.client.AppConstants;
-import net.rptools.maptool.client.AppSetup;
-import net.rptools.maptool.client.AppState;
-import net.rptools.maptool.client.AppUtil;
-import net.rptools.maptool.client.MRUCampaignManager;
-import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.MapToolFrame.MTFrame;
 import net.rptools.maptool.client.ui.htmlframe.HTMLOverlayManager;
 import net.rptools.maptool.client.ui.theme.Icons;
@@ -114,7 +108,6 @@ public class AppMenuBar extends JMenuBar {
 
     menu.addSeparator();
 
-    menu.add(new JMenuItem(AppActions.EXPORT_CAMPAIGN_AS));
     menu.add(new JMenuItem(AppActions.EXPORT_CAMPAIGN_REPO));
     // menu.add(new JMenuItem(AppActions.UPDATE_CAMPAIGN_REPO));
 
@@ -271,6 +264,16 @@ public class AppMenuBar extends JMenuBar {
     menu.add(gridSizeMenu);
 
     menu.addSeparator();
+    JCheckBoxMenuItem toggleLumensOverlay =
+        new RPCheckBoxMenuItem(AppActions.TOGGLE_LUMENS_OVERLAY, menu);
+    toggleLumensOverlay.setSelected(AppState.isShowLumensOverlay());
+    menu.add(toggleLumensOverlay);
+    JCheckBoxMenuItem toggleShowLights =
+        new RPCheckBoxMenuItem(AppActions.TOGGLE_SHOW_LIGHTS, menu);
+    toggleShowLights.setSelected(AppState.isShowLights());
+    menu.add(toggleShowLights);
+
+    menu.addSeparator();
     menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_DRAW_MEASUREMENTS, menu));
     menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_DOUBLE_WIDE, menu));
 
@@ -411,7 +414,9 @@ public class AppMenuBar extends JMenuBar {
     return menu;
   }
 
-  /** @return an overlay menu. */
+  /**
+   * @return an overlay menu.
+   */
   protected JMenu createOverlayMenu() {
     overlayMenu = I18N.createMenu("menu.overlay");
     overlayMenu.setEnabled(false); // empty by default

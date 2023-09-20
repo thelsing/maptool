@@ -44,6 +44,8 @@ import net.rptools.maptool.model.LookupTable;
 import net.rptools.maptool.model.SightType;
 import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
+import net.rptools.maptool.model.drawing.DrawableColorPaint;
+import net.rptools.maptool.model.drawing.DrawableTexturePaint;
 import net.rptools.maptool.server.ServerPolicy;
 import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.MapToolSysInfoProvider;
@@ -123,7 +125,7 @@ public class getInfoFunction extends AbstractFunction {
     }
 
     minfo.addProperty("name", zone.getName());
-    minfo.addProperty("display name", zone.getPlayerAlias());
+    minfo.addProperty("display name", zone.getDisplayName());
     minfo.addProperty("image x scale", zone.getImageScaleX());
     minfo.addProperty("image y scale", zone.getImageScaleY());
     minfo.addProperty("player visible", zone.isVisible() ? 1 : 0);
@@ -138,11 +140,13 @@ public class getInfoFunction extends AbstractFunction {
 
     String visionType = zone.getVisionType().name();
     minfo.addProperty("vision type", visionType);
+    minfo.addProperty("vision distance", zone.getTokenVisionDistance());
+    minfo.addProperty("lighting style", zone.getLightingStyle().name());
+    minfo.addProperty("has fog", zone.hasFog());
+    minfo.addProperty("ai rounding", zone.getAStarRounding().name());
 
     JsonObject ginfo = new JsonObject();
-
     Grid grid = zone.getGrid();
-
     ginfo.addProperty("type", GridFactory.getGridType(grid));
     ginfo.addProperty("color", String.format("%h", zone.getGridColor()));
     ginfo.addProperty("units per cell", zone.getUnitsPerCell());
@@ -154,8 +158,33 @@ public class getInfoFunction extends AbstractFunction {
     ginfo.addProperty("x offset", zone.getGrid().getOffsetX());
     ginfo.addProperty("y offset", zone.getGrid().getOffsetY());
     ginfo.addProperty("second dimension", grid.getSecondDimension());
-
     minfo.add("grid", ginfo);
+
+    {
+      final var backgroundPaint = zone.getBackgroundPaint();
+      String background = null;
+      if (backgroundPaint instanceof DrawableColorPaint dcp) {
+        background = String.format("#%h", zone.getGridColor());
+      } else if (backgroundPaint instanceof DrawableTexturePaint dtp) {
+        background = "asset://" + dtp.getAssetId().toString();
+      }
+      minfo.addProperty("background paint", background);
+    }
+    {
+      final var fogPaint = zone.getFogPaint();
+      String fog = null;
+      if (fogPaint instanceof DrawableColorPaint dcp) {
+        fog = String.format("#%h", zone.getGridColor());
+      } else if (fogPaint instanceof DrawableTexturePaint dtp) {
+        fog = "asset://" + dtp.getAssetId().toString();
+      }
+      minfo.addProperty("fog paint", fog);
+    }
+    {
+      final var mapAsset = zone.getMapAssetId();
+      minfo.addProperty("map asset", mapAsset == null ? null : "asset://" + mapAsset.toString());
+    }
+
     return minfo;
   }
 
@@ -306,10 +335,13 @@ public class getInfoFunction extends AbstractFunction {
         "initiative owner permissions",
         FunctionUtil.getDecimalForBoolean(cp.isInitiativeOwnerPermissions()));
 
+    JsonArray zoneIds = new JsonArray();
     JsonObject zinfo = new JsonObject();
     for (Zone z : c.getZones()) {
+      zoneIds.add(z.getId().toString());
       zinfo.addProperty(z.getName(), z.getId().toString());
     }
+    cinfo.add("zoneIDs", zoneIds);
     cinfo.add("zones", zinfo);
 
     JsonArray tinfo = new JsonArray();
@@ -326,6 +358,7 @@ public class getInfoFunction extends AbstractFunction {
         linfo.addProperty("name", ls.getName());
         linfo.addProperty("max range", ls.getMaxRange());
         linfo.addProperty("type", ls.getType().toString());
+        linfo.addProperty("scale", ls.isScaleWithToken());
         // List<Light> lights = new ArrayList<Light>();
         // for (Light light : ls.getLightList()) {
         // lights.add(light);

@@ -71,6 +71,7 @@ import net.rptools.maptool.client.ui.ConnectionStatusPanel;
 import net.rptools.maptool.client.ui.MapToolFrame;
 import net.rptools.maptool.client.ui.OSXAdapter;
 import net.rptools.maptool.client.ui.logger.LogConsoleFrame;
+import net.rptools.maptool.client.ui.sheet.stats.StatSheetListener;
 import net.rptools.maptool.client.ui.startserverdialog.StartServerDialogPreferences;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
@@ -79,6 +80,7 @@ import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.client.ui.zone.ZoneRendererFactory;
 import net.rptools.maptool.events.MapToolEventBus;
+import net.rptools.maptool.events.ZoneLoadedListener;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.AssetManager;
 import net.rptools.maptool.model.Campaign;
@@ -92,6 +94,7 @@ import net.rptools.maptool.model.player.LocalPlayer;
 import net.rptools.maptool.model.player.Player;
 import net.rptools.maptool.model.player.PlayerDatabase;
 import net.rptools.maptool.model.player.PlayerDatabaseFactory;
+import net.rptools.maptool.model.player.PlayerZoneListener;
 import net.rptools.maptool.model.player.Players;
 import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensRemoved;
@@ -155,6 +158,8 @@ public class MapTool {
 
   private static List<Player> playerList;
   private static LocalPlayer player;
+  private static PlayerZoneListener playerZoneListener;
+  private static ZoneLoadedListener zoneLoadedListener;
 
   private static MapToolConnection conn;
   private static ClientMessageHandler handler;
@@ -207,6 +212,7 @@ public class MapTool {
     } else {
       msg = I18N.getText(msgKey) + "<br/>" + t.toString();
     }
+    msg = msg.replace("\n", "<br/>");
     return msg;
   }
 
@@ -477,10 +483,16 @@ public class MapTool {
    */
   public static void showDocument(String url) {
     if (Desktop.isDesktopSupported()) {
+      String lowerCaseUrl = url.toLowerCase();
+      String urlToBrowse = url;
       Desktop desktop = Desktop.getDesktop();
       URI uri = null;
       try {
-        uri = new URI(url);
+        uri = new URI(urlToBrowse);
+        if (uri.getScheme() == null) {
+          urlToBrowse = "https://" + urlToBrowse;
+        }
+        uri = new URI(urlToBrowse);
         desktop.browse(uri);
       } catch (Exception e) {
         MapTool.showError(I18N.getText("msg.error.browser.cannotStart", uri), e);
@@ -668,6 +680,8 @@ public class MapTool {
 
     try {
       player = new LocalPlayer("", Player.Role.GM, ServerConfig.getPersonalServerGMPassword());
+      playerZoneListener = new PlayerZoneListener();
+      zoneLoadedListener = new ZoneLoadedListener();
       Campaign cmpgn = CampaignFactory.createBasicCampaign();
       // This was previously being done in the server thread and didn't always get done
       // before the campaign was accessed by the postInitialize() method below.
@@ -741,7 +755,9 @@ public class MapTool {
     return serverCommand;
   }
 
-  /** @return the server, or null if player is a client. */
+  /**
+   * @return the server, or null if player is a client.
+   */
   public static MapToolServer getServer() {
     return server;
   }
@@ -1129,15 +1145,24 @@ public class MapTool {
   }
 
   public static void addZone(Zone zone, boolean changeZone) {
+    Zone zoneToRemove = null;
     if (getCampaign().getZones().size() == 1) {
       // Remove the default map
       Zone singleZone = getCampaign().getZones().get(0);
       if (ZoneFactory.DEFAULT_MAP_NAME.equals(singleZone.getName()) && singleZone.isEmpty()) {
-        removeZone(singleZone);
+        zoneToRemove = singleZone;
       }
     }
     getCampaign().putZone(zone);
     serverCommand().putZone(zone);
+
+    // Now that clients know about the new zone, we can delete the single empty zone. Otherwise
+    // clients would not have anything to switch to, and they would get all confused.
+    if (zoneToRemove != null) {
+      removeZone(zoneToRemove);
+      changeZone = true;
+    }
+
     new MapToolEventBus().getMainEventBus().post(new ZoneAdded(zone));
     // Now we have fire off adding the tokens in the zone
     new MapToolEventBus().getMainEventBus().post(new TokensAdded(zone, zone.getTokens()));
@@ -1155,7 +1180,10 @@ public class MapTool {
   }
 
   public static void startPersonalServer(Campaign campaign)
-      throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, ExecutionException,
+      throws IOException,
+          NoSuchAlgorithmException,
+          InvalidKeySpecException,
+          ExecutionException,
           InterruptedException {
     ServerConfig config = ServerConfig.createPersonalServerConfig();
 
@@ -1368,6 +1396,32 @@ public class MapTool {
         .getCurrentZoneRenderer()
         .getZone()
         .setTopologyTypes(AppPreferences.getTopologyTypes());
+
+    // Register the instance that will listen for token hover events and create a stat sheet.
+    new MapToolEventBus().getMainEventBus().register(new StatSheetListener());
+
+    final var enabledDeveloperOptions = DeveloperOptions.getEnabledOptions();
+    if (!enabledDeveloperOptions.isEmpty()) {
+      final var message = new StringBuilder();
+      message
+          .append("<p>")
+          .append(I18N.getText("Preferences.developer.info.developerOptionsInUse"))
+          .append("</p><ul>");
+      for (final var option : enabledDeveloperOptions) {
+        message.append("<li>").append(option.getLabel()).append("</li>");
+      }
+      message
+          .append("</ul><p>")
+          .append(
+              I18N.getText(
+                  "Preferences.developer.info.developerOptionsInUsePost",
+                  I18N.getText("menu.edit"),
+                  I18N.getText("action.preferences"),
+                  I18N.getText("Preferences.tab.developer")))
+          .append("</p>");
+
+      showWarning(message.toString());
+    }
   }
 
   /**

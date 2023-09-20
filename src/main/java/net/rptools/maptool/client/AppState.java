@@ -36,6 +36,8 @@ public class AppState {
   private static boolean enforceNotification = false;
   private static File campaignFile;
   private static int gridSize = 1;
+  private static boolean showLumensOverlay;
+  private static boolean showLights;
   private static boolean showAsPlayer = false;
   private static boolean showLightSources = false;
   private static boolean zoomLocked = false;
@@ -46,6 +48,11 @@ public class AppState {
   private static boolean enableFullScreenUI = true;
 
   private static PropertyChangeSupport changeSupport = new PropertyChangeSupport(AppState.class);
+
+  static {
+    showLumensOverlay = AppPreferences.getLumensOverlayShowByDefault();
+    showLights = AppPreferences.getLightsShowByDefault();
+  }
 
   public static void addPropertyChangeListener(PropertyChangeListener listener) {
     changeSupport.addPropertyChangeListener(listener);
@@ -170,6 +177,22 @@ public class AppState {
 
   public static boolean getShowTextLabels() {
     return showTextLabels;
+  }
+
+  public static boolean isShowLights() {
+    return showLights;
+  }
+
+  public static void setShowLights(boolean show) {
+    showLights = show;
+  }
+
+  public static boolean isShowLumensOverlay() {
+    return showLumensOverlay;
+  }
+
+  public static void setShowLumensOverlay(boolean show) {
+    showLumensOverlay = show;
   }
 
   public static boolean isShowAsPlayer() {

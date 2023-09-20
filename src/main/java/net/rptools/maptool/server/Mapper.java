@@ -293,10 +293,11 @@ public class Mapper {
         return dto.getStringVal();
       }
       case DOUBLE_VAL -> {
-        return BigDecimal.valueOf(dto.getDoubleVal());
+        final var stripped = BigDecimal.valueOf(dto.getDoubleVal()).stripTrailingZeros();
+        return stripped.setScale(Math.max(0, stripped.scale()));
       }
       case JSON_VAL -> {
-        return new JsonParser().parse(dto.getJsonVal());
+        return JsonParser.parseString(dto.getJsonVal());
       }
       default -> {
         log.warn("Unexpected type case:" + dto.getTypeCase());
@@ -324,7 +325,7 @@ public class Mapper {
   }
 
   public static IntPointDto map(Dimension d) {
-    return IntPointDto.newBuilder().setY(d.width).setY(d.height).build();
+    return IntPointDto.newBuilder().setX(d.width).setY(d.height).build();
   }
 
   public static BasicStroke map(StrokeDto dto) {

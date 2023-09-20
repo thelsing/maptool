@@ -134,27 +134,22 @@ public class VisibilityInspector extends JPanel {
     final var unobstructedVision =
         GraphicsUtil.createLineSegmentEllipse(
             -visionRange, -visionRange, visionRange, visionRange, CIRCLE_SEGMENTS);
-    final var unobstructedVisionTransformed = new Area(unobstructedVision);
-    unobstructedVisionTransformed.transform(
-        AffineTransform.getTranslateInstance(point.getX(), point.getY()));
-    final var visionBounds = new Area(unobstructedVisionTransformed.getBounds());
+    unobstructedVision.transform(AffineTransform.getTranslateInstance(point.getX(), point.getY()));
+    final var visionBounds = new Area(unobstructedVision.getBounds());
 
     Area vision;
     vision =
         FogUtil.calculateVisibility(
-            (int) point.getX(),
-            (int) point.getY(),
-            // NB: unobstructed vision must be untranslated.
+            new Point((int) point.getX(), (int) point.getY()),
             unobstructedVision,
             wallVblTree,
             hillVblTree,
             pitVblTree);
 
     final var obstructedVision = new Area(unobstructedVision);
-    obstructedVision.transform(AffineTransform.getTranslateInstance(point.getX(), point.getY()));
 
     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .5f));
-    if (vision != null) {
+    {
       obstructedVision.subtract(vision);
       g2d.setColor(Color.red);
       g2d.fill(vision);

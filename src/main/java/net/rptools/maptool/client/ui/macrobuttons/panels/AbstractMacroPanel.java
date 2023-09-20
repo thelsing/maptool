@@ -93,7 +93,9 @@ public abstract class AbstractMacroPanel extends JPanel implements Scrollable, M
     this.panelClass = panelClass;
   }
 
-  /** @return the token on the current map corresponding to the stored token id. */
+  /**
+   * @return the token on the current map corresponding to the stored token id.
+   */
   public Token getToken() {
     if (this.tokenId == null) {
       return null;
@@ -186,7 +188,10 @@ public abstract class AbstractMacroPanel extends JPanel implements Scrollable, M
 
   @Subscribe
   void onZoneActivated(ZoneActivated event) {
-    reset();
+    SwingUtilities.invokeLater(
+        () -> {
+          reset();
+        });
   }
 
   public static void clearHotkeys(AbstractMacroPanel panel) {

@@ -22,6 +22,7 @@ import java.awt.geom.Area;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.AppUtil;
@@ -96,6 +97,25 @@ public class Zone {
     }
   }
 
+  /** How lights should be rendered into the zone. */
+  public enum LightingStyle {
+    /** Lights are to be rendered as part of the map's environment, approximation illumination. */
+    ENVIRONMENTAL(),
+    /** Lights are to be alpha-composited on top of the map. */
+    OVERTOP();
+
+    private final String displayName;
+
+    LightingStyle() {
+      displayName = I18N.getString("lightingStyle." + name());
+    }
+
+    @Override
+    public String toString() {
+      return displayName;
+    }
+  }
+
   /** The type of layer (TOKEN, GM, OBJECT or BACKGROUND). */
   public enum Layer {
     TOKEN(),
@@ -117,7 +137,9 @@ public class Zone {
     /** A simple interface to allow layers to be turned on/off */
     private boolean drawEnabled = true;
 
-    /** @return drawEnabled */
+    /**
+     * @return drawEnabled
+     */
     public boolean isEnabled() {
       return drawEnabled;
     }
@@ -297,6 +319,8 @@ public class Zone {
   /** The VisionType of the zone. OFF, DAY or NIGHT. */
   private VisionType visionType = VisionType.OFF;
 
+  private LightingStyle lightingStyle = LightingStyle.OVERTOP;
+
   private TokenSelection tokenSelection = TokenSelection.ALL;
 
   // These are transitionary properties, very soon the width and height won't matter
@@ -346,6 +370,14 @@ public class Zone {
     this.visionType = visionType;
   }
 
+  public LightingStyle getLightingStyle() {
+    return lightingStyle;
+  }
+
+  public void setLightingStyle(LightingStyle lightingStyle) {
+    this.lightingStyle = lightingStyle;
+  }
+
   public TokenSelection getTokenSelection() {
     return tokenSelection;
   }
@@ -354,7 +386,9 @@ public class Zone {
     this.tokenSelection = tokenSelection;
   }
 
-  /** @return the distance in map pixels at a 1:1 zoom */
+  /**
+   * @return the distance in map pixels at a 1:1 zoom
+   */
   public int getTokenVisionInPixels() {
     if (tokenVisionDistance == 0) {
       // TODO: This is here to provide transition between pre 1.3b19 an 1.3b19. Remove later
@@ -367,39 +401,47 @@ public class Zone {
     fogPaint = paint;
   }
 
-  /** @return name of the zone */
-  public String getName() {
+  /**
+   * @return name of the zone
+   */
+  public @Nonnull String getName() {
     return name;
   }
 
-  public String getPlayerAlias() {
+  /**
+   * @return The zone's player alias, if set. Otherwise {@code null}.
+   */
+  public @Nullable String getPlayerAlias() {
     return playerAlias;
+  }
+
+  /**
+   * Get the name of the map to show to players.
+   *
+   * <p>If a player alias is set, that will be used as the display name. Otherwise the name is used
+   * as the display name.
+   *
+   * @return The name of the map that should be shown to players.
+   */
+  public @Nonnull String getDisplayName() {
+    return Objects.requireNonNullElse(playerAlias, name);
   }
 
   public void setName(String name) {
     this.name = name;
   }
 
-  public boolean setPlayerAlias(String playerAlias) {
-    List<ZoneRenderer> rendererList =
-        new LinkedList<ZoneRenderer>(MapTool.getFrame().getZoneRenderers());
-    for (ZoneRenderer z : rendererList) {
-      if (z.getZone().getPlayerAlias() != null
-          && z.getZone().getPlayerAlias().equals(playerAlias)) {
-        return false;
-      }
-    }
+  public void setPlayerAlias(String playerAlias) {
     this.playerAlias =
         playerAlias == null || playerAlias.equals("") || playerAlias.equals(name)
             ? null
             : playerAlias;
-    return true;
   }
 
   @Override
   public String toString() {
     if (!MapTool.getPlayer().isGM()) {
-      return playerAlias != null ? playerAlias : name;
+      return getDisplayName();
     } else if (playerAlias == null || name.equals(playerAlias)) {
       return name;
     } else {
@@ -444,10 +486,15 @@ public class Zone {
    * @param keepIds Should the token ids stay the same.
    */
   public Zone(Zone zone, boolean keepIds) {
+    if (keepIds) {
+      this.id = zone.getId();
+    }
+
     backgroundPaint = zone.backgroundPaint;
     mapAsset = zone.mapAsset;
     fogPaint = zone.fogPaint;
     visionType = zone.visionType;
+    lightingStyle = zone.lightingStyle;
 
     undo = new UndoPerZone(this); // Undo/redo manager isn't copied
     setName(zone.getName());
@@ -554,18 +601,29 @@ public class Zone {
       }
     }
     // Set the initiative list using the newly create tokens.
+    // We also have to work around old campaign issues where there may be empty positions in the
+    // initiative list
+    int newCurrent = -1;
+    int oldCurrent = zone.initiativeList.getCurrent();
     if (saveInitiative.length > 0) {
+      int newInd = 0;
       for (int i = 0; i < saveInitiative.length; i++) {
         Token token = (Token) saveInitiative[i][0];
-        initiativeList.insertToken(i, token);
-        TokenInitiative ti = initiativeList.getTokenInitiative(i);
-        TokenInitiative oldti = (TokenInitiative) saveInitiative[i][1];
-        ti.setHolding(oldti.isHolding());
-        ti.setState(oldti.getState());
+        if (token != null) {
+          initiativeList.insertToken(newInd, token);
+          TokenInitiative ti = initiativeList.getTokenInitiative(newInd);
+          TokenInitiative oldti = (TokenInitiative) saveInitiative[i][1];
+          ti.setHolding(oldti.isHolding());
+          ti.setState(oldti.getState());
+          if (oldCurrent == i) {
+            newCurrent = newInd;
+          }
+          newInd++;
+        }
       }
     }
     initiativeList.setZone(this);
-    initiativeList.setCurrent(zone.initiativeList.getCurrent());
+    initiativeList.setCurrent(newCurrent);
     initiativeList.setRound(zone.initiativeList.getRound());
     initiativeList.setHideNPC(zone.initiativeList.isHideNPC());
 
@@ -1687,7 +1745,9 @@ public class Zone {
     return Collections.unmodifiableList(originalList);
   }
 
-  /** @return list of non-stamp tokens, both pc and npc */
+  /**
+   * @return list of non-stamp tokens, both pc and npc
+   */
   public List<Token> getTokens() {
     return getTokens(true);
   }
@@ -1811,7 +1871,9 @@ public class Zone {
         });
   }
 
-  /** @return list of PCs tokens with sight. For FogUtil.exposePCArea to skip sight test. */
+  /**
+   * @return list of PCs tokens with sight. For FogUtil.exposePCArea to skip sight test.
+   */
   public List<Token> getPlayerTokensWithSight() {
     return getTokensFiltered(t -> t.getType() == Token.Type.PC && t.getHasSight());
   }
@@ -1969,17 +2031,23 @@ public class Zone {
     return bottom - centre;
   }
 
-  /** @return this */
+  /**
+   * @return this
+   */
   private Zone getZone() {
     return this;
   }
 
-  /** @return Getter for initiativeList */
+  /**
+   * @return Getter for initiativeList
+   */
   public InitiativeList getInitiativeList() {
     return initiativeList;
   }
 
-  /** @param initiativeList Setter for the initiativeList */
+  /**
+   * @param initiativeList Setter for the initiativeList
+   */
   public void setInitiativeList(InitiativeList initiativeList) {
     this.initiativeList = initiativeList;
     new MapToolEventBus().getMainEventBus().post(new InitiativeListChanged(initiativeList));
@@ -2047,6 +2115,12 @@ public class Zone {
   ////
   // Backward compatibility
   protected Object readResolve() {
+    if ("".equals(playerAlias) || name.equals(playerAlias)) {
+      // Don't keep redundant player aliases around. The display name will default to the name if
+      // no player alias is set.
+      playerAlias = null;
+    }
+
     // 1.3b76 -> 1.3b77
     // adding the exposed area for Individual FOW
     if (exposedAreaMeta == null) {
@@ -2076,6 +2150,9 @@ public class Zone {
       } else {
         visionType = VisionType.OFF;
       }
+    }
+    if (lightingStyle == null) {
+      lightingStyle = LightingStyle.OVERTOP;
     }
     // Look for the bizarre z-ordering disappearing trick
     boolean foundZero = false;
@@ -2130,7 +2207,9 @@ public class Zone {
     return this;
   }
 
-  /** @return the exposedAreaMeta. */
+  /**
+   * @return the exposedAreaMeta.
+   */
   public Map<GUID, ExposedAreaMetaData> getExposedAreaMetaData() {
     if (exposedAreaMeta == null) {
       exposedAreaMeta = new HashMap<GUID, ExposedAreaMetaData>();
@@ -2253,6 +2332,7 @@ public class Zone {
     zone.playerAlias = dto.hasPlayerAlias() ? dto.getPlayerAlias().getValue() : null;
     zone.isVisible = dto.getIsVisible();
     zone.visionType = VisionType.valueOf(dto.getVisionType().name());
+    zone.lightingStyle = LightingStyle.valueOf(dto.getLightingStyle().name());
     zone.tokenSelection = TokenSelection.valueOf(dto.getTokenSelection().name());
     zone.height = dto.getHeight();
     zone.width = dto.getWidth();
@@ -2267,6 +2347,10 @@ public class Zone {
 
   public ZoneDto toDto() {
     var dto = ZoneDto.newBuilder();
+    dto.setName(name);
+    if (playerAlias != null) {
+      dto.setPlayerAlias(StringValue.of(playerAlias));
+    }
     dto.setCreationTime(creationTime);
     dto.setId(id.toString());
     dto.setGrid(grid.toDto());
@@ -2316,12 +2400,9 @@ public class Zone {
     dto.setBoardPosition(Mapper.map(boardPosition));
     dto.setDrawBoard(drawBoard);
     dto.setBoardChanged(boardChanged);
-    dto.setName(name);
-    if (playerAlias != null) {
-      dto.setPlayerAlias(StringValue.of(playerAlias));
-    }
     dto.setIsVisible(isVisible);
     dto.setVisionType(ZoneDto.VisionTypeDto.valueOf(visionType.name()));
+    dto.setLightingStyle(ZoneDto.LightingStyleDto.valueOf(lightingStyle.name()));
     dto.setTokenSelection(ZoneDto.TokenSelectionDto.valueOf(tokenSelection.name()));
     dto.setHeight(height);
     dto.setWidth(width);

@@ -19,6 +19,7 @@ import com.badlogic.gdx.backends.jogamp.JoglSwingCanvas;
 import com.google.common.eventbus.Subscribe;
 import com.jidesoft.docking.DefaultDockableHolder;
 import com.jidesoft.docking.DockableFrame;
+import com.jidesoft.docking.DockingManager;
 import com.jogamp.opengl.awt.GLJPanel;
 import java.awt.*;
 import java.awt.event.*;
@@ -47,6 +48,7 @@ import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.AppActions.ClientAction;
 import net.rptools.maptool.client.events.ZoneActivated;
 import net.rptools.maptool.client.events.ZoneDeactivated;
+import net.rptools.maptool.client.events.ZoneLoading;
 import net.rptools.maptool.client.swing.AboutDialog;
 import net.rptools.maptool.client.swing.AppHomeDiskSpaceStatusBar;
 import net.rptools.maptool.client.swing.AssetCacheStatusBar;
@@ -56,6 +58,7 @@ import net.rptools.maptool.client.swing.GlassPane;
 import net.rptools.maptool.client.swing.ImageCacheStatusBar;
 import net.rptools.maptool.client.swing.ImageChooserDialog;
 import net.rptools.maptool.client.swing.MemoryStatusBar;
+import net.rptools.maptool.client.swing.PlayersLoadingStatusBar;
 import net.rptools.maptool.client.swing.PositionalLayout;
 import net.rptools.maptool.client.swing.ProgressStatusBar;
 import net.rptools.maptool.client.swing.SpacerStatusBar;
@@ -72,6 +75,7 @@ import net.rptools.maptool.client.ui.assetpanel.AssetDirectory;
 import net.rptools.maptool.client.ui.assetpanel.AssetPanel;
 import net.rptools.maptool.client.ui.commandpanel.CommandPanel;
 import net.rptools.maptool.client.ui.connections.ClientConnectionPanel;
+import net.rptools.maptool.client.ui.docking.MapToolDockingManager;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelPopupMenu;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelTreeCellRenderer;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelTreeModel;
@@ -85,7 +89,7 @@ import net.rptools.maptool.client.ui.mappropertiesdialog.MapPropertiesDialog;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
-import net.rptools.maptool.client.ui.token.edit.EditTokenDialog;
+import net.rptools.maptool.client.ui.token.dialog.edit.EditTokenDialog;
 import net.rptools.maptool.client.ui.tokenpanel.InitiativePanel;
 import net.rptools.maptool.client.ui.tokenpanel.TokenPanelTreeCellRenderer;
 import net.rptools.maptool.client.ui.tokenpanel.TokenPanelTreeModel;
@@ -174,6 +178,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private AssetCacheStatusBar assetCacheStatusBar;
   private ImageCacheStatusBar imageCacheStatusBar;
   private AppHomeDiskSpaceStatusBar appHomeDiskSpaceStatusBar;
+  private PlayersLoadingStatusBar playersLoadingStatusBar;
   private ZoomStatusBar zoomStatusBar;
   private JLabel chatActionLabel;
   private boolean fullScreenToolsShown;
@@ -396,6 +401,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     statusPanel.addPanel(getAppHomeDiskSpaceStatusBar());
     statusPanel.addPanel(getCoordinateStatusBar());
     statusPanel.addPanel(getZoomStatusBar());
+    statusPanel.addPanel(getPlayersLoadingStatusBar());
     statusPanel.addPanel(MemoryStatusBar.getInstance());
     // statusPanel.addPanel(progressBar);
     statusPanel.addPanel(connectionStatusPanel);
@@ -675,6 +681,11 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return frameMap.get(frame);
   }
 
+  @Override
+  protected DockingManager createDockingManager(Container container) {
+    return new MapToolDockingManager(this, container);
+  }
+
   private void initializeFrames() {
     frameMap.put(
         MTFrame.CONNECTIONS,
@@ -952,7 +963,22 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return saveFileChooser;
   }
 
+  /**
+   * Show the control panel. If panels is not empty then the control panel's contents are replaced
+   * with the passed contents. If it is empty (no arguments) then it will restore the control panel
+   * if it is hidden.
+   *
+   * @param panels The panels to add to control panel, or empty to restore hidden control panel.
+   * @see #hideControlPanel()
+   */
   public void showControlPanel(JPanel... panels) {
+    if (panels.length == 0) {
+      if (visibleControlPanel != null) {
+        visibleControlPanel.setVisible(true);
+      }
+      return;
+    }
+
     JPanel layoutPanel = new JPanel(new GridBagLayout());
     layoutPanel.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
 
@@ -973,6 +999,13 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     currentRenderPanel.revalidate();
     currentRenderPanel.repaint();
     visibleControlPanel = layoutPanel;
+  }
+
+  public PlayersLoadingStatusBar getPlayersLoadingStatusBar() {
+    if (playersLoadingStatusBar == null) {
+      playersLoadingStatusBar = new PlayersLoadingStatusBar();
+    }
+    return playersLoadingStatusBar;
   }
 
   public ZoomStatusBar getZoomStatusBar() {
@@ -1010,13 +1043,33 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return coordinateStatusBar;
   }
 
-  public void hideControlPanel() {
+  /**
+   * Removes the control panel. IF you want to temporarily hide the control panel use {@link
+   * #hideControlPanel()}.
+   *
+   * @see #hideControlPanel()
+   * @see #showControlPanel(JPanel...)
+   */
+  public void removeControlPanel() {
     if (visibleControlPanel != null) {
       if (currentRenderPanel != null) {
         currentRenderPanel.remove(visibleControlPanel);
       }
       visibleControlPanel = null;
       refresh();
+    }
+  }
+
+  /**
+   * Hides but does not remove the current control panel. To restore the control panel use {@link
+   * #showControlPanel(JPanel...)} with an empty argument list.
+   *
+   * @see #showControlPanel(JPanel...)
+   * @see #removeControlPanel()
+   */
+  public void hideControlPanel() {
+    if (visibleControlPanel != null) {
+      visibleControlPanel.setVisible(false);
     }
   }
 
@@ -1280,11 +1333,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
 
               if (row instanceof Token && e.getClickCount() == 2) {
                 Token token = (Token) row;
-                getCurrentZoneRenderer().clearSelectedTokens();
-                // Pick an appropriate tool
-                // Jamz: why not just call .centerOn(Token token), now we have one place to fix...
-                getCurrentZoneRenderer().centerOn(token);
-                getCurrentZoneRenderer().updateAfterSelection();
+                getCurrentZoneRenderer().centerOnAndSetSelected(token);
               }
             }
             if (SwingUtilities.isRightMouseButton(e)) {
@@ -1514,7 +1563,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return currentRenderer;
   }
 
-  /** @return the HTML Overlay Panel */
+  /**
+   * @return the HTML Overlay Panel
+   */
   public HTMLOverlayPanel getOverlayPanel() {
     return overlayPanel;
   }
@@ -1583,6 +1634,8 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   public void setCurrentZoneRenderer(ZoneRenderer renderer) {
     // Flush first so that the new zone renderer can inject the newly needed images
     if (renderer != null) {
+      new MapToolEventBus().getMainEventBus().post(new ZoneLoading(renderer.getZone()));
+
       ImageManager.flush(renderer.getZone().getAllAssetIds());
     } else {
       ImageManager.flush();
@@ -1786,6 +1839,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
         });
 
     initiativeButton.setBorder(btn.getBorder());
+    initiativeButton.setToolTipText(I18N.getText("tools.initiative.tooltip"));
     fullScreenToolPanel.add(initiativeButton);
 
     // set buttons to uniform size
@@ -2018,11 +2072,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private void removeWindowsF10() {
     InputMap imap = menuBar.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
     Object action = imap.get(KeyStroke.getKeyStroke("F10"));
-    if (log.isInfoEnabled())
-      log.info(
-          "Removing the F10 key from the menuBar's InputMap; it did "
-              + (action == null ? "not" : "")
-              + " exist");
+    log.info(
+        "Removing the F10 key from the menuBar's InputMap; it {} exist",
+        (action == null ? "did not" : "did"));
     ActionMap amap = menuBar.getActionMap();
     amap.getParent().remove(action);
   }
@@ -2078,8 +2130,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
         // We're looking for MacroButton here, but we're adding AbstractActions below... Is this
         // right? XXX
         if (o instanceof MacroButton) {
-          if (log.isDebugEnabled())
-            log.debug("Removing MacroButton " + ((MacroButton) o).getButtonText());
+          log.debug("Removing MacroButton {}", ((MacroButton) o).getButtonText());
           c.getActionMap().remove(o);
         }
       }
@@ -2134,7 +2185,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     updateKeyStrokes();
   }
 
-  /** @return Getter for initiativePanel */
+  /**
+   * @return Getter for initiativePanel
+   */
   public InitiativePanel getInitiativePanel() {
     return initiativePanel;
   }

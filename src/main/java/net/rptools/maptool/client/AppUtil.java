@@ -124,7 +124,7 @@ public class AppUtil {
         RuntimeException re =
             new RuntimeException(
                 I18N.getText("msg.error.unableToCreateDataDir", path.getAbsolutePath()));
-        if (log != null && log.isInfoEnabled()) {
+        if (log != null) {
           log.info("msg.error.unableToCreateDataDir", re);
         }
         throw re;
@@ -200,6 +200,34 @@ public class AppUtil {
     }
 
     return path;
+  }
+
+  /**
+   * This function tries to determine the installation directory of the application. This can differ
+   * from the directory the application is running from as returned by {@link
+   * #getAppInstallLocation()}.
+   *
+   * @return the installation directory of the application.
+   */
+  public static Path getInstallDirectory() {
+    var path = Path.of(getAppInstallLocation());
+    if (MapTool.isDevelopment()) {
+      // remove build/classes/java
+      path = path.getParent().getParent().getParent().getParent();
+    } else {
+      while (path != null) {
+        if (path.getFileName().toString().matches("(?i).*maptool.*")) {
+          path = path.getParent();
+          break;
+        }
+        path = path.getParent();
+      }
+    }
+    if (path == null) {
+      return Path.of(getAppInstallLocation());
+    } else {
+      return path;
+    }
   }
 
   /**

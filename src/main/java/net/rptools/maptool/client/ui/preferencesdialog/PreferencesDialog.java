@@ -17,6 +17,8 @@ package net.rptools.maptool.client.ui.preferencesdialog;
 import static net.rptools.maptool.util.UserJvmOptions.getLanguages;
 import static net.rptools.maptool.util.UserJvmOptions.setJvmOption;
 
+import java.awt.GridBagConstraints;
+import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.FocusAdapter;
@@ -40,6 +42,7 @@ import net.rptools.maptool.client.AppConstants;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.AppPreferences.RenderQuality;
 import net.rptools.maptool.client.AppUtil;
+import net.rptools.maptool.client.DeveloperOptions;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.events.PreferencesChanged;
 import net.rptools.maptool.client.functions.MediaPlayerAdapter;
@@ -98,7 +101,10 @@ public class PreferencesDialog extends JDialog {
   private final JSpinner haloOverlayOpacitySpinner;
   private final JSpinner auraOverlayOpacitySpinner;
   private final JSpinner lightOverlayOpacitySpinner;
-  private final JSpinner darknessOverlayOpacitySpinner;
+  private final JSpinner lumensOverlayOpacitySpinner;
+  private final JSpinner lumensOverlayBorderThicknessSpinner;
+  private final JCheckBox lumensOverlayShowByDefaultCheckBox;
+  private final JCheckBox lightsShowByDefaultCheckBox;
   private final JSpinner fogOverlayOpacitySpinner;
   private final JCheckBox useHaloColorAsVisionOverlayCheckBox;
   private final JCheckBox autoRevealVisionOnGMMoveCheckBox;
@@ -254,7 +260,7 @@ public class PreferencesDialog extends JDialog {
         .forEach(lm::addElement);
     lightThemesListModel = lm;
 
-    AbeillePanel panel = new AbeillePanel(new PreferencesDialogView().$$$getRootComponent$$$());
+    AbeillePanel panel = new AbeillePanel(new PreferencesDialogView().getRootComponent());
 
     JButton okButton = (JButton) panel.getButton("okButton");
     getRootPane().setDefaultButton(okButton);
@@ -335,7 +341,10 @@ public class PreferencesDialog extends JDialog {
     haloOverlayOpacitySpinner = panel.getSpinner("haloOverlayOpacitySpinner");
     auraOverlayOpacitySpinner = panel.getSpinner("auraOverlayOpacitySpinner");
     lightOverlayOpacitySpinner = panel.getSpinner("lightOverlayOpacitySpinner");
-    darknessOverlayOpacitySpinner = panel.getSpinner("darknessOverlayOpacitySpinner");
+    lumensOverlayOpacitySpinner = panel.getSpinner("lumensOverlayOpacitySpinner");
+    lumensOverlayBorderThicknessSpinner = panel.getSpinner("lumensOverlayBorderThicknessSpinner");
+    lumensOverlayShowByDefaultCheckBox = panel.getCheckBox("lumensOverlayShowByDefaultCheckBox");
+    lightsShowByDefaultCheckBox = panel.getCheckBox("lightsShowByDefaultCheckBox");
     fogOverlayOpacitySpinner = panel.getSpinner("fogOverlayOpacitySpinner");
     mapVisibilityWarning = panel.getCheckBox("mapVisibilityWarning");
 
@@ -413,6 +422,47 @@ public class PreferencesDialog extends JDialog {
     jamLanguageOverrideComboBox.setToolTipText(I18N.getText("prefs.language.override.tooltip"));
 
     startupInfoLabel = panel.getLabel("startupInfoLabel");
+
+    {
+      final var developerOptionToggles = (JPanel) panel.getComponent("developerOptionToggles");
+      final var developerLayout = developerOptionToggles.getLayout();
+
+      final var labelConstraints = new GridBagConstraints();
+      labelConstraints.insets = new Insets(6, 0, 6, 5);
+      labelConstraints.gridx = 0;
+      labelConstraints.gridy = 0;
+      labelConstraints.weightx = 0.;
+      labelConstraints.weighty = 1.;
+      labelConstraints.fill = GridBagConstraints.HORIZONTAL;
+
+      final var checkboxConstraints = new GridBagConstraints();
+      checkboxConstraints.insets = new Insets(6, 5, 6, 0);
+      checkboxConstraints.gridx = 1;
+      checkboxConstraints.gridy = 0;
+      checkboxConstraints.weightx = 0.;
+      checkboxConstraints.weighty = 1.;
+      checkboxConstraints.fill = GridBagConstraints.HORIZONTAL;
+
+      for (final var option : DeveloperOptions.Toggle.values()) {
+        labelConstraints.gridy += 1;
+        checkboxConstraints.gridy += 1;
+
+        final var label = new JLabel(option.getLabel());
+        label.setToolTipText(option.getTooltip());
+        label.setHorizontalAlignment(SwingConstants.LEADING);
+        label.setHorizontalTextPosition(SwingConstants.TRAILING);
+
+        final var checkbox = new JCheckBox();
+        checkbox.setName(option.getKey());
+        checkbox.setModel(new DeveloperToggleModel(option));
+        checkbox.addActionListener(e -> option.setEnabled(!checkbox.isSelected()));
+
+        label.setLabelFor(checkbox);
+
+        developerOptionToggles.add(label, labelConstraints);
+        developerOptionToggles.add(checkbox, checkboxConstraints);
+      }
+    }
 
     File appCfgFile = AppUtil.getAppCfgFile();
     String copyInfo = "";
@@ -717,14 +767,28 @@ public class PreferencesDialog extends JDialog {
             MapTool.getFrame().refresh();
           }
         });
-    darknessOverlayOpacitySpinner.addChangeListener(
+    lumensOverlayOpacitySpinner.addChangeListener(
         new ChangeListenerProxy() {
           @Override
           protected void storeSpinnerValue(int value) {
-            AppPreferences.setDarknessOverlayOpacity(value);
+            AppPreferences.setLumensOverlayOpacity(value);
             MapTool.getFrame().refresh();
           }
         });
+    lumensOverlayBorderThicknessSpinner.addChangeListener(
+        new ChangeListenerProxy() {
+          @Override
+          protected void storeSpinnerValue(int value) {
+            AppPreferences.setLumensOverlayBorderThickness(value);
+            MapTool.getFrame().refresh();
+          }
+        });
+    lumensOverlayShowByDefaultCheckBox.addActionListener(
+        e ->
+            AppPreferences.setLumensOverlayShowByDefault(
+                lumensOverlayShowByDefaultCheckBox.isSelected()));
+    lightsShowByDefaultCheckBox.addActionListener(
+        e -> AppPreferences.setLightsShowByDefault(lightsShowByDefaultCheckBox.isSelected()));
     fogOverlayOpacitySpinner.addChangeListener(
         new ChangeListenerProxy() {
           @Override
@@ -1095,8 +1159,13 @@ public class PreferencesDialog extends JDialog {
         new SpinnerNumberModel(AppPreferences.getAuraOverlayOpacity(), 0, 255, 1));
     lightOverlayOpacitySpinner.setModel(
         new SpinnerNumberModel(AppPreferences.getLightOverlayOpacity(), 0, 255, 1));
-    darknessOverlayOpacitySpinner.setModel(
-        new SpinnerNumberModel(AppPreferences.getDarknessOverlayOpacity(), 0, 255, 1));
+    lumensOverlayOpacitySpinner.setModel(
+        new SpinnerNumberModel(AppPreferences.getLumensOverlayOpacity(), 0, 255, 1));
+    lumensOverlayBorderThicknessSpinner.setModel(
+        new SpinnerNumberModel(
+            AppPreferences.getLumensOverlayBorderThickness(), 0, Integer.MAX_VALUE, 1));
+    lumensOverlayShowByDefaultCheckBox.setSelected(AppPreferences.getLumensOverlayShowByDefault());
+    lightsShowByDefaultCheckBox.setSelected(AppPreferences.getLightsShowByDefault());
     fogOverlayOpacitySpinner.setModel(
         new SpinnerNumberModel(AppPreferences.getFogOverlayOpacity(), 0, 255, 1));
 
@@ -1223,7 +1292,28 @@ public class PreferencesDialog extends JDialog {
     return model;
   }
 
-  /** @author frank */
+  private static class DeveloperToggleModel extends DefaultButtonModel {
+    private final DeveloperOptions.Toggle option;
+
+    public DeveloperToggleModel(DeveloperOptions.Toggle option) {
+      this.option = option;
+    }
+
+    @Override
+    public boolean isSelected() {
+      return option.isEnabled();
+    }
+
+    @Override
+    public void setSelected(boolean b) {
+      option.setEnabled(b);
+      super.setEnabled(b);
+    }
+  }
+
+  /**
+   * @author frank
+   */
   private abstract static class DocumentListenerProxy<T> implements DocumentListener {
 
     JTextField comp;
@@ -1260,7 +1350,9 @@ public class PreferencesDialog extends JDialog {
     protected abstract void storeNumericValue(T value);
   }
 
-  /** @author frank */
+  /**
+   * @author frank
+   */
   private abstract static class ChangeListenerProxy implements ChangeListener {
 
     @Override

@@ -32,12 +32,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import javax.swing.*;
 import net.rptools.lib.FileUtil;
 import net.rptools.maptool.client.AppConstants;
+import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.swing.AbeillePanel;
 import net.rptools.maptool.client.swing.SwingUtil;
+import net.rptools.maptool.client.ui.StaticMessageDialog;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.AssetManager;
@@ -90,7 +93,7 @@ public class CampaignPropertiesDialog extends JDialog {
 
   private void initialize() {
     setLayout(new GridLayout());
-    formPanel = new AbeillePanel(new CampaignPropertiesDialogView().$$$getRootComponent$$$());
+    formPanel = new AbeillePanel(new CampaignPropertiesDialogView().getRootComponent());
 
     initTokenPropertiesDialog(formPanel);
     tokenStatesController = new TokenStatesController(formPanel);
@@ -192,6 +195,17 @@ public class CampaignPropertiesDialog extends JDialog {
 
   private void accept() {
     try {
+      MapTool.getFrame()
+          .showFilledGlassPane(
+              new StaticMessageDialog("campaignPropertiesDialog.tokenTypeNameRename"));
+      tokenPropertiesPanel
+          .getRenameTypes()
+          .forEach(
+              (o, n) -> {
+                campaign.renameTokenTypes(o, n);
+                System.out.println("Renaming " + o + " to " + n);
+              });
+      MapTool.getFrame().hideGlassPane();
       copyUIToCampaign();
       AssetManager.updateRepositoryList();
       status = Status.OK;
@@ -303,13 +317,13 @@ public class CampaignPropertiesDialog extends JDialog {
               Color color = (Color) light.getPaint().getPaint();
               builder.append(toHex(color));
             }
-
+            final var lumens = light.getLumens();
+            if (lumens >= 0) {
+              builder.append('+');
+            }
+            builder.append(Integer.toString(lumens, 10));
             builder.append(' ');
           }
-        }
-
-        if (source.getLumens() != 0) {
-          builder.append("lumens=").append(source.getLumens()).append(' ');
         }
       }
       builder.append('\n');
@@ -381,9 +395,13 @@ public class CampaignPropertiesDialog extends JDialog {
             Color color = (Color) light.getPaint().getPaint();
             builder.append(toHex(color));
           }
-        }
-        if (lightSource.getLumens() != 0) {
-          builder.append(" lumens=").append(lightSource.getLumens());
+          if (lightSource.getType() == LightSource.Type.NORMAL) {
+            final var lumens = light.getLumens();
+            if (lumens >= 0) {
+              builder.append('+');
+            }
+            builder.append(Integer.toString(lumens, 10));
+          }
         }
         builder.append('\n');
       }
@@ -501,33 +519,51 @@ public class CampaignPropertiesDialog extends JDialog {
               errmsg = "msg.error.mtprops.sight.multiplier"; // (ditto)
               magnifier = StringUtil.parseDecimal(toBeParsed);
             } else if (arg.startsWith("r")) { // XXX Why not "r=#" instead of "r#"??
-              Color personalLightColor = null;
               toBeParsed = arg.substring(1);
-
-              split = toBeParsed.indexOf('#');
-              if (split > 0) {
-                String colorString = toBeParsed.substring(split); // Keep the '#'
-                toBeParsed = toBeParsed.substring(0, split);
-                personalLightColor = Color.decode(colorString);
-              }
-
               errmsg = "msg.error.mtprops.sight.range";
-              pLightRange = StringUtil.parseDecimal(toBeParsed);
 
-              if (personalLight == null) {
-                personalLight = new LightSource();
-              }
-              DrawableColorPaint personalLightPaint =
-                  personalLightColor != null ? new DrawableColorPaint(personalLightColor) : null;
-              personalLight.add(new Light(shape, 0, pLightRange, arc, personalLightPaint));
-              personalLight.setScaleWithToken(scaleWithToken);
-            } else if (arg.toUpperCase().startsWith("LUMENS=")) {
-              if (personalLight != null) {
-                personalLight.setLumens(Integer.parseInt(arg.substring(7)));
+              final var rangeRegex = Pattern.compile("([^#+-]*)(#[0-9a-fA-F]+)?([+-]\\d*)?");
+              final var matcher = rangeRegex.matcher(toBeParsed);
+              if (matcher.find()) {
+                pLightRange = StringUtil.parseDecimal(matcher.group(1));
+                final var colorString = matcher.group(2);
+                final var lumensString = matcher.group(3);
+                // Note that Color.decode() _wants_ the leading "#", otherwise it might not treat
+                // the value as a hex code.
+                Color personalLightColor = null;
+                if (colorString != null) {
+                  personalLightColor = Color.decode(colorString);
+                }
+                int perRangeLumens = 100;
+                if (lumensString != null) {
+                  perRangeLumens = Integer.parseInt(lumensString, 10);
+                  if (perRangeLumens == 0) {
+                    errlog.add(
+                        I18N.getText("msg.error.mtprops.sight.zerolumens", reader.getLineNumber()));
+                    perRangeLumens = 100;
+                  }
+                }
+
+                if (personalLight == null) {
+                  personalLight = new LightSource();
+                  personalLight.setType(LightSource.Type.NORMAL);
+                }
+                personalLight.add(
+                    new Light(
+                        shape,
+                        0,
+                        pLightRange,
+                        arc,
+                        personalLightColor == null
+                            ? null
+                            : new DrawableColorPaint(personalLightColor),
+                        perRangeLumens,
+                        false,
+                        false));
+                personalLight.setScaleWithToken(scaleWithToken);
               } else {
-                errlog.add(
-                    I18N.getText(
-                        "msg.error.mtprops.sight.lumensWithoutLight", reader.getLineNumber()));
+                throw new ParseException(
+                    String.format("Unrecognized personal light syntax: %s", arg), 0);
               }
             } else if (arg.startsWith("arc=") && arg.length() > 4) {
               toBeParsed = arg.substring(4);
@@ -663,16 +699,6 @@ public class CampaignPropertiesDialog extends JDialog {
             lightSource.setScaleWithToken(true);
             continue;
           }
-          // Lumens designation
-          if (arg.toUpperCase().startsWith("LUMENS=")) {
-            try {
-              lightSource.setLumens(Integer.parseInt(arg.substring(7)));
-              continue;
-            } catch (NullPointerException noe) {
-              errlog.add(
-                  I18N.getText("msg.error.mtprops.light.lumens", reader.getLineNumber(), arg));
-            }
-          }
           // Shape designation ?
           try {
             shape = ShapeType.valueOf(arg.toUpperCase());
@@ -719,14 +745,32 @@ public class CampaignPropertiesDialog extends JDialog {
             }
             continue;
           }
+
           Color color = null;
+          int perRangeLumens = 100;
           distance = arg;
-          split = arg.indexOf('#');
-          if (split > 0) {
-            String colorString = arg.substring(split); // Keep the '#'
-            distance = arg.substring(0, split);
-            color = Color.decode(colorString);
+
+          final var rangeRegex = Pattern.compile("([^#+-]*)(#[0-9a-fA-F]+)?([+-]\\d*)?");
+          final var matcher = rangeRegex.matcher(arg);
+          if (matcher.find()) {
+            distance = matcher.group(1);
+            final var colorString = matcher.group(2);
+            final var lumensString = matcher.group(3);
+            // Note that Color.decode() _wants_ the leading "#", otherwise it might not treat the
+            // value as a hex code.
+            if (colorString != null) {
+              color = Color.decode(colorString);
+            }
+            if (lumensString != null) {
+              perRangeLumens = Integer.parseInt(lumensString, 10);
+              if (perRangeLumens == 0) {
+                errlog.add(
+                    I18N.getText("msg.error.mtprops.light.zerolumens", reader.getLineNumber()));
+                perRangeLumens = 100;
+              }
+            }
           }
+
           boolean isAura = lightSource.getType() == LightSource.Type.AURA;
           if (!isAura && (gmOnly || owner)) {
             errlog.add(I18N.getText("msg.error.mtprops.light.gmOrOwner", reader.getLineNumber()));
@@ -741,7 +785,8 @@ public class CampaignPropertiesDialog extends JDialog {
                     offset,
                     StringUtil.parseDecimal(distance),
                     arc,
-                    color != null ? new DrawableColorPaint(color) : null,
+                    color == null ? null : new DrawableColorPaint(color),
+                    perRangeLumens,
                     gmOnly,
                     owner);
             lightSource.add(t);
@@ -860,7 +905,19 @@ public class CampaignPropertiesDialog extends JDialog {
               // END HACK
 
               JFileChooser chooser = MapTool.getFrame().getSavePropsFileChooser();
-              if (chooser.showSaveDialog(MapTool.getFrame()) != JFileChooser.APPROVE_OPTION) return;
+              boolean tryAgain = true;
+              while (tryAgain) {
+                if (chooser.showSaveDialog(MapTool.getFrame()) != JFileChooser.APPROVE_OPTION) {
+                  return;
+                }
+                var installDir = AppUtil.getInstallDirectory().toAbsolutePath();
+                var saveDir = chooser.getSelectedFile().toPath().getParent().toAbsolutePath();
+                if (saveDir.startsWith(installDir)) {
+                  MapTool.showWarning("msg.warning.savePropToInstallDir");
+                } else {
+                  tryAgain = false;
+                }
+              }
 
               File selectedFile = chooser.getSelectedFile();
               if (selectedFile.exists()) {

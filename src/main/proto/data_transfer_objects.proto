@@ -49,8 +49,8 @@ message CampaignDto {
 
 message LookupTableDto {
   repeated LookupEntryDto entries = 1;
-  string name = 2;
-  string default_roll = 3;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue default_roll = 3;
   google.protobuf.StringValue table_image = 4;
   bool visible = 5;
   bool allow_lookup = 6;
@@ -74,9 +74,7 @@ message LightSourceDto {
   google.protobuf.StringValue name = 2;
   google.protobuf.StringValue id = 3;
   LightTypeDto type = 4;
-  ShapeTypeDto shape_type = 5;
-  int32 lumens = 6;;
-  bool scale_with_token = 7;
+  bool scale_with_token = 5;
 }
 
 enum ShapeTypeDto {
@@ -95,6 +93,7 @@ message LightDto {
   ShapeTypeDto shape = 5;
   bool is_gm = 6;
   bool owner_only = 7;
+  int32 lumens = 8;
 }
 
 message LocationDto {
@@ -129,6 +128,8 @@ message CampaignPropertiesDto {
   repeated string remote_repositories = 11;
   repeated LookupTableDto lookup_tables = 12;
   repeated SightTypeDto sight_types = 13;
+  map<string, StatSheetPropertiesDto> token_type_stat_sheet = 14;
+  google.protobuf.StringValue default_token_property_type = 15;
 }
 
 message SightTypeDto {
@@ -149,6 +150,7 @@ message TokenPropertyDto {
   bool owner_only = 4;
   bool gm_only = 5;
   google.protobuf.StringValue default_value = 6;
+  google.protobuf.StringValue display_name = 7;
 }
 
 message TokenOverlayDto {
@@ -353,6 +355,9 @@ message TokenDto {
   map<string, string> speech = 62;
   HeroLabDataDto hero_lab_data = 63;
   bool allow_uri_access = 64;
+  string notes_type = 68;
+  string gm_notes_type = 69;
+  StatSheetPropertiesDto stat_sheet_properties = 70;
 }
 
 message PathDto {
@@ -379,7 +384,6 @@ message TerrainModifierOperationListDto {
 
 message AttachedLightSourceDto {
   string light_source_id = 1;
-  string direction = 2;
 }
 
 message MacroButtonPropertiesDto {
@@ -408,6 +412,11 @@ message MacroButtonPropertiesListDto {
   repeated MacroButtonPropertiesDto macros = 1;
 }
 
+message StatSheetPropertiesDto {
+  string id = 1;
+  string location = 2;
+}
+
 message HeroLabDataDto {
   google.protobuf.StringValue hero_lab_statblock_asset_id = 1;
   string name = 2;
@@ -422,6 +431,7 @@ message HeroLabDataDto {
   bool is_minion = 11;
   google.protobuf.StringValue portfolio_path = 12;
   map<string, string> hero_image_assets = 13;
+  google.protobuf.StringValue portfolio_file = 14;
 }
 
 message ScriptTypeDto {
@@ -443,6 +453,8 @@ message TextMessageDto {
 message PlayerDto {
   string name = 1;
   string role = 2;
+  string zone_guid = 3;
+  bool loaded = 4;
 }
 
 enum AssetDtoType {
@@ -490,6 +502,10 @@ message ZoneDto {
     DAY = 1;
     NIGHT = 2;
   }
+  enum LightingStyleDto {
+      ENVIRONMENTAL = 0;
+      OVERTOP = 1;
+  }
   enum AStarRoundingOptionsDto {
     NONE = 0;
     CELL_UNIT = 1;
@@ -529,9 +545,10 @@ message ZoneDto {
   google.protobuf.StringValue player_alias = 32;
   bool is_visible = 33;
   VisionTypeDto vision_type = 34;
-  TokenSelectionDto token_selection = 35;
-  int32 height = 36;
-  int32 width = 37;
+  LightingStyleDto lighting_style = 35;
+  TokenSelectionDto token_selection = 36;
+  int32 height = 37;
+  int32 width = 38;
 }
 
 message InitiativeListDto {
