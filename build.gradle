@@ -314,7 +314,7 @@ repositories {
     maven { url = 'https://jitpack.io' }
     maven { url "https://www.jetbrains.com/intellij-repository/releases" }
     maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
-    maven { url "https://maven.jzy3d.org/releases/"}
+    maven { url "https://jogamp.org/deployment/maven"}
 }
 
 // In this section you declare the dependencies for your production and test code
@@ -502,18 +502,18 @@ dependencies {
     implementation 'com.miglayout:miglayout-swing:11.0'
 
     // libgdx
-    implementation 'com.github.thelsing:libgdx-jogl-backend:1.11.3'
+    //implementation 'com.github.thelsing:libgdx-jogl-backend:1.12.0'
     //maven local for development
-    //implementation 'com.thelsing.gdx:gdx-backend-jogl:1.11.2'
+    implementation 'com.thelsing.gdx:gdx-backend-jogl:1.12.0'
 
-    implementation "com.badlogicgames.gdx:gdx:1.11.0"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.11.0:natives-desktop"
+    implementation "com.badlogicgames.gdx:gdx:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-desktop"
     //implementation "space.earlygrey:shapedrawer:2.4.0"
     implementation 'com.github.earlygrey:shapedrawer:extract-vertices-SNAPSHOT'
-    implementation "com.badlogicgames.gdx:gdx-freetype:1.11.0"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.11.0:natives-desktop"
+    implementation "com.badlogicgames.gdx:gdx-freetype:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-desktop"
     implementation "com.badlogicgames.gdx-video:gdx-video:1.3.2-SNAPSHOT"
-    implementation "com.badlogicgames.gdx-video:gdx-video-lwjgl:1.3.2-SNAPSHOT"
+    implementation "com.badlogicgames.gdx-video:gdx-video-lwjgl3:1.3.2-SNAPSHOT"
 }
 
 

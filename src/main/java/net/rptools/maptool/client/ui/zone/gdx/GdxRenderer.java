@@ -652,7 +652,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void renderVisionOverlay(PlayerView view) {
     var tokenUnderMouse = zoneRenderer.getTokenUnderMouse();
-    Area currentTokenVisionArea = zoneRenderer.getVisibleArea(tokenUnderMouse);
+    Area currentTokenVisionArea = zoneRenderer.getZoneView().getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
       return;
     }
@@ -1165,7 +1165,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (drawableLights == null) {
       timer.start("renderLights:populateCache");
       drawableLights = new ArrayList<>(zoneRenderer.getZoneView().getDrawableLights(view));
-      drawableLights.removeIf(light -> light.getType() != LightSource.Type.NORMAL);
+      //   drawableLights.removeIf(light -> light.getType() != LightSource.Type.NORMAL);
       timer.stop("renderLights:populateCache");
     }
     timer.start("renderLights:filterLights");
@@ -2010,9 +2010,11 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       if (!skip) {
         videoPlayer.update();
         var texture = videoPlayer.getTexture();
-        var sprite = new Sprite(texture);
-        sprite.setSize(texture.getWidth(), texture.getHeight());
-        return sprite;
+        if (texture != null) {
+          var sprite = new Sprite(texture);
+          sprite.setSize(texture.getWidth(), texture.getHeight());
+          return sprite;
+        }
       }
     }
 
@@ -3125,7 +3127,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void initializeZoneResources(Zone newZone) {
-    if (newZone == null || !initialized) return;
+    if (newZone == null || !initialized) {
+      return;
+    }
 
     zoneRenderer = MapTool.getFrame().getZoneRenderer(newZone);
 
@@ -3194,76 +3198,18 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   void onZoneActivated(ZoneActivated event) {
 
     var oldZone = zone;
-    // first disable rendering during intitialisation;
     renderZone = false;
 
     if (oldZone != null) {
       disposeZoneResources();
-      //   oldZone.removeModelChangeListener(this);
     }
 
     var newZone = event.zone();
-    // newZone.addModelChangeListener(this);
     initializeZoneResources(newZone);
-    // just in case we are running before create was called and hence initializeZoneResources does
-    // nothing
     zone = newZone;
     renderZone = true;
   }
 
-  /*
-  @Override
-  public void modelChanged(ModelChangeEvent event) {
-
-        Object evt = event.getEvent();
-        System.out.println("ModelChangend: " + evt);
-        if (!(evt instanceof Zone.Event)) return;
-        var eventType = (Zone.Event) evt;
-        switch (eventType) {
-          case TOPOLOGY_CHANGED:
-            flushFog();
-            // flushLight();
-            break;
-          case FOG_CHANGED:
-            flushFog = true;
-            break;
-          case TOKEN_CHANGED:
-            {
-              updateVisibleArea();
-              var token = (Token) event.getArg();
-              break;
-            }
-          case TOKEN_ADDED:
-            {
-              var token = (Token) event.getArg();
-              System.out.println();
-              break;
-            }
-        }
-    */
-  /*
-  if (evt == Zone.Event.TOKEN_CHANGED
-          || evt == Zone.Event.TOKEN_REMOVED
-          || evt == Zone.Event.TOKEN_ADDED) {
-      if (event.getArg() instanceof List<?>) {
-          @SuppressWarnings("unchecked")
-          List<Token> list = (List<Token>) (event.getArg());
-          for (Token token : list) {
-              zoneRenderer.flush(token);
-          }
-      } else {
-          zoneRenderer.flush((Token) event.getArg());
-      }
-  }*/
-  /*
-            var currentZone = zone;
-
-            // for now quick and dirty
-            disposeZoneResources();
-            initializeZoneResources(currentZone);
-
-    }
-  */
   public void setScale(Scale scale) {
     if (!initialized) {
       return;

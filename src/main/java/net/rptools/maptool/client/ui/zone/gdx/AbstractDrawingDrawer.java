@@ -22,7 +22,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
-
 import net.rptools.maptool.model.drawing.*;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
@@ -41,19 +40,20 @@ public abstract class AbstractDrawingDrawer {
     if (pen.getBackgroundPaint() instanceof DrawableColorPaint) {
       var colorPaint = (DrawableColorPaint) pen.getBackgroundPaint();
       Color.argb8888ToColor(tmpColor, colorPaint.getColor());
-      drawer.setColor(tmpColor);
-      areaRenderer.setTextureRegion(null);
-    } else if(pen.getBackgroundPaint() instanceof DrawableTexturePaint texturePaint) {
+      areaRenderer.setColor(tmpColor);
+      areaRenderer.setTextureRegion(drawer.getRegion());
+    } else if (pen.getBackgroundPaint() instanceof DrawableTexturePaint texturePaint) {
       var image = texturePaint.getAsset().getData();
       var pix = new Pixmap(image, 0, image.length);
-
-      //FIXME properly dispose
-      var region = new TextureRegion(new Texture(pix));
-      region.flip(false, true);
+      var tex = new Texture(pix);
+      tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
+      // FIXME properly dispose
+      var region = new TextureRegion(tex);
       areaRenderer.setTextureRegion(region);
       pix.dispose();
     }
     drawBackground(element, pen);
+    areaRenderer.setColor(null);
 
     if (pen.getPaint() instanceof DrawableColorPaint) {
       var colorPaint = (DrawableColorPaint) pen.getPaint();

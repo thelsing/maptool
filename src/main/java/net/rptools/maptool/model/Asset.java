@@ -174,9 +174,9 @@ public final class Asset {
             yield Type.INVALID;
           }
 
-          default -> Type.INVALID;
+          default -> Type.DATA;
         };
-        default -> Type.INVALID;
+        default -> Type.DATA;
       };
     }
   }

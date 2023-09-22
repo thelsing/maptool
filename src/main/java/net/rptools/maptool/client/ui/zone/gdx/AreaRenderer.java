@@ -14,22 +14,29 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-//import com.badlogic.gdx.graphics.g2d.RepeatablePolygonSprite;
-import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+// import com.badlogic.gdx.graphics.g2d.RepeatablePolygonSprite;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.Bezier;
+import com.badlogic.gdx.math.EarClippingTriangulator;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
-
-import net.rptools.lib.gdx.RepeatablePolygonSprite;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class AreaRenderer {
 
   private FloatArray tmpFloat = new FloatArray();
+
+  private Color color;
+
+  public void setColor(Color value) {
+    color = value;
+  }
+
+  public EarClippingTriangulator triangulator = new EarClippingTriangulator();
   private ShapeDrawer drawer;
   private float[] floatsFromArea = new float[6];
   private Vector2 tmpVector = new Vector2();
@@ -39,7 +46,6 @@ public class AreaRenderer {
   private Vector2 tmpVector3 = new Vector2();
   private Vector2 tmpVectorOut = new Vector2();
 
- // private RepeatablePolygonSprite polygonSprite = new RepeatablePolygonSprite();
   private TextureRegion textureRegion = null;
 
   public AreaRenderer(ShapeDrawer drawer) {
@@ -70,20 +76,16 @@ public class AreaRenderer {
     pathToFloatArray(area.getPathIterator(null));
 
     if (fill) {
-      var lastX = tmpFloat.get(tmpFloat.size - 2);
-      var lastY = tmpFloat.get(tmpFloat.size - 1);
-      if (lastX != tmpFloat.get(0) && lastY != tmpFloat.get(1))
-        tmpFloat.add(tmpFloat.get(0), tmpFloat.get(1));
+        var vertices = tmpFloat.toArray();
+        var indicies = triangulator.computeTriangles(vertices);
+        var polyreg = new PolygonRegion(textureRegion, vertices, indicies.toArray());
+        var poly = new PolygonSprite(polyreg);
+        var batch = (PolygonSpriteBatch) drawer.getBatch();
+        if (color != null) {
+          poly.setColor(color);
+        }
+        poly.draw(batch);
 
-      if(textureRegion == null) {
-        drawer.filledPolygon(tmpFloat.toArray());
-      } else {
-        var sprite = new RepeatablePolygonSprite();
-       // sprite.setPolygon(textureRegion, tmpFloat.toArray());
-        sprite.setTextureRegion(textureRegion);
-        sprite.setVertices(tmpFloat.toArray());
-        sprite.draw((PolygonSpriteBatch) drawer.getBatch());
-      }
     } else {
       if (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
           && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {

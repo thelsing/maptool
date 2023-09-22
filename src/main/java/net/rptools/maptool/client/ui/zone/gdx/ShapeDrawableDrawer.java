@@ -16,10 +16,11 @@ package net.rptools.maptool.client.ui.zone.gdx;
 
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.PolygonRegion;
+import com.badlogic.gdx.graphics.g2d.PolygonSprite;
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.utils.FloatArray;
-import net.rptools.lib.gdx.RepeatablePolygonSprite;
+import com.badlogic.gdx.math.EarClippingTriangulator;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.DrawableTexturePaint;
 import net.rptools.maptool.model.drawing.Pen;
@@ -28,6 +29,8 @@ import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class ShapeDrawableDrawer extends AbstractDrawingDrawer {
+
+  private EarClippingTriangulator triangulator = new EarClippingTriangulator();
 
   public ShapeDrawableDrawer(ShapeDrawer drawer) {
     super(drawer);
@@ -49,25 +52,21 @@ public class ShapeDrawableDrawer extends AbstractDrawingDrawer {
       tmpFloat.pop();
     }
     if (pen.getSquareCap())
-      if(pen.getPaint() instanceof DrawableTexturePaint texturePaint) {
+      if (pen.getPaint() instanceof DrawableTexturePaint texturePaint) {
         var image = texturePaint.getAsset().getData();
         var pix = new Pixmap(image, 0, image.length);
 
-        //FIXME properly dispose
+        // FIXME properly dispose
         var region = new TextureRegion(new Texture(pix));
-        region.flip(false, true);
+        // region.flip(false, true);
         pix.dispose();
 
-        drawer.startRecording();
-        drawer.path(tmpFloat.toArray(), pen.getThickness(), JoinType.POINTY, false);
-        var drawing = drawer.stopRecording();
-        var coordinates = new FloatArray();
-        drawing.getTransformedXYCoordinates(coordinates);
-
-        var sprite = new RepeatablePolygonSprite();
-        sprite.setVertices (coordinates.toArray());
-        sprite.setTextureRegion(region);
-        sprite.draw((PolygonSpriteBatch) drawer.getBatch());
+        var vertices = tmpFloat.toArray();
+        var indicies = triangulator.computeTriangles(vertices);
+        var polyreg = new PolygonRegion(region, vertices, indicies.toArray());
+        var poly = new PolygonSprite(polyreg);
+        var batch = (PolygonSpriteBatch) drawer.getBatch();
+        poly.draw(batch);
 
       } else {
         areaRenderer.setTextureRegion(null);
@@ -75,8 +74,8 @@ public class ShapeDrawableDrawer extends AbstractDrawingDrawer {
       }
     else {
       drawer.path(tmpFloat.toArray(), pen.getThickness(), JoinType.NONE, false);
-     // for (int i = 0; i + 1 < tmpFloat.size; i += 2)
-     //   drawer.filledCircle(tmpFloat.get(i), tmpFloat.get(i + 1), pen.getThickness() / 2f);
+      // for (int i = 0; i + 1 < tmpFloat.size; i += 2)
+      //   drawer.filledCircle(tmpFloat.get(i), tmpFloat.get(i + 1), pen.getThickness() / 2f);
     }
   }
 }
