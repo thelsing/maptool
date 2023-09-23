@@ -14,32 +14,32 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.Pen;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
 
-  public AbstractTemplateDrawer(ShapeDrawer drawer) {
-    super(drawer);
+  public AbstractTemplateDrawer(AreaRenderer renderer) {
+    super(renderer);
   }
 
   @Override
-  protected void drawBackground(Drawable element, Pen pen) {
+  protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
     tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, AbstractTemplate.DEFAULT_BG_ALPHA);
-    drawer.setColor(tmpColor);
-    paint(pen, (AbstractTemplate) element, false, true);
+    paint(batch, pen, (AbstractTemplate) element, false, true);
   }
 
   @Override
-  protected void drawBorder(Drawable element, Pen pen) {
-    paint(pen, (AbstractTemplate) element, true, false);
+  protected void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+    paint(batch, pen, (AbstractTemplate) element, true, false);
   }
 
-  protected void paint(Pen pen, AbstractTemplate template, boolean border, boolean area) {
+  protected void paint(
+      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
     var radius = template.getRadius();
 
     if (radius == 0) return;
@@ -57,18 +57,26 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
 
         // Template specific painting
         if (border)
-          paintBorder(pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
-        if (area) paintArea(template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+          paintBorder(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+        if (area)
+          paintArea(batch, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
       } // endfor
     } // endfor
   }
 
   protected void paintArea(
-      AbstractTemplate template, int xOff, int yOff, int gridSize, AbstractTemplate.Quadrant q) {
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int xOff,
+      int yOff,
+      int gridSize,
+      AbstractTemplate.Quadrant q) {
     var vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff + ((getXMult(q) - 1) / 2) * gridSize;
     int y = vertex.y + getYMult(q) * yOff + ((getYMult(q) - 1) / 2) * gridSize;
-    drawer.filledRectangle(x, -y - gridSize, gridSize, gridSize);
+    var floats =
+        new float[] {x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize};
+    areaRenderer.paintVertices(batch, floats);
   }
 
   protected int getXMult(AbstractTemplate.Quadrant q) {
@@ -84,6 +92,7 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
   }
 
   protected void paintCloseVerticalBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int xOff,
@@ -93,10 +102,11 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     var vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff;
     int y = vertex.y + getYMult(q) * yOff;
-    line(pen, x, y, x, y + getYMult(q) * gridSize);
+    line(batch, pen, x, y, x, y + getYMult(q) * gridSize);
   }
 
   protected void paintFarHorizontalBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int xOff,
@@ -106,10 +116,11 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     var vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff;
     int y = vertex.y + getYMult(q) * yOff + getYMult(q) * gridSize;
-    line(pen, x, y, x + getXMult(q) * gridSize, y);
+    line(batch, pen, x, y, x + getXMult(q) * gridSize, y);
   }
 
   protected void paintFarVerticalBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int xOff,
@@ -119,10 +130,11 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     var vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff + getXMult(q) * gridSize;
     int y = vertex.y + getYMult(q) * yOff;
-    line(pen, x, y, x, y + getYMult(q) * gridSize);
+    line(batch, pen, x, y, x, y + getYMult(q) * gridSize);
   }
 
   protected void paintCloseHorizontalBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int xOff,
@@ -132,13 +144,21 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     var vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff;
     int y = vertex.y + getYMult(q) * yOff;
-    line(pen, x, y, x + getXMult(q) * gridSize, y);
+    line(batch, pen, x, y, x + getXMult(q) * gridSize, y);
   }
 
   protected abstract void paintArea(
-      AbstractTemplate template, int x, int y, int xOff, int yOff, int gridSize, int distance);
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int x,
+      int y,
+      int xOff,
+      int yOff,
+      int gridSize,
+      int distance);
 
   protected abstract void paintBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,

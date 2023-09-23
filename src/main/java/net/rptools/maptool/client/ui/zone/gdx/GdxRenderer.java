@@ -173,6 +173,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private final Area tmpArea = new Area();
   private final TiledDrawable tmpTile = new TiledDrawable();
 
+  private final EarClippingTriangulator triangulator = new EarClippingTriangulator();
+
   public GdxRenderer() {
     new MapToolEventBus().getMainEventBus().register(this);
   }
@@ -234,15 +236,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     TextureRegion region = new TextureRegion(onePixel, 0, 0, 1, 1);
     drawer = new ShapeDrawer(batch, region);
 
-    lineTemplateDrawer = new LineTemplateDrawer(drawer);
-    lineCellTemplateDrawer = new LineCellTemplateDrawer(drawer);
-    radiusTemplateDrawer = new RadiusTemplateDrawer(drawer);
-    burstTemplateDrawer = new BurstTemplateDrawer(drawer);
-    coneTemplateDrawer = new ConeTemplateDrawer(drawer);
-    blastTemplateDrawer = new BlastTemplateDrawer(drawer);
-    radiusCellTemplateDrawer = new RadiusCellTemplateDrawer(drawer);
-    shapeDrawableDrawer = new ShapeDrawableDrawer(drawer);
-    areaRenderer = new AreaRenderer(drawer);
+    areaRenderer = new AreaRenderer(triangulator, region);
+    lineTemplateDrawer = new LineTemplateDrawer(areaRenderer);
+    lineCellTemplateDrawer = new LineCellTemplateDrawer(areaRenderer);
+    radiusTemplateDrawer = new RadiusTemplateDrawer(areaRenderer);
+    burstTemplateDrawer = new BurstTemplateDrawer(areaRenderer);
+    coneTemplateDrawer = new ConeTemplateDrawer(areaRenderer);
+    blastTemplateDrawer = new BlastTemplateDrawer(areaRenderer);
+    radiusCellTemplateDrawer = new RadiusCellTemplateDrawer(areaRenderer);
+    shapeDrawableDrawer = new ShapeDrawableDrawer(areaRenderer);
 
     initialized = true;
     initializeZoneResources(zone);
@@ -678,8 +680,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
      * strict token ownership is off... then the vision arc should be displayed.
      */
     if (showVisionAndHalo) {
-      drawer.setColor(Color.WHITE);
-      areaRenderer.drawArea(combined);
+      areaRenderer.setColor(Color.WHITE);
+      areaRenderer.drawArea(batch, combined, false, 1);
       renderHaloArea(combined);
     }
   }
@@ -699,7 +701,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           visionColor.getGreen() / 255f,
           visionColor.getBlue() / 255f,
           AppPreferences.getHaloOverlayOpacity() / 255f);
-      areaRenderer.fillArea(visible);
+      areaRenderer.fillArea(batch, visible);
     }
   }
 
@@ -793,7 +795,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           tempArea.add(new Area(exposedArea));
         }
         if (combinedView) {
-          areaRenderer.fillArea(combined);
+          areaRenderer.fillArea(batch, combined);
           renderFogArea(combined, visibleArea);
           renderFogOutline();
         } else {
@@ -801,7 +803,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           // use 'combined' instead in this block of code?
           tempArea.add(combined);
 
-          areaRenderer.fillArea(tempArea);
+          areaRenderer.fillArea(batch, tempArea);
           renderFogArea(tempArea, visibleArea);
           renderFogOutline();
         }
@@ -812,7 +814,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           if (combined.isEmpty()) {
             combined = zone.getExposedArea();
           }
-          areaRenderer.fillArea(combined);
+          areaRenderer.fillArea(batch, combined);
           renderFogArea(combined, visibleArea);
           renderFogOutline();
         } else {
@@ -828,7 +830,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             exposedArea = meta.getExposedAreaHistory();
             myCombined.add(new Area(exposedArea));
           }
-          areaRenderer.fillArea(myCombined);
+          areaRenderer.fillArea(batch, myCombined);
           renderFogArea(myCombined, visibleArea);
           renderFogOutline();
         }
@@ -861,27 +863,27 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         drawer.setColor(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
 
         // Fill in the exposed area
-        areaRenderer.fillArea(softFog);
+        areaRenderer.fillArea(batch, softFog);
 
         // batch.setColor(Color.CLEAR);
         drawer.setColor(Color.CLEAR);
 
-        areaRenderer.fillArea(visibleArea);
+        areaRenderer.fillArea(batch, visibleArea);
       } else {
         drawer.setColor(0, 0, 0, 80 / 255.0f);
-        areaRenderer.fillArea(softFog);
+        areaRenderer.fillArea(batch, softFog);
         drawer.setColor(Color.WHITE);
       }
     } else {
-      areaRenderer.fillArea(softFog);
+      areaRenderer.fillArea(batch, softFog);
     }
   }
 
   private void renderFogOutline() {
     if (visibleScreenArea == null) return;
 
-    drawer.setColor(Color.BLACK);
-    areaRenderer.drawArea(visibleScreenArea);
+    areaRenderer.setColor(Color.BLACK);
+    areaRenderer.drawArea(batch, visibleScreenArea, false, 1);
   }
 
   private void renderLabels(PlayerView view) {
@@ -1258,7 +1260,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           case CLIP_TO_NOT_VISIBLE_AREA -> areaToPaint.subtract(visibleScreenArea);
         }
       }
-      areaRenderer.fillArea(areaToPaint);
+      areaRenderer.fillArea(batch, areaToPaint);
     }
     drawer.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     timer.stop("renderLightOverlay:drawLights");
@@ -1436,17 +1438,19 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     var pen = element.getPen();
     var drawable = element.getDrawable();
 
-    if (drawable instanceof ShapeDrawable) shapeDrawableDrawer.draw(drawable, pen);
+    if (drawable instanceof ShapeDrawable) shapeDrawableDrawer.draw(batch, drawable, pen);
     else if (drawable instanceof DrawablesGroup)
       for (var groupElement : ((DrawablesGroup) drawable).getDrawableList())
         renderDrawable(groupElement);
-    else if (drawable instanceof RadiusCellTemplate) radiusCellTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof LineCellTemplate) lineCellTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof BlastTemplate) blastTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof ConeTemplate) coneTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof BurstTemplate) burstTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof RadiusTemplate) radiusTemplateDrawer.draw(drawable, pen);
-    else if (drawable instanceof LineTemplate) lineTemplateDrawer.draw(drawable, pen);
+    else if (drawable instanceof RadiusCellTemplate)
+      radiusCellTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof LineCellTemplate)
+      lineCellTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof BlastTemplate) blastTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof ConeTemplate) coneTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof BurstTemplate) burstTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof RadiusTemplate) radiusTemplateDrawer.draw(batch, drawable, pen);
+    else if (drawable instanceof LineTemplate) lineTemplateDrawer.draw(batch, drawable, pen);
   }
 
   private void renderBoard() {
@@ -1566,10 +1570,13 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       // Render Halo
       if (token.hasHalo()) {
-        drawer.setDefaultLineWidth(AppPreferences.getHaloLineWidth());
         Color.argb8888ToColor(tmpColor, token.getHaloColor().getRGB());
-        drawer.setColor(tmpColor);
-        areaRenderer.drawArea(zone.getGrid().getTokenCellArea(tokenBounds));
+        areaRenderer.setColor(tmpColor);
+        areaRenderer.drawArea(
+            batch,
+            zone.getGrid().getTokenCellArea(tokenBounds),
+            false,
+            AppPreferences.getHaloLineWidth());
       }
 
       // Calculate alpha Transparency from token and use opacity for indicating that token is moving
@@ -1655,10 +1662,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             else drawer.setColor(1, 1, 0, 0.5f);
 
             var arrowArea = new Area(arrow);
-            areaRenderer.fillArea(arrowArea);
+            areaRenderer.fillArea(batch, arrowArea);
 
-            drawer.setColor(Color.DARK_GRAY);
-            areaRenderer.drawArea(arrowArea);
+            areaRenderer.setColor(Color.DARK_GRAY);
+            areaRenderer.drawArea(batch, arrowArea, false, 1);
 
             break;
           case TOP_DOWN:
@@ -1678,17 +1685,13 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             tmpMatrix.idt();
             tmpMatrix.translate(cx, -cy, 0);
             batch.setTransformMatrix(tmpMatrix);
-            drawer.update();
-            drawer.setColor(Color.YELLOW);
 
-            areaRenderer.fillArea(arrowArea);
-            drawer.setColor(Color.DARK_GRAY);
-            drawer.setDefaultLineWidth(1);
-
-            areaRenderer.drawArea(arrowArea);
+            areaRenderer.setColor(Color.YELLOW);
+            areaRenderer.fillArea(batch, arrowArea);
+            areaRenderer.setColor(Color.DARK_GRAY);
+            areaRenderer.drawArea(batch, arrowArea, false, 1);
             tmpMatrix.idt();
             batch.setTransformMatrix(tmpMatrix);
-            drawer.update();
             break;
           case SQUARE:
             if (zone.getGrid().isIsometric()) {
@@ -1726,14 +1729,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
             tmpMatrix.translate(cx, -cy, 0);
             batch.setTransformMatrix(tmpMatrix);
-            drawer.update();
-            drawer.setColor(Color.YELLOW);
+            areaRenderer.setColor(Color.YELLOW);
 
-            areaRenderer.fillArea(arrowArea);
-            drawer.setColor(Color.DARK_GRAY);
-            areaRenderer.drawArea(arrowArea);
+            areaRenderer.fillArea(batch, arrowArea);
+            areaRenderer.setColor(Color.DARK_GRAY);
+            areaRenderer.drawArea(batch, arrowArea, false, 1);
             batch.setTransformMatrix(tmpMatrix.idt());
-            drawer.update();
             break;
         }
       }
@@ -2552,7 +2553,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         overlay.getOpacity() / 100);
     drawer.setColor(tmpColor);
     Shape s = overlay.getShape(bounds, token);
-    areaRenderer.fillArea(new Area(s));
+    areaRenderer.fillArea(batch, new Area(s));
     drawer.setColor(Color.WHITE);
   }
 
@@ -2792,7 +2793,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     tmpArea.reset();
     tmpArea.add(bounds);
     tmpArea.subtract(clip);
-    areaRenderer.fillArea(tmpArea);
+    areaRenderer.fillArea(batch, tmpArea);
 
     backBuffer.end();
 
@@ -3138,6 +3139,60 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     }
     zone = newZone;
   }
+
+  /*
+  @Override
+  public void modelChanged(ModelChangeEvent event) {
+
+        Object evt = event.getEvent();
+        System.out.println("ModelChangend: " + evt);
+        if (!(evt instanceof Zone.Event)) return;
+        var eventType = (Zone.Event) evt;
+        switch (eventType) {
+          case TOPOLOGY_CHANGED:
+            flushFog();
+            // flushLight();
+            break;
+          case FOG_CHANGED:
+            flushFog = true;
+            break;
+          case TOKEN_CHANGED:
+            {
+              updateVisibleArea();
+              var token = (Token) event.getArg();
+              break;
+            }
+          case TOKEN_ADDED:
+            {
+              var token = (Token) event.getArg();
+              System.out.println();
+              break;
+            }
+        }
+    */
+  /*
+  if (evt == Zone.Event.TOKEN_CHANGED
+          || evt == Zone.Event.TOKEN_REMOVED
+          || evt == Zone.Event.TOKEN_ADDED) {
+      if (event.getArg() instanceof List<?>) {
+          @SuppressWarnings("unchecked")
+          List<Token> list = (List<Token>) (event.getArg());
+          for (Token token : list) {
+              zoneRenderer.flush(token);
+          }
+      } else {
+          zoneRenderer.flush((Token) event.getArg());
+      }
+  }*/
+  /*
+            var currentZone = zone;
+
+            // for now quick and dirty
+            disposeZoneResources();
+            initializeZoneResources(currentZone);
+
+    }
+  */
 
   // shapedrawer has to learn how to draw with texturePaint first.
   private Texture paintToTexture(DrawablePaint paint) {

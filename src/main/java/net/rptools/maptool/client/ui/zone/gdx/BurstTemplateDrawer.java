@@ -14,30 +14,29 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.BurstTemplate;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.Pen;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class BurstTemplateDrawer extends AbstractDrawingDrawer {
 
-  public BurstTemplateDrawer(ShapeDrawer drawer) {
-    super(drawer);
+  public BurstTemplateDrawer(AreaRenderer renderer) {
+    super(renderer);
   }
 
   @Override
-  protected void drawBackground(Drawable element, Pen pen) {
+  protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
     var template = (BurstTemplate) element;
     tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, AbstractTemplate.DEFAULT_BG_ALPHA);
-    drawer.setColor(tmpColor);
-    fillArea(template.getArea());
+    fillArea(batch, template.getArea());
   }
 
   @Override
-  protected void drawBorder(Drawable element, Pen pen) {
+  protected void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen) {
     var template = (BurstTemplate) element;
-    drawArea(template.getArea());
-    drawArea(template.getVertexRenderer().getArea());
+    drawArea(batch, template.getArea(), pen);
+    drawArea(batch, template.getVertexRenderer().getArea(), pen);
   }
 }

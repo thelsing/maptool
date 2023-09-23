@@ -17,31 +17,26 @@ package net.rptools.maptool.client.ui.zone.gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import net.rptools.maptool.model.drawing.*;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public abstract class AbstractDrawingDrawer {
   protected Color tmpColor = new Color();
-  protected Vector2 tmpVector = new Vector2();
-  protected ShapeDrawer drawer;
+  protected TextureRegion whitePixelRegion;
   protected AreaRenderer areaRenderer;
 
-  public AbstractDrawingDrawer(ShapeDrawer drawer) {
-    this.drawer = drawer;
-    this.areaRenderer = new AreaRenderer(drawer);
+  public AbstractDrawingDrawer(AreaRenderer areaRenderer) {
+    this.areaRenderer = areaRenderer;
   }
 
-  public void draw(Drawable element, Pen pen) {
-    if (pen.getBackgroundPaint() instanceof DrawableColorPaint) {
-      var colorPaint = (DrawableColorPaint) pen.getBackgroundPaint();
+  public void draw(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+    if (pen.getBackgroundPaint() instanceof DrawableColorPaint colorPaint) {
       Color.argb8888ToColor(tmpColor, colorPaint.getColor());
       areaRenderer.setColor(tmpColor);
-      areaRenderer.setTextureRegion(drawer.getRegion());
     } else if (pen.getBackgroundPaint() instanceof DrawableTexturePaint texturePaint) {
       var image = texturePaint.getAsset().getData();
       var pix = new Pixmap(image, 0, image.length);
@@ -52,47 +47,50 @@ public abstract class AbstractDrawingDrawer {
       areaRenderer.setTextureRegion(region);
       pix.dispose();
     }
-    drawBackground(element, pen);
-    areaRenderer.setColor(null);
+    drawBackground(batch, element, pen);
 
-    if (pen.getPaint() instanceof DrawableColorPaint) {
-      var colorPaint = (DrawableColorPaint) pen.getPaint();
+    if (pen.getPaint() instanceof DrawableColorPaint colorPaint) {
       Color.argb8888ToColor(tmpColor, colorPaint.getColor());
-      drawer.setColor(tmpColor);
+      areaRenderer.setColor(tmpColor);
+    } else if (pen.getPaint() instanceof DrawableTexturePaint texturePaint) {
+      var image = texturePaint.getAsset().getData();
+      var pix = new Pixmap(image, 0, image.length);
+      var tex = new Texture(pix);
+      tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
+      // FIXME properly dispose
+      var region = new TextureRegion(tex);
+      areaRenderer.setTextureRegion(region);
+      pix.dispose();
     }
-    var lineWidth = drawer.getDefaultLineWidth();
-    drawer.setDefaultLineWidth(pen.getThickness());
-    drawBorder(element, pen);
-    drawer.setDefaultLineWidth(lineWidth);
+
+    drawBorder(batch, element, pen);
   }
 
-  protected void line(Pen pen, float x1, float y1, float x2, float y2) {
-    var halfLineWidth = pen.getThickness() / 2f;
-    if (!pen.getSquareCap()) {
-      drawer.filledCircle(x1, -y1, halfLineWidth);
-      drawer.filledCircle(x2, -y2, halfLineWidth);
-      drawer.line(x1, -y1, x2, -y2);
-    } else {
-      tmpVector.set(x1 - x2, y1 - y2).nor();
-      var tx = tmpVector.x * halfLineWidth;
-      var ty = tmpVector.y * halfLineWidth;
-      drawer.line(x1 + tx, y1 + ty, x2 - tx, y2 - ty);
-    }
+  protected void line(PolygonSpriteBatch batch, Pen pen, float x1, float y1, float x2, float y2) {
+    var floats = new FloatArray();
+    floats.add(x1, y1, x2, y2);
+    var path =
+        areaRenderer.path(
+            floats,
+            pen.getThickness(),
+            pen.getSquareCap() ? AreaRenderer.JoinType.Pointy : AreaRenderer.JoinType.Round,
+            false);
+    areaRenderer.paintVertices(batch, path);
   }
 
   protected FloatArray pathToFloatArray(PathIterator pathIterator) {
     return areaRenderer.pathToFloatArray(pathIterator);
   }
 
-  protected void fillArea(Area area) {
-    areaRenderer.fillArea(area);
+  protected void fillArea(PolygonSpriteBatch batch, Area area) {
+    areaRenderer.fillArea(batch, area);
   }
 
-  protected void drawArea(Area area) {
-    areaRenderer.drawArea(area);
+  protected void drawArea(PolygonSpriteBatch batch, Area area, Pen pen) {
+    areaRenderer.drawArea(batch, area, !pen.getSquareCap(), pen.getThickness());
   }
 
-  protected abstract void drawBackground(Drawable element, Pen pen);
+  protected abstract void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen);
 
-  protected abstract void drawBorder(Drawable element, Pen pen);
+  protected abstract void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen);
 }

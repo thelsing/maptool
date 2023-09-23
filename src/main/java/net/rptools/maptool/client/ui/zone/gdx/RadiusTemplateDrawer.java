@@ -14,31 +14,39 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.Pen;
 import net.rptools.maptool.model.drawing.RadiusTemplate;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class RadiusTemplateDrawer extends AbstractTemplateDrawer {
-  public RadiusTemplateDrawer(ShapeDrawer drawer) {
-    super(drawer);
+  public RadiusTemplateDrawer(AreaRenderer renderer) {
+    super(renderer);
   }
 
   @Override
   protected void paintArea(
-      AbstractTemplate template, int x, int y, int xOff, int yOff, int gridSize, int distance) {
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int x,
+      int y,
+      int xOff,
+      int yOff,
+      int gridSize,
+      int distance) {
     var radiusTemplate = (RadiusTemplate) template;
     // Only squares w/in the radius
     if (distance <= radiusTemplate.getRadius()) {
       // Paint the squares
       for (AbstractTemplate.Quadrant q : AbstractTemplate.Quadrant.values()) {
-        paintArea(template, xOff, yOff, gridSize, q);
+        paintArea(batch, template, xOff, yOff, gridSize, q);
       }
     }
   }
 
   @Override
   protected void paintBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,
@@ -49,10 +57,11 @@ public class RadiusTemplateDrawer extends AbstractTemplateDrawer {
       int distance) {
     var radiusTemplate = (RadiusTemplate) template;
     paintBorderAtRadius(
-        pen, template, x, y, xOff, yOff, gridSize, distance, radiusTemplate.getRadius());
+        batch, pen, template, x, y, xOff, yOff, gridSize, distance, radiusTemplate.getRadius());
   }
 
   private void paintBorderAtRadius(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,
@@ -67,14 +76,14 @@ public class RadiusTemplateDrawer extends AbstractTemplateDrawer {
       // Paint lines between vertical boundaries if needed
       if (template.getDistance(x + 1, y) > radius) {
         for (AbstractTemplate.Quadrant q : AbstractTemplate.Quadrant.values()) {
-          paintFarVerticalBorder(pen, template, xOff, yOff, gridSize, q);
+          paintFarVerticalBorder(batch, pen, template, xOff, yOff, gridSize, q);
         }
       }
 
       // Paint lines between horizontal boundaries if needed
       if (template.getDistance(x, y + 1) > radius) {
         for (AbstractTemplate.Quadrant q : AbstractTemplate.Quadrant.values()) {
-          paintFarHorizontalBorder(pen, template, xOff, yOff, gridSize, q);
+          paintFarHorizontalBorder(batch, pen, template, xOff, yOff, gridSize, q);
         }
       }
     }

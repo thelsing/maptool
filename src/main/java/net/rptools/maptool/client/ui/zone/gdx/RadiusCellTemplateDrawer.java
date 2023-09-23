@@ -14,49 +14,65 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.model.GUID;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.Pen;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
 
-  public RadiusCellTemplateDrawer(ShapeDrawer drawer) {
-    super(drawer);
+  public RadiusCellTemplateDrawer(AreaRenderer renderer) {
+    super(renderer);
   }
 
   @Override
   protected void paintArea(
-      AbstractTemplate template, int x, int y, int xOff, int yOff, int gridSize, int distance) {
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int x,
+      int y,
+      int xOff,
+      int yOff,
+      int gridSize,
+      int distance) {
     // Only squares w/in the radius
     int radius = template.getRadius();
     if (distance <= radius) {
-      paintArea(template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
     }
 
     if (template.getDistance(x, y + 1) <= radius) {
-      paintArea(template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
+      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
     }
 
     if (template.getDistance(x + 1, y) <= radius) {
-      paintArea(template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
+      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
     }
 
     if (template.getDistance(x + 1, y + 1) <= radius) {
-      paintArea(template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
     }
   }
 
   @Override
   protected void paintArea(
-      AbstractTemplate template, int xOff, int yOff, int gridSize, AbstractTemplate.Quadrant q) {
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int xOff,
+      int yOff,
+      int gridSize,
+      AbstractTemplate.Quadrant q) {
     ZonePoint vertex = template.getVertex();
     int x = vertex.x + getXMult(q) * xOff + ((getXMult(q) - 1) / 2) * gridSize;
     int y = vertex.y + getYMult(q) * yOff + ((getYMult(q) - 1) / 2) * gridSize;
-    drawer.filledRectangle(x, -y - gridSize, gridSize, gridSize);
+    var floats =
+        new float[] {
+          x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize,
+        };
+    areaRenderer.paintVertices(batch, floats);
   }
 
   @Override
@@ -75,6 +91,7 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
 
   @Override
   protected void paintBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,
@@ -83,10 +100,12 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
       int yOff,
       int gridSize,
       int distance) {
-    paintBorderAtRadius(pen, template, x, y, xOff, yOff, gridSize, distance, template.getRadius());
+    paintBorderAtRadius(
+        batch, pen, template, x, y, xOff, yOff, gridSize, distance, template.getRadius());
   }
 
   protected void paintBorderAtRadius(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,
@@ -101,60 +120,85 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
 
     if (template.getDistance(x, y + 1) == radius && template.getDistance(x + 1, y + 1) > radius) {
       paintFarVerticalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
     }
     if (distance == radius && template.getDistance(x + 1, y) > radius) {
       paintFarVerticalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
     }
     if (template.getDistance(x + 1, y + 1) == radius
         && template.getDistance(x + 2, y + 1) > radius) {
       paintFarVerticalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
     }
     if (template.getDistance(x + 1, y) == radius && template.getDistance(x + 2, y) > radius) {
       paintFarVerticalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
     } // endif
     if (x == 0 && y + 1 == radius) {
       paintFarVerticalBorder(
-          pen, template, xOff - gridSize, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+          batch,
+          pen,
+          template,
+          xOff - gridSize,
+          yOff,
+          gridSize,
+          AbstractTemplate.Quadrant.SOUTH_EAST);
     }
     if (x == 0 && y + 2 == radius) {
       paintFarVerticalBorder(
-          pen, template, xOff - gridSize, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+          batch,
+          pen,
+          template,
+          xOff - gridSize,
+          yOff,
+          gridSize,
+          AbstractTemplate.Quadrant.NORTH_WEST);
     }
 
     // Paint lines between horizontal boundaries if needed
     if (template.getDistance(x, y + 1) == radius && template.getDistance(x, y + 2) > radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
     }
     if (template.getDistance(x, y) == radius && template.getDistance(x, y + 1) > radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
     }
     if (y == 0 && x + 1 == radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff - gridSize, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+          batch,
+          pen,
+          template,
+          xOff,
+          yOff - gridSize,
+          gridSize,
+          AbstractTemplate.Quadrant.SOUTH_EAST);
     }
     if (y == 0 && x + 2 == radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff - gridSize, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+          batch,
+          pen,
+          template,
+          xOff,
+          yOff - gridSize,
+          gridSize,
+          AbstractTemplate.Quadrant.NORTH_WEST);
     }
     if (template.getDistance(x + 1, y + 1) == radius
         && template.getDistance(x + 1, y + 2) > radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
     }
     if (template.getDistance(x + 1, y) == radius && template.getDistance(x + 1, y + 1) > radius) {
       paintFarHorizontalBorder(
-          pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
+          batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
     } // endif
   }
 
   @Override
-  protected void paint(Pen pen, AbstractTemplate template, boolean border, boolean area) {
+  protected void paint(
+      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
     int radius = template.getRadius();
     GUID zoneId = template.getZoneId();
 
@@ -173,8 +217,9 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
 
         // Template specific painting
         if (border)
-          paintBorder(pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
-        if (area) paintArea(template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+          paintBorder(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+        if (area)
+          paintArea(batch, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
       } // endfor
     } // endfor
   }

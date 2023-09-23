@@ -14,21 +14,22 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import java.util.ListIterator;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.model.CellPoint;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.LineTemplate;
 import net.rptools.maptool.model.drawing.Pen;
-import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class LineTemplateDrawer extends AbstractTemplateDrawer {
-  public LineTemplateDrawer(ShapeDrawer drawer) {
-    super(drawer);
+  public LineTemplateDrawer(AreaRenderer renderer) {
+    super(renderer);
   }
 
   @Override
-  protected void paint(Pen pen, AbstractTemplate template, boolean border, boolean area) {
+  protected void paint(
+      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
     if (MapTool.getCampaign().getZone(template.getZoneId()) == null) {
       return;
     }
@@ -50,23 +51,31 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
 
       // Paint what is needed.
       if (area) {
-        paintArea(template, p.x, p.y, xOff, yOff, gridSize, distance);
+        paintArea(batch, template, p.x, p.y, xOff, yOff, gridSize, distance);
       } // endif
       if (border) {
-        paintBorder(pen, template, p.x, p.y, xOff, yOff, gridSize, i.previousIndex());
+        paintBorder(batch, pen, template, p.x, p.y, xOff, yOff, gridSize, i.previousIndex());
       } // endif
     } // endfor
   }
 
   @Override
   protected void paintArea(
-      AbstractTemplate template, int x, int y, int xOff, int yOff, int gridSize, int distance) {
+      PolygonSpriteBatch batch,
+      AbstractTemplate template,
+      int x,
+      int y,
+      int xOff,
+      int yOff,
+      int gridSize,
+      int distance) {
     var lineTemplate = (LineTemplate) template;
-    paintArea(template, xOff, yOff, gridSize, lineTemplate.getQuadrant());
+    paintArea(batch, template, xOff, yOff, gridSize, lineTemplate.getQuadrant());
   }
 
   @Override
   protected void paintBorder(
+      PolygonSpriteBatch batch,
       Pen pen,
       AbstractTemplate template,
       int x,
@@ -96,9 +105,10 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
 
     var quadrant = lineTemplate.getQuadrant();
     // Paint the borders as needed
-    if (!noPaint[0]) paintCloseVerticalBorder(pen, template, xOff, yOff, gridSize, quadrant);
-    if (!noPaint[1]) paintFarHorizontalBorder(pen, template, xOff, yOff, gridSize, quadrant);
-    if (!noPaint[2]) paintFarVerticalBorder(pen, template, xOff, yOff, gridSize, quadrant);
-    if (!noPaint[3]) paintCloseHorizontalBorder(pen, template, xOff, yOff, gridSize, quadrant);
+    if (!noPaint[0]) paintCloseVerticalBorder(batch, pen, template, xOff, yOff, gridSize, quadrant);
+    if (!noPaint[1]) paintFarHorizontalBorder(batch, pen, template, xOff, yOff, gridSize, quadrant);
+    if (!noPaint[2]) paintFarVerticalBorder(batch, pen, template, xOff, yOff, gridSize, quadrant);
+    if (!noPaint[3])
+      paintCloseHorizontalBorder(batch, pen, template, xOff, yOff, gridSize, quadrant);
   }
 }
