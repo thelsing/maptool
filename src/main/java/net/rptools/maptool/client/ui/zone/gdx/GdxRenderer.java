@@ -236,7 +236,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     TextureRegion region = new TextureRegion(onePixel, 0, 0, 1, 1);
     drawer = new ShapeDrawer(batch, region);
 
-    areaRenderer = new AreaRenderer(triangulator, region);
+    areaRenderer = new AreaRenderer(triangulator, region, drawer);
     lineTemplateDrawer = new LineTemplateDrawer(areaRenderer);
     lineCellTemplateDrawer = new LineCellTemplateDrawer(areaRenderer);
     radiusTemplateDrawer = new RadiusTemplateDrawer(areaRenderer);

@@ -27,16 +27,20 @@ import java.util.ArrayList;
 import java.util.List;
 import net.rptools.lib.gdx.Joiner;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
+import space.earlygrey.shapedrawer.ShapeDrawer;
 import space.earlygrey.shapedrawer.ShapeUtils;
 import space.earlygrey.shapedrawer.SideEstimator;
 
 public class AreaRenderer {
 
-  public AreaRenderer(EarClippingTriangulator triangulator, TextureRegion whitePixelRegion) {
+  public AreaRenderer(
+      EarClippingTriangulator triangulator, TextureRegion whitePixelRegion, ShapeDrawer drawer) {
     this.triangulator = triangulator;
     this.whitePixel = whitePixelRegion;
+    this.drawer = drawer;
   }
 
+  private ShapeDrawer drawer;
   private TextureRegion whitePixel;
 
   private FloatArray tmpFloat = new FloatArray();
@@ -75,22 +79,58 @@ public class AreaRenderer {
     paintVertices(batch, tmpFloat.toArray());
   }
 
+  private boolean debug = false;
+
   public void drawArea(PolygonSpriteBatch batch, Area area, boolean rounded, float thickness) {
     if (area == null || area.isEmpty()) return;
 
     pathToFloatArray(area.getPathIterator(null));
     var vertices = path(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+    // drawDebug(vertices);
+    // debug = true;
     paintVertices(batch, vertices);
+    // debug = false;
+  }
+
+  private void drawDebug(float[] vertices) {
+    var oldColor = drawer.getPackedColor();
+    drawer.setColor(Color.ORANGE);
+    for (int j = 0; j < vertices.length; j += 2) {
+      float x1 = vertices[j];
+      float y1 = vertices[j + 1];
+
+      if (j + 2 >= vertices.length) break;
+      float x2 = vertices[j + 2];
+      float y2 = vertices[j + 3];
+      drawer.line(x1, y1, x2, y2);
+    }
+    drawer.setColor(oldColor);
+  }
+
+  private void drawDebug(float[] vertices, short[] indicies) {
+    var oldColor = drawer.getPackedColor();
+    drawer.setColor(Color.CYAN);
+    for (int j = 0; j < indicies.length; j += 3) {
+      float x1 = vertices[2 * indicies[j]];
+      float y1 = vertices[2 * indicies[j] + 1];
+      float x2 = vertices[2 * indicies[j + 1]];
+      float y2 = vertices[2 * indicies[j + 1] + 1];
+      float x3 = vertices[2 * indicies[j + 2]];
+      float y3 = vertices[2 * indicies[j + 2] + 1];
+      drawer.triangle(x1, y1, x2, y2, x3, y3);
+    }
+    drawer.setColor(oldColor);
   }
 
   protected void paintVertices(PolygonSpriteBatch batch, float[] vertices) {
-    var indicies = triangulator.computeTriangles(vertices);
-    var polyreg = new PolygonRegion(textureRegion, vertices, indicies.toArray());
+    var indicies = triangulator.computeTriangles(vertices).toArray();
+    var polyreg = new PolygonRegion(textureRegion, vertices, indicies);
     var poly = new PolygonSprite(polyreg);
     if (color != null) {
       poly.setColor(color);
     }
-    poly.draw(batch);
+    if (debug) drawDebug(vertices, indicies);
+    else poly.draw(batch);
     color = null;
   }
 
@@ -206,8 +246,6 @@ public class AreaRenderer {
         outer.add(x + halfWidth);
         outer.add(y + halfWidth);
         outer.add(x + halfWidth);
-        outer.add(y - halfWidth);
-        outer.add(x - halfWidth);
         outer.add(y - halfWidth);
       }
 
@@ -433,11 +471,24 @@ public class AreaRenderer {
             vec1.add(-B.x, -B.y);
             var angle = vec1.angleRad();
             var angleDiff = MathUtils.PI2 - ShapeUtils.angleRad(AB, BC);
-            addArc(outer, B.x, B.y, halfWidth, angle, angle + angleDiff, true);
+            if (bendsLeft) {
+              addArc(inner, B.x, B.y, halfWidth, angle, angle + angleDiff, false);
+              inner.add(E0.x);
+              inner.add(E0.y);
+            } else {
+              addArc(outer, B.x, B.y, halfWidth, angle, angle + angleDiff, true);
+              outer.add(D0.x);
+              outer.add(D0.y);
+            }
+          } else {
+            if (bendsLeft) {
+              inner.add(E0.x);
+              inner.add(E0.y);
+            } else {
+              outer.add(D0.x);
+              outer.add(D0.y);
+            }
           }
-
-          outer.add(D0.x);
-          outer.add(D0.y);
         }
       }
     }
@@ -474,19 +525,28 @@ public class AreaRenderer {
     if (endAngle < 0) {
       endAngle += MathUtils.PI2;
     }
-    var sides = estimateSidesRequired(radius, radius);
+
     var deltaAngle = (endAngle + MathUtils.PI2 - startAngle) % MathUtils.PI2;
     if (clockwise) {
       deltaAngle = MathUtils.PI2 - deltaAngle;
     }
+    var sides = estimateSidesRequired(radius, radius);
+    sides *= deltaAngle / MathUtils.PI2;
 
     var dAnglePerSide = deltaAngle / sides;
     var angle = startAngle;
+    angle += dAnglePerSide;
+    sides -= 1;
     if (clockwise) {
       dAnglePerSide *= -1;
+      angle += 2 * dAnglePerSide;
     }
-
-    for (var i = 0; i <= sides; i++) {
+    var oldColor = drawer.getPackedColor();
+    drawer.setColor(Color.WHITE_FLOAT_BITS);
+    for (var i = 1; i <= sides; i++) {
+      if (i > 1 && debug) {
+        drawer.setColor(Color.RED);
+      }
       var cos = MathUtils.cos(angle);
       var sin = MathUtils.sin(angle);
       angle += dAnglePerSide;
@@ -495,7 +555,11 @@ public class AreaRenderer {
 
       list.add(x);
       list.add(y);
+      if (debug) {
+        drawer.circle(x, y, 2);
+      }
     }
+    drawer.setColor(oldColor);
   }
 
   private SideEstimator sideEstimator = new DefaultSideEstimator();
