@@ -615,4 +615,4 @@ task createWrapper(type: Wrapper) {
 
 // Configure current release tag in Sentry.io properties
 processResources.dependsOn configSentryRelease
-configSentryRelease.dependsOn 'spotlessCheck'
+//configSentryRelease.dependsOn 'spotlessCheck'

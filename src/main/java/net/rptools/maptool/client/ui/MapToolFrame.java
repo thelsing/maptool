@@ -415,11 +415,12 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     zoneRendererPanel.setBackground(Color.black);
     currentRenderPanel = zoneRendererPanel;
     initGdx();
+
     // zoneRendererPanel.add(zoneMiniMapPanel, PositionalLayout.Position.SE);
     // zoneRendererPanel.add(getChatTypingLabel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatTypingPanel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatActionLabel(), PositionalLayout.Position.SW);
-
+    zoneRendererPanel.add(gdxPanel, PositionalLayout.Position.CENTER);
     commandPanel = new CommandPanel();
 
     rendererBorderPanel = new JPanel(new GridLayout());
@@ -487,38 +488,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   }
 
   public void addGdx() {
-    var show = !(currentRenderPanel instanceof GLJPanel);
-
-    JPanel nextRenderPanel;
-    if (show) {
-      nextRenderPanel = gdxPanel;
-    } else {
-      nextRenderPanel = zoneRendererPanel;
-    }
-
-    var layout = (PositionalLayout) currentRenderPanel.getLayout();
-    for (Component c : currentRenderPanel.getComponents()) {
-      nextRenderPanel.add(c, layout.getComponentConstraints(c));
-    }
-    currentRenderPanel.setVisible(false);
-    nextRenderPanel.setVisible(true);
-    rendererBorderPanel.remove(currentRenderPanel);
-
-    rendererBorderPanel.add(nextRenderPanel);
-    currentRenderPanel = nextRenderPanel;
-    correctGdxSize();
-    refresh();
+    gdxPanel.setVisible(!gdxPanel.isVisible());
   }
-
-  private void correctGdxSize() {
-    if (currentRenderPanel == gdxPanel) {
-      gdxPanel.initializeBackend(false);
-      gdxPanel.reshape(0, 0, 0, 0);
-      gdxPanel.revalidate();
-    }
-  }
-
-  public GLJPanel getGdxPanel() {
+   public GLJPanel getGdxPanel() {
     return gdxPanel;
   }
 
@@ -1658,7 +1630,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     }
     if (renderer != null) {
       zoneRendererPanel.add(
-          renderer, PositionalLayout.Position.CENTER, zoneRendererPanel.getComponentCount() - 1);
+          renderer, PositionalLayout.Position.CENTER, zoneRendererPanel.getComponentCount() - 2);
       zoneRendererPanel.doLayout();
     }
     currentRenderer = renderer;
@@ -1793,8 +1765,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     Rectangle bounds = graphicsConfig.getBounds();
 
     fullScreenFrame = new FullScreenFrame();
-    fullScreenFrame.add(currentRenderPanel);
-    correctGdxSize();
+    fullScreenFrame.add(zoneRendererPanel);
 
     // Under mac os x this does not properly hide the menu bar so adjust top and height
     // so menu bar does not overlay screen.
@@ -1882,6 +1853,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     zoneRendererPanel.setComponentZOrder(initiativePanel, 0);
 
     zoneRendererPanel.revalidate();
+    zoneRendererPanel.doLayout();
     zoneRendererPanel.repaint();
 
     fullScreenToolsShown = true;
@@ -1927,7 +1899,6 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     hideFullScreenTools();
 
     rendererBorderPanel.add(currentRenderPanel);
-    correctGdxSize();
     setJMenuBar(menuBar);
     menuBar.setVisible(true);
     this.setVisible(true);

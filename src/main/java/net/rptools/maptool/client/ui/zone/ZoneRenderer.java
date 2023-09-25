@@ -846,7 +846,12 @@ public class ZoneRenderer extends JComponent
       PlayerView pl = getPlayerView();
       timer.stop("paintComponent:createView");
 
-      renderZone(bufferG2d, pl);
+      // we still need to render the different overlays
+      var g2dForRendering = bufferG2d;
+      if(skipDrawing) {
+        g2dForRendering = g2d;
+      }
+      renderZone(g2dForRendering, pl);
       int noteVPos = 20;
       if (MapTool.getFrame().areFullScreenToolsShown()) noteVPos += 40;
 
