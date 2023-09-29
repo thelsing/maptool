@@ -43,6 +43,7 @@ public class MapToolExpressionParser extends ExpressionParser {
               ExecFunction.getInstance(),
               FindTokenFunctions.getInstance(),
               HasImpersonated.getInstance(),
+              IlluminationFunctions.getInstance(),
               InitiativeRoundFunction.getInstance(),
               InputFunction.getInstance(),
               IsTrustedFunction.getInstance(),
@@ -108,7 +109,8 @@ public class MapToolExpressionParser extends ExpressionParser {
               new PlayerFunctions(),
               new LibraryFunctions(),
               new DataFunctions(),
-              new ServerFunctions())
+              new ServerFunctions(),
+              new SlashCommands())
           .collect(Collectors.toList());
 
   public MapToolExpressionParser() {

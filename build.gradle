@@ -8,7 +8,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.18'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.9.3'
     }
 }
 
@@ -21,8 +21,9 @@ plugins {
     id "com.diffplug.spotless" version "6.18.0"
     id 'org.openjfx.javafxplugin' version '0.0.13'
     id 'org.beryx.runtime' version '1.13.0'
-    id "com.google.protobuf" version "0.8.19"
+    id "com.google.protobuf" version "0.9.3"
     id 'io.github.file5.guidesigner' version '1.0.2'
+
 }
 
 // Definitions
@@ -180,8 +181,9 @@ tasks.register('deleteUiClasses') {
         delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/preferencesdialog/PreferencesDialogView.class")
         delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/startserverdialog/StartServerDialogView.class")
         delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/token/dialog/create/NewTokenDialogView.class")
-        delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/token/dialog/edit/TokenPropertiesDialog..class")
+        delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/token/dialog/edit/TokenPropertiesDialog.class")
         delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/transferprogressdialog/TransferProgressDialogView.class")
+        delete("${buildDir}/classes/java/main/net/rptools/maptool/client/ui/addon/AddOnLibrariesDialogView.class")
     }
 }
 
@@ -269,7 +271,7 @@ runtime {
                     '--mac-package-name', project.name + developerRelease
             ]
             targetPlatform('mac') {
-                jdkHome = jdkDownload('https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_x64_mac_hotspot_20_36.tar.gz');
+                jdkHome = jdkDownload('https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20.0.1%2B9/OpenJDK20U-jdk_x64_mac_hotspot_20.0.1_9.tar.gz');
                 jvmArgs += [ '-Xdock:name=' + project.name + developerRelease ]
             }
         }
@@ -295,7 +297,7 @@ runtime {
                 ]
             }
             targetPlatform('linux') {
-                jdkHome = jdkDownload('https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jre_x64_linux_hotspot_20_36.tar.gz');
+                jdkHome = jdkDownload('https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20.0.1%2B9/OpenJDK20U-jdk_x64_linux_hotspot_20.0.1_9.tar.gz');
             }
         }
     }
@@ -384,6 +386,7 @@ dependencies {
     implementation 'net.tsc.servicediscovery:servicediscovery:1.0.b5'
 
     //maybe replace with jupnp
+    implementation 'commons-jxpath:commons-jxpath:1.3'
     implementation 'net.sbbi.upnp:upnplib:1.0.9-nodebug'
 
     // custom binding stuff, should probably be replace with Beans Binding (JSR 295)
@@ -448,7 +451,7 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.3'
 
     // For mocking features during unit tests
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.3.0'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.4.0'
 
     // flexmark markdown parsing / conversion
     implementation 'com.vladsch.flexmark:flexmark-all:0.64.0'
@@ -460,7 +463,7 @@ dependencies {
     implementation 'com.github.cwisniew:NoiseLib:1.0.0' // The most recent version, 1.0.0 is build for a later java version: major version 55 is newer than 54, the highest major version supported by this compiler
 
     // webrtc
-    implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.5.2'
+    implementation group: 'org.java-websocket', name: 'Java-WebSocket', version: '1.5.3'
     implementation 'dev.onvoid.webrtc:webrtc-java:0.7.0'
     if (osdetector.os.is('windows'))
         implementation 'dev.onvoid.webrtc:webrtc-java:0.7.0:windows-x86_64'
@@ -490,6 +493,9 @@ dependencies {
     implementation 'com.jetbrains.intellij.java:java-gui-forms-rt:223.7571.182'
     // layout for forms created in code
     implementation 'com.miglayout:miglayout-swing:11.1'
+
+    implementation 'com.github.jknack:handlebars:4.3.1'
+    implementation 'com.github.jknack:handlebars-helpers:4.3.1'
 
     // translation service
     implementation 'com.deepl.api:deepl-java:1.1.0'
@@ -586,7 +592,7 @@ test {
 }
 
 task createWrapper(type: Wrapper) {
-    gradleVersion = '8.1'
+    gradleVersion = '8.2.1'
 }
 
 // Configure current release tag in Sentry.io properties

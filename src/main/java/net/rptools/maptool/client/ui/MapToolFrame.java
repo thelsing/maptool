@@ -17,6 +17,7 @@ package net.rptools.maptool.client.ui;
 import com.google.common.eventbus.Subscribe;
 import com.jidesoft.docking.DefaultDockableHolder;
 import com.jidesoft.docking.DockableFrame;
+import com.jidesoft.docking.DockingManager;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
@@ -71,6 +72,7 @@ import net.rptools.maptool.client.ui.assetpanel.AssetDirectory;
 import net.rptools.maptool.client.ui.assetpanel.AssetPanel;
 import net.rptools.maptool.client.ui.commandpanel.CommandPanel;
 import net.rptools.maptool.client.ui.connections.ClientConnectionPanel;
+import net.rptools.maptool.client.ui.docking.MapToolDockingManager;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelPopupMenu;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelTreeCellRenderer;
 import net.rptools.maptool.client.ui.drawpanel.DrawPanelTreeModel;
@@ -622,6 +624,11 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return frameMap.get(frame);
   }
 
+  @Override
+  protected DockingManager createDockingManager(Container container) {
+    return new MapToolDockingManager(this, container);
+  }
+
   private void initializeFrames() {
     frameMap.put(
         MTFrame.CONNECTIONS,
@@ -903,7 +910,22 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return saveFileChooser;
   }
 
+  /**
+   * Show the control panel. If panels is not empty then the control panel's contents are replaced
+   * with the passed contents. If it is empty (no arguments) then it will restore the control panel
+   * if it is hidden.
+   *
+   * @param panels The panels to add to control panel, or empty to restore hidden control panel.
+   * @see #hideControlPanel()
+   */
   public void showControlPanel(JPanel... panels) {
+    if (panels.length == 0) {
+      if (visibleControlPanel != null) {
+        visibleControlPanel.setVisible(true);
+      }
+      return;
+    }
+
     JPanel layoutPanel = new JPanel(new GridBagLayout());
     layoutPanel.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
 
@@ -968,13 +990,33 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     return coordinateStatusBar;
   }
 
-  public void hideControlPanel() {
+  /**
+   * Removes the control panel. IF you want to temporarily hide the control panel use {@link
+   * #hideControlPanel()}.
+   *
+   * @see #hideControlPanel()
+   * @see #showControlPanel(JPanel...)
+   */
+  public void removeControlPanel() {
     if (visibleControlPanel != null) {
       if (zoneRendererPanel != null) {
         zoneRendererPanel.remove(visibleControlPanel);
       }
       visibleControlPanel = null;
       refresh();
+    }
+  }
+
+  /**
+   * Hides but does not remove the current control panel. To restore the control panel use {@link
+   * #showControlPanel(JPanel...)} with an empty argument list.
+   *
+   * @see #showControlPanel(JPanel...)
+   * @see #removeControlPanel()
+   */
+  public void hideControlPanel() {
+    if (visibleControlPanel != null) {
+      visibleControlPanel.setVisible(false);
     }
   }
 

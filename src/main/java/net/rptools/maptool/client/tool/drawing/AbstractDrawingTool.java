@@ -138,7 +138,7 @@ public abstract class AbstractDrawingTool extends DefaultTool implements ZoneOve
 
   @Override
   protected void detachFrom(ZoneRenderer renderer) {
-    MapTool.getFrame().hideControlPanel();
+    MapTool.getFrame().removeControlPanel();
     renderer.setCursor(Cursor.getDefaultCursor());
 
     isSnapToGridSelected = MapTool.getFrame().getColorPicker().isSnapSelected();
@@ -333,7 +333,7 @@ public abstract class AbstractDrawingTool extends DefaultTool implements ZoneOve
       return;
     }
     if (MapTool.getPlayer().isGM()) {
-      drawable.setLayer(renderer.getActiveLayer());
+      drawable.setLayer(getSelectedLayer());
     } else {
       drawable.setLayer(Layer.TOKEN);
     }
