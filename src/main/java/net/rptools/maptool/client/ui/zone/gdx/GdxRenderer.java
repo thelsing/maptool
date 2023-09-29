@@ -14,6 +14,8 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import box2dLight.PointLight;
+import box2dLight.RayHandler;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
@@ -26,6 +28,9 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreetypeFontLoader;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.physics.box2d.Box2D;
+import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
+import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.GdxRuntimeException;
@@ -174,8 +179,13 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private final TiledDrawable tmpTile = new TiledDrawable();
 
   private final EarClippingTriangulator triangulator = new EarClippingTriangulator();
+  private World world;
+  private Box2DDebugRenderer debugRenderer;
+  private RayHandler rayHandler;
 
+  private PointLight light;
   public GdxRenderer() {
+    Box2D.init();
     new MapToolEventBus().getMainEventBus().register(this);
   }
 
@@ -201,6 +211,13 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       bigSprites.clear();
       animationMap.clear();
     }
+
+    world = new World(new Vector2(0, 0), true);
+    debugRenderer = new Box2DDebugRenderer();
+    rayHandler = new RayHandler(world);
+    rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    rayHandler.setBlurNum(3);
+    light  =  new PointLight(rayHandler, 10, new Color(1,1,1,1), 10, 10, 10);
 
     tokenAtlas = new TextureAtlas();
     manager = new com.badlogic.gdx.assets.AssetManager();
@@ -261,6 +278,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         atlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
     packer.dispose();
     tokenAtlas.dispose();
+    rayHandler.dispose();
+    world.dispose();
   }
 
   @Override
@@ -315,7 +334,32 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     ensureCorrectDistanceFont();
     ScreenUtils.clear(Color.BLACK);
+    boolean stepped = fixedStep(delta);
+
     doRendering();
+    rayHandler.setCombinedMatrix(hudCam);
+
+    if (stepped) rayHandler.update();
+    rayHandler.render();
+    debugRenderer.render(world, cam.combined);
+  }
+
+  private float TIME_STEP = 1/60f;
+  private int VELOCITY_ITERATIONS = 6;
+  private int POSITION_ITERATIONS = 2;
+  private float accumulator = 0f;
+  private boolean fixedStep(float deltaTime) {
+    // fixed time step
+    // max frame time to avoid spiral of death (on slow devices)
+    float frameTime = Math.min(deltaTime, 0.25f);
+    accumulator += frameTime;
+    boolean stepped = false;
+    while (accumulator >= TIME_STEP) {
+      world.step(TIME_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+      accumulator -= TIME_STEP;
+      stepped = true;
+    }
+    return stepped;
   }
 
   @NotNull
