@@ -26,6 +26,7 @@ import java.io.*;
 import java.net.URLDecoder;
 import java.nio.file.*;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -84,13 +85,23 @@ public class FoundryModuleImporter {
   private Zone libTokenZone;
 
   public void importVTT() throws IOException {
-    libTokenZone =
+    var dmZone =
         MapTool.getCampaign().getZones().stream()
             .filter(z -> z.getName().equals("00.DM"))
-            .findFirst()
-            .get();
+            .findFirst();
+
+    if (dmZone.isPresent()) {
+      libTokenZone = dmZone.get();
+    } else {
+      libTokenZone =
+          MapTool.getCampaign().getZones().stream()
+              .sorted(Comparator.comparing(Zone::getName))
+              .findFirst()
+              .get();
+    }
+
     var path =
-        Paths.get(/*"C:\\Users\\tkunze\\Downloads\\cos-bluewater-pk.zip" */moduleFile.getPath());
+        Paths.get(/*"C:\\Users\\tkunze\\Downloads\\cos-bluewater-pk.zip" */ moduleFile.getPath());
     var system = Paths.get("C:\\Users\\tkunze\\Downloads\\dnd5e-release-2.1.5.zip");
     try (var systemFileSystem = FileSystems.newFileSystem(system, new HashMap<>(), null)) {
       systemDir = systemFileSystem.getRootDirectories().iterator().next();
@@ -168,7 +179,7 @@ public class FoundryModuleImporter {
         if (scenes.isJsonArray()) {
           for (var scene : scenes.getAsJsonArray()) {
             importScene(scene.getAsJsonObject());
-        //    break;
+            //    break;
           }
         }
       }
@@ -194,8 +205,7 @@ public class FoundryModuleImporter {
     String mapName = scene.getAsJsonPrimitive("name").getAsString();
 
     // I don't want the theater of mind maps for now
-    if(mapName.endsWith(" M"))
-      return;
+    if (mapName.endsWith(" M")) return;
 
     var background = scene.getAsJsonObject("background");
     var grid = scene.getAsJsonObject("grid");
@@ -283,12 +293,12 @@ public class FoundryModuleImporter {
     var entryId = noteObj.getAsJsonPrimitive("entryId").getAsString();
     var pageId = "";
     var pageIdTag = noteObj.get("pageId");
-    if(!pageIdTag.isJsonNull()) {
+    if (!pageIdTag.isJsonNull()) {
       pageId = pageIdTag.getAsString();
     }
 
     var entryName = entryNames.get(entryId);
-    if(Strings.isEmpty(name) && !Strings.isEmpty(entryName)) {
+    if (Strings.isEmpty(name) && !Strings.isEmpty(entryName)) {
       name = entryName;
     }
 
@@ -303,8 +313,7 @@ public class FoundryModuleImporter {
     noteToken.setY(noteObj.get("y").getAsInt() - yOffset - LIGHT_HEIGHT / 2);
 
     var pageKey = Pair.with(entryId, pageId);
-    if(pageImages.containsKey(pageKey))
-    {
+    if (pageImages.containsKey(pageKey)) {
       noteToken.setPortraitImage(pageImages.get(pageKey));
     }
 
@@ -315,17 +324,17 @@ public class FoundryModuleImporter {
 
     mbp.setLabel("Notebook");
     mbp.setSaveLocation("Token");
-    if(Strings.isEmpty(pageId)) {
+    if (Strings.isEmpty(pageId)) {
       mbp.setCommand("[macro('Index@lib:Notebook'):'%s']".formatted(libTokenName));
     } else {
 
       mbp.setCommand(
-              "\n"
-                      + "[h:value=getLibProperty(\"Value\",\"%s\")]\n".formatted(libTokenName)
-                      + "[h:description=json.get(value,\"%s\")]\n".formatted(pageName)
-                      + "[h,if(isGM()==1):share=0;share=1]\n"
-                      + "[macro(\"Content@Lib:Notebook\"):\"key=%s;description=\"+encode(description)+\";tokenName=%s;share=\"+share]"
-                      .formatted(pageName, libTokenName));
+          "\n"
+              + "[h:value=getLibProperty(\"Value\",\"%s\")]\n".formatted(libTokenName)
+              + "[h:description=json.get(value,\"%s\")]\n".formatted(pageName)
+              + "[h,if(isGM()==1):share=0;share=1]\n"
+              + "[macro(\"Content@Lib:Notebook\"):\"key=%s;description=\"+encode(description)+\";tokenName=%s;share=\"+share]"
+                  .formatted(pageName, libTokenName));
     }
     try {
       MacroFunctions.setMacroProps(mbp, "minWidth=120;fontColor=white;color=gray50;", ";");
@@ -367,8 +376,6 @@ public class FoundryModuleImporter {
       isTile = false;
     }
 
-
-
     var token = new Token(name, asset.getMD5Key());
     if (isTile) {
       token.setLayer(Layer.BACKGROUND);
@@ -407,7 +414,7 @@ public class FoundryModuleImporter {
   }
 
   private void importJournal(String label, JsonArray journal) throws IOException {
- /*   var journalDir = Paths.get("C:\\Users\\tkunze\\OneDrive\\Desktop\\lobjournal");
+    /*   var journalDir = Paths.get("C:\\Users\\tkunze\\OneDrive\\Desktop\\lobjournal");
     var moduleJournalDir = journalDir.resolve(label);
     if (!Files.exists(moduleJournalDir)) {
       Files.createDirectory(moduleJournalDir);
@@ -483,7 +490,7 @@ public class FoundryModuleImporter {
         }
         pageSet.put(sort, builder.toString());
       }
-/*
+      /*
       var entryFile = moduleJournalDir.resolve("%s.html".formatted(name));
       try (var fs =
           new PrintWriter(
@@ -537,7 +544,7 @@ public class FoundryModuleImporter {
       byte[] tokenImageBytes = Files.readAllBytes(imagePath);
       Asset asset = Asset.createImageAsset(imagePath.getFileName().toString(), tokenImageBytes);
       AssetManager.putAsset(asset);
-      if(!pageImages.containsKey(pageKey)) {
+      if (!pageImages.containsKey(pageKey)) {
         pageImages.put(pageKey, asset.getMD5Key());
       }
       content = content.replace(toReplace, "asset://%s".formatted(asset.getMD5Key()));
