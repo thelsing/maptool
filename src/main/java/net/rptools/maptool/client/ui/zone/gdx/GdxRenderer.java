@@ -132,7 +132,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private boolean showAstarDebugging = false;
 
   // general resources
-  private PerspectiveCamera cam;
+  private OrthographicCamera cam;
+  private PerspectiveCamera cam3d;
   private OrthographicCamera hudCam;
   private PolygonSpriteBatch batch;
   private boolean initialized = false;
@@ -184,6 +185,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private RayHandler rayHandler;
 
   private PointLight light;
+
   public GdxRenderer() {
     Box2D.init();
     new MapToolEventBus().getMainEventBus().register(this);
@@ -211,14 +213,22 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       bigSprites.clear();
       animationMap.clear();
     }
+    /*
+        world = new World(new Vector2(0, 0), true);
+        debugRenderer = new Box2DDebugRenderer();
+        RayHandler.setGammaCorrection(true);
+        RayHandler.useDiffuseLight(true);
 
-    world = new World(new Vector2(0, 0), true);
-    debugRenderer = new Box2DDebugRenderer();
-    rayHandler = new RayHandler(world);
-    rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
-    rayHandler.setBlurNum(3);
-    light  =  new PointLight(rayHandler, 10, new Color(1,1,1,1), 10, 10, 10);
+        rayHandler = new RayHandler(world);
+        rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+        rayHandler.setBlurNum(3);
 
+        //light  =
+                new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
+        new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
+        new PointLight(rayHandler, 128, Color.BLUE, 600, 350, -350);
+
+    */
     tokenAtlas = new TextureAtlas();
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
@@ -231,9 +241,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     width = Gdx.graphics.getWidth();
     height = Gdx.graphics.getHeight();
 
-    // we don't use an OrthographicCamera here in order to be able to add 3D-Models
-    cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    cam.lookAt(0, 0, 0);
+    // Cam for 3D-Models
+    cam3d = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    cam3d.lookAt(0, 0, 0);
+
+    cam = new OrthographicCamera();
+    cam.setToOrtho(false);
 
     hudCam = new OrthographicCamera();
     hudCam.setToOrtho(false);
@@ -295,16 +308,22 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void updateCam() {
     if (cam == null) return;
 
+    cam3d.viewportWidth = width;
+    cam3d.viewportHeight = height;
+
+    cam3d.position.x = zoom * (width / 2f + offsetX);
+    cam3d.position.y = zoom * (height / 2f * -1 + offsetY);
+    cam3d.position.z =
+        (zoom * height) / (2f * (float) Math.tan(Math.toRadians(cam3d.fieldOfView / 2f)));
+    cam3d.far = 1.1f * cam3d.position.z;
+    cam3d.near = 0.1f * cam3d.position.z;
+    cam3d.update();
+
     cam.viewportWidth = width;
     cam.viewportHeight = height;
-
     cam.position.x = zoom * (width / 2f + offsetX);
     cam.position.y = zoom * (height / 2f * -1 + offsetY);
-    cam.position.z =
-        (zoom * height) / (2f * (float) Math.tan(Math.toRadians(cam.fieldOfView / 2f)));
-    cam.far = 1.1f * cam.position.z;
-    cam.near = 0.1f * cam.position.z;
-
+    cam.zoom = zoom;
     cam.update();
 
     hudCam.viewportWidth = width;
@@ -334,20 +353,21 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     ensureCorrectDistanceFont();
     ScreenUtils.clear(Color.BLACK);
-    boolean stepped = fixedStep(delta);
+    //  boolean stepped = fixedStep(delta);
 
     doRendering();
-    rayHandler.setCombinedMatrix(hudCam);
+    /*  rayHandler.setCombinedMatrix(cam);
 
     if (stepped) rayHandler.update();
     rayHandler.render();
-    debugRenderer.render(world, cam.combined);
+    debugRenderer.render(world, cam.combined);*/
   }
 
-  private float TIME_STEP = 1/60f;
+  private float TIME_STEP = 1 / 60f;
   private int VELOCITY_ITERATIONS = 6;
   private int POSITION_ITERATIONS = 2;
   private float accumulator = 0f;
+
   private boolean fixedStep(float deltaTime) {
     // fixed time step
     // max frame time to avoid spiral of death (on slow devices)

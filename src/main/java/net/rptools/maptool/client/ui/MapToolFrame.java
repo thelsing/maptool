@@ -97,7 +97,6 @@ import net.rptools.maptool.client.ui.zone.PointerOverlay;
 import net.rptools.maptool.client.ui.zone.PointerToolOverlay;
 import net.rptools.maptool.client.ui.zone.ZoneMiniMapPanel;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
-import net.rptools.maptool.client.ui.zone.gdx.Box2DLightsTest;
 import net.rptools.maptool.client.ui.zone.gdx.GdxRenderer;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
@@ -417,10 +416,9 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     currentRenderPanel = zoneRendererPanel;
     initGdx();
 
-    // zoneRendererPanel.add(zoneMiniMapPanel, PositionalLayout.Position.SE);
-    // zoneRendererPanel.add(getChatTypingLabel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatTypingPanel(), PositionalLayout.Position.NW);
     zoneRendererPanel.add(getChatActionLabel(), PositionalLayout.Position.SW);
+    zoneRendererPanel.add(gdxPanel, PositionalLayout.Position.CENTER);
 
     commandPanel = new CommandPanel();
 
@@ -434,7 +432,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
 
     pointerToolOverlay = new PointerToolOverlay();
     zoneRendererPanel.add(pointerToolOverlay, PositionalLayout.Position.CENTER, 0);
-    zoneRendererPanel.add(gdxPanel, PositionalLayout.Position.CENTER, 0);
+
     // Put it all together
     setJMenuBar(menuBar);
     add(BorderLayout.NORTH, toolbarPanel);
@@ -481,7 +479,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     config.title = "maptool";
     config.width = 640;
     config.height = 480;
-    var joglSwingCanvas = new JoglSwingCanvas(new Box2DLightsTest(), config);
+    var joglSwingCanvas = new JoglSwingCanvas(GdxRenderer.getInstance(), config);
 
     gdxPanel = joglSwingCanvas.getGLCanvas();
     gdxPanel.setVisible(false);
@@ -491,7 +489,8 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   public void addGdx() {
     gdxPanel.setVisible(!gdxPanel.isVisible());
   }
-   public GLJPanel getGdxPanel() {
+
+  public GLJPanel getGdxPanel() {
     return gdxPanel;
   }
 
