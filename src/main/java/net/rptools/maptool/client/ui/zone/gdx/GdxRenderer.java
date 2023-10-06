@@ -47,6 +47,7 @@ import java.io.FileNotFoundException;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
+import java.util.zip.Deflater;
 import javax.annotation.Nullable;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
@@ -1225,67 +1226,62 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private List<DrawableLight> drawableLights = null;
 
   private void renderLights(PlayerView view) {
-
     // Collect and organize lights
     timer.start("renderLights:getLights");
-    if (drawableLights == null) {
-      timer.start("renderLights:populateCache");
-      drawableLights = new ArrayList<>(zoneRenderer.getZoneView().getDrawableLights(view));
-      //   drawableLights.removeIf(light -> light.getType() != LightSource.Type.NORMAL);
-      timer.stop("renderLights:populateCache");
-    }
-    timer.start("renderLights:filterLights");
-    final var darknessLights =
-        drawableLights.stream().filter(light -> light.getLumens() < 0).toList();
-    final var nonDarknessLights =
-        drawableLights.stream().filter(light -> light.getLumens() >= 0).toList();
-    timer.stop("renderLights:filterLights");
+    final var drawableLights = zoneRenderer.getZoneView().getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
-    timer.start("renderLights:renderLightOverlay");
-    renderLightOverlay(
-        GL.GL_ALPHA,
-        GL.GL_ONE_MINUS_SRC_ALPHA,
-        new Color(1.0f, 1.0f, 1.0f, AppPreferences.getLightOverlayOpacity() / 255.0f),
-        view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
-        nonDarknessLights,
-        new java.awt.Color(255, 255, 255, 255),
-        1.0f);
-    timer.stop("renderLights:renderLightOverlay");
+    if (AppState.isShowLights()) {
+      // Lighting enabled.
+      timer.start("renderLights:renderLightOverlay");
+      //  final var overlayBlending =
+      //          switch (zone.getLightingStyle()) {
+      //            case OVERTOP -> AlphaComposite.SrcOver.derive(
+      //                    AppPreferences.getLightOverlayOpacity() / 255.f);
+      //            case ENVIRONMENTAL -> LightingComposite.OverlaidLights;
+      //          };
 
-    // Players should not be able to discern the nature of the darkness, so we always render it as
-    // black for them.
-    timer.start("renderLights:renderDarknessOverlay");
-    renderLightOverlay(
-        GL.GL_ALPHA,
-        GL.GL_ONE_MINUS_SRC_ALPHA,
-        view.isGMView()
-            ? new Color(1.0f, 1.0f, 1.0f, AppPreferences.getLightOverlayOpacity() / 255.0f)
-            : Color.BLACK,
-        view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_NOT_VISIBLE_AREA,
-        darknessLights,
-        new java.awt.Color(0, 0, 0, 255),
-        1.0f);
-    timer.stop("renderLights:renderDarknessOverlay");
+      final var overlayFillColor =
+          switch (zone.getLightingStyle()) {
+            case OVERTOP -> Color.CLEAR;
+            case ENVIRONMENTAL -> Color.BLACK;
+          };
+
+      renderLightOverlay(
+          GL.GL_SRC_COLOR,
+          GL.GL_ONE_MINUS_SRC_COLOR,
+          GL.GL_SRC_ALPHA,
+          GL.GL_ONE_MINUS_SRC_ALPHA,
+          new Color(1, 1, 1, AppPreferences.getLightOverlayOpacity() / 255.f),
+          view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
+          drawableLights,
+          overlayFillColor);
+      timer.stop("renderLights:renderLightOverlay");
+    }
+
+    if (AppState.isShowLumensOverlay()) {
+      // Lumens overlay enabled.
+      timer.start("renderLights:renderLumensOverlay");
+      renderLumensOverlay(
+          view,
+          view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
+          AppPreferences.getLumensOverlayOpacity() / 255.0f);
+      timer.stop("renderLights:renderLumensOverlay");
+    }
   }
 
-  /**
-   * Combines a set of lights into an image that is then rendered into the zone.
-   *
-   * @param clipStyle How to clip the overlay relative to the visible area. Set to null for no extra
-   *     clipping.
-   * @param lights The lights that will be rendered and blended.
-   * @param defaultPaint A default paint for lights without a paint.
-   * @param overlayOpacity The opacity used when rendering the final overlay on top of the zone.
-   */
+  private void renderLumensOverlay(
+      PlayerView view, ZoneRenderer.LightOverlayClipStyle lightOverlayClipStyle, float v) {}
+
   private void renderLightOverlay(
-      int blendSrcFunc,
-      int blendDstFunc,
+      int lightBlendSrcFunc,
+      int lightBlendDstFunc,
+      int overlayBlendSrcFunc,
+      int overlayBlendDstFunc,
       Color tintColor,
       @Nullable ZoneRenderer.LightOverlayClipStyle clipStyle,
-      List<DrawableLight> lights,
-      Paint defaultPaint,
-      float overlayOpacity) {
+      Collection<DrawableLight> lights,
+      Color backgroundFill) {
     if (lights.isEmpty()) {
       // No points spending resources accomplishing nothing.
       return;
@@ -1294,17 +1290,17 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     // Set up a buffer image for lights to be drawn onto before the map
     timer.start("renderLightOverlay:allocateBuffer");
     backBuffer.begin();
+    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
     ScreenUtils.clear(Color.CLEAR);
     setProjectionMatrix(cam.combined);
-    batch.setBlendFunction(blendSrcFunc, blendDstFunc);
-    drawer.update();
-
+    batch.setBlendFunction(lightBlendSrcFunc, lightBlendDstFunc);
+    //batch.setColor(tintColor);
     timer.stop("renderLightOverlay:allocateBuffer");
-    drawer.setColor(tintColor);
+    // drawer.setColor(tintColor);
     // Draw lights onto the buffer image so the map doesn't affect how they blend
     timer.start("renderLightOverlay:drawLights");
     for (var light : lights) {
-      var paint = light.getPaint() != null ? light.getPaint().getPaint() : defaultPaint;
+      var paint = light.getPaint().getPaint();
 
       if (paint instanceof DrawableColorPaint) {
         var colorPaint = (DrawableColorPaint) paint;
@@ -1316,29 +1312,30 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         System.out.println("unexpected color type");
         continue;
       }
-      drawer.setColor(tmpColor);
-      var areaToPaint = (Area) light.getArea().clone();
-      if (clipStyle != null && visibleScreenArea != null) {
-        switch (clipStyle) {
-          case CLIP_TO_VISIBLE_AREA -> areaToPaint.intersect(visibleScreenArea);
-          case CLIP_TO_NOT_VISIBLE_AREA -> areaToPaint.subtract(visibleScreenArea);
-        }
-      }
-      areaRenderer.fillArea(batch, areaToPaint);
+
+      areaRenderer.setColor(tmpColor);
+      areaRenderer.fillArea(batch, light.getArea());
     }
-    drawer.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     timer.stop("renderLightOverlay:drawLights");
-
+    batch.end();
     // Draw the buffer image with all the lights onto the map
+    var file = Gdx.files.absolute("C:\\Users\\tkunze\\OneDrive\\Desktop\\buffer.png");
+    if(!file.exists()) {
+      Pixmap pixmap = Pixmap.createFromFrameBuffer(0, 0, width, height);
+      PixmapIO.writePNG(file, pixmap, Deflater.DEFAULT_COMPRESSION, true);
+      pixmap.dispose();
+    }
     timer.start("renderLightOverlay:drawBuffer");
-    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     backBuffer.end();
-
+    batch.begin();
+    batch.setBlendFunction(overlayBlendSrcFunc, overlayBlendDstFunc);
     setProjectionMatrix(hudCam.combined);
-    batch.setColor(1.0f, 1.0f, 1.0f, overlayOpacity);
+
+
+
     batch.draw(
         backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, width, height, false, true);
-    batch.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+    batch.setColor(Color.WHITE);
     setProjectionMatrix(cam.combined);
     timer.stop("renderLightOverlay:drawBuffer");
   }
