@@ -137,6 +137,8 @@ public class AreaRenderer {
   public FloatArray pathToFloatArray(PathIterator it) {
     tmpFloat.clear();
 
+    float moveToX = 0;
+    float moveToY = 0;
     for (; !it.isDone(); it.next()) {
       int type = it.currentSegment(floatsFromArea);
 
@@ -144,18 +146,16 @@ public class AreaRenderer {
         case PathIterator.SEG_MOVETO:
           //                   System.out.println("Move to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
+          moveToX = floatsFromArea[0];
+          moveToY = -floatsFromArea[1];
           tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
 
           break;
         case PathIterator.SEG_CLOSE:
           //                   System.out.println("Close");
-          if (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-              && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
-            // make sure we don't have last and first point the same
-            tmpFloat.pop();
-            tmpFloat.pop();
-          }
-          return tmpFloat;
+          tmpFloat.add(moveToX, moveToY);
+          break;
+         // return tmpFloat;
         case PathIterator.SEG_LINETO:
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
@@ -206,6 +206,12 @@ public class AreaRenderer {
         default:
           System.out.println("Type: " + type);
       }
+    }
+    if (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
+            && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+      // make sure we don't have last and first point the same
+      tmpFloat.pop();
+      tmpFloat.pop();
     }
     return tmpFloat;
   }

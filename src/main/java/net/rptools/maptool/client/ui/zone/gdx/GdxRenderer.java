@@ -38,7 +38,6 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.video.VideoPlayer;
 import com.badlogic.gdx.video.VideoPlayerCreator;
 import com.google.common.eventbus.Subscribe;
-import com.jogamp.opengl.GL;
 import java.awt.*;
 import java.awt.Shape;
 import java.awt.geom.*;
@@ -48,7 +47,6 @@ import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
 import java.util.zip.Deflater;
-import javax.annotation.Nullable;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
@@ -255,6 +253,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     updateCam();
 
     batch = new PolygonSpriteBatch();
+    batch.enableBlending();
 
     backBuffer = new FrameBuffer(Pixmap.Format.RGBA8888, width, height, false);
 
@@ -483,8 +482,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   public void invalidateCurrentViewCache() {
     flushFog = true;
-    drawableLights = null;
-    drawableAuras = null;
     visibleScreenArea = null;
     lastView = null;
 
@@ -791,8 +788,11 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.start("renderFog");
     //  if (flushFog || cacheNotValid)
     {
+      batch.flush();
+
       backBuffer.begin();
       ScreenUtils.clear(Color.CLEAR);
+
       batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
       setProjectionMatrix(cam.combined);
 
@@ -903,8 +903,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       timer.stop("renderFogArea");
 
       flushFog = false;
-      // createScreenShot("fog");
+      // createScreenshot("fog");
       batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+      batch.flush();
+
       backBuffer.end();
     }
 
@@ -1195,35 +1197,20 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     image.draw(batch);
   }
 
-  /** Holds the auras from lightSourceMap after they have been combined. */
-  private List<DrawableLight> drawableAuras;
-
   private void renderAuras(PlayerView view) {
     var alpha = AppPreferences.getAuraOverlayOpacity() / 255.0f;
 
-    timer.start("auras-4");
-    /*
-        for (DrawableLight light : zoneRenderer.getZoneView().getLights(LightSource.Type.AURA)) {
-          var paint = light.getPaint();
-          if (paint != null && paint instanceof DrawableColorPaint) {
-            var colorPaint = (DrawableColorPaint) paint;
-            Color.argb8888ToColor(tmpColor, colorPaint.getColor());
-            tmpColor.a = alpha;
-          } else {
-            tmpColor.set(1, 1, 1, 0.59f);
-          }
-          drawer.setColor(tmpColor);
-          areaRenderer.fillArea(light.getArea());
-        }
-    */
-    timer.stop("auras-4");
-  }
+    // Setup
+    timer.start("renderAuras:getAuras");
+    final var drawableAuras = zoneRenderer.getZoneView().getDrawableAuras();
+    timer.stop("renderAuras:getAuras");
 
-  /**
-   * Cached set of lights arranged by lumens for some stability. TODO Token draw order would be
-   * nice.
-   */
-  private List<DrawableLight> drawableLights = null;
+    timer.start("renderAuras:renderAuraOverlay");
+    renderLightOverlay(
+            drawableAuras,
+            alpha);
+    timer.stop("renderAuras:renderAuraOverlay");
+  }
 
   private void renderLights(PlayerView view) {
     // Collect and organize lights
@@ -1234,28 +1221,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (AppState.isShowLights()) {
       // Lighting enabled.
       timer.start("renderLights:renderLightOverlay");
-      //  final var overlayBlending =
-      //          switch (zone.getLightingStyle()) {
-      //            case OVERTOP -> AlphaComposite.SrcOver.derive(
-      //                    AppPreferences.getLightOverlayOpacity() / 255.f);
-      //            case ENVIRONMENTAL -> LightingComposite.OverlaidLights;
-      //          };
+      // zone.getLightingStyle() is not supported currently as you would probably need a custom
+      // shader
 
-      final var overlayFillColor =
-          switch (zone.getLightingStyle()) {
-            case OVERTOP -> Color.CLEAR;
-            case ENVIRONMENTAL -> Color.BLACK;
-          };
-
-      renderLightOverlay(
-          GL.GL_SRC_COLOR,
-          GL.GL_ONE_MINUS_SRC_COLOR,
-          GL.GL_SRC_ALPHA,
-          GL.GL_ONE_MINUS_SRC_ALPHA,
-          new Color(1, 1, 1, AppPreferences.getLightOverlayOpacity() / 255.f),
-          view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
-          drawableLights,
-          overlayFillColor);
+      renderLightOverlay(drawableLights, AppPreferences.getLightOverlayOpacity() / 255.f);
       timer.stop("renderLights:renderLightOverlay");
     }
 
@@ -1273,15 +1242,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void renderLumensOverlay(
       PlayerView view, ZoneRenderer.LightOverlayClipStyle lightOverlayClipStyle, float v) {}
 
-  private void renderLightOverlay(
-      int lightBlendSrcFunc,
-      int lightBlendDstFunc,
-      int overlayBlendSrcFunc,
-      int overlayBlendDstFunc,
-      Color tintColor,
-      @Nullable ZoneRenderer.LightOverlayClipStyle clipStyle,
-      Collection<DrawableLight> lights,
-      Color backgroundFill) {
+  private void renderLightOverlay(Collection<DrawableLight> lights, float alpha) {
     if (lights.isEmpty()) {
       // No points spending resources accomplishing nothing.
       return;
@@ -1289,12 +1250,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     // Set up a buffer image for lights to be drawn onto before the map
     timer.start("renderLightOverlay:allocateBuffer");
+    batch.flush();
     backBuffer.begin();
-    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
+
     ScreenUtils.clear(Color.CLEAR);
     setProjectionMatrix(cam.combined);
-    batch.setBlendFunction(lightBlendSrcFunc, lightBlendDstFunc);
-    //batch.setColor(tintColor);
+    batch.setBlendFunctionSeparate(GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR, GL20.GL_ONE, GL20.GL_NONE);
     timer.stop("renderLightOverlay:allocateBuffer");
     // drawer.setColor(tintColor);
     // Draw lights onto the buffer image so the map doesn't affect how they blend
@@ -1312,32 +1273,33 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         System.out.println("unexpected color type");
         continue;
       }
-
+      tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, alpha);
       areaRenderer.setColor(tmpColor);
       areaRenderer.fillArea(batch, light.getArea());
     }
+
+    batch.flush();
+    backBuffer.end();
     timer.stop("renderLightOverlay:drawLights");
-    batch.end();
+
     // Draw the buffer image with all the lights onto the map
-    var file = Gdx.files.absolute("C:\\Users\\tkunze\\OneDrive\\Desktop\\buffer.png");
-    if(!file.exists()) {
+    timer.start("renderLightOverlay:drawBuffer");
+    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    setProjectionMatrix(hudCam.combined);
+    //batch.setColor(1, 1, 1, alpha);
+    batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
+    setProjectionMatrix(cam.combined);
+    //batch.setColor(Color.WHITE);
+    timer.stop("renderLightOverlay:drawBuffer");
+  }
+
+  private void createScreenshot(String name) {
+    var file = Gdx.files.absolute("C:\\Users\\tkunze\\OneDrive\\Desktop\\" + name + ".png");
+    if (!file.exists()) {
       Pixmap pixmap = Pixmap.createFromFrameBuffer(0, 0, width, height);
       PixmapIO.writePNG(file, pixmap, Deflater.DEFAULT_COMPRESSION, true);
       pixmap.dispose();
     }
-    timer.start("renderLightOverlay:drawBuffer");
-    backBuffer.end();
-    batch.begin();
-    batch.setBlendFunction(overlayBlendSrcFunc, overlayBlendDstFunc);
-    setProjectionMatrix(hudCam.combined);
-
-
-
-    batch.draw(
-        backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, width, height, false, true);
-    batch.setColor(Color.WHITE);
-    setProjectionMatrix(cam.combined);
-    timer.stop("renderLightOverlay:drawBuffer");
   }
 
   private void renderGrid(PlayerView view) {
@@ -2841,7 +2803,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void paintClipped(Sprite image, Area bounds, Area clip) {
-
+    batch.flush();
     backBuffer.begin();
     ScreenUtils.clear(Color.CLEAR);
 
@@ -2855,6 +2817,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     tmpArea.add(bounds);
     tmpArea.subtract(clip);
     areaRenderer.fillArea(batch, tmpArea);
+    batch.flush();
 
     backBuffer.end();
 
