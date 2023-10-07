@@ -155,7 +155,7 @@ public class AreaRenderer {
           //                   System.out.println("Close");
           tmpFloat.add(moveToX, moveToY);
           break;
-         // return tmpFloat;
+          // return tmpFloat;
         case PathIterator.SEG_LINETO:
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
@@ -208,7 +208,7 @@ public class AreaRenderer {
       }
     }
     if (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-            && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+        && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
       // make sure we don't have last and first point the same
       tmpFloat.pop();
       tmpFloat.pop();

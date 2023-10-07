@@ -758,11 +758,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       java.awt.Color visionColor =
           useHaloColor ? tokenUnderMouse.getHaloColor() : tokenUnderMouse.getVisionOverlayColor();
 
-      drawer.setColor(
+      tmpColor.set(
           visionColor.getRed() / 255f,
           visionColor.getGreen() / 255f,
           visionColor.getBlue() / 255f,
           AppPreferences.getHaloOverlayOpacity() / 255f);
+      areaRenderer.setColor(tmpColor);
       areaRenderer.fillArea(batch, visible);
     }
   }
@@ -849,8 +850,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
               || !MapTool.getServerPolicy().isUseIndividualFOW()
               || view.isGMView();
 
-      drawer.setColor(Color.CLEAR);
-
       if (view.getTokens() != null) {
         // if there are tokens selected combine the areas, then, if individual FOW is enabled
         // we pass the combined exposed area to build the soft FOW and visible area.
@@ -860,6 +859,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           tempArea.add(new Area(exposedArea));
         }
         if (combinedView) {
+          areaRenderer.setColor(Color.CLEAR);
           areaRenderer.fillArea(batch, combined);
           renderFogArea(combined, visibleArea);
           renderFogOutline();
@@ -867,7 +867,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           // 'combined' already includes the area encompassed by 'tempArea', so just
           // use 'combined' instead in this block of code?
           tempArea.add(combined);
-
+          areaRenderer.setColor(Color.CLEAR);
           areaRenderer.fillArea(batch, tempArea);
           renderFogArea(tempArea, visibleArea);
           renderFogOutline();
@@ -879,6 +879,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           if (combined.isEmpty()) {
             combined = zone.getExposedArea();
           }
+          areaRenderer.setColor(Color.CLEAR);
           areaRenderer.fillArea(batch, combined);
           renderFogArea(combined, visibleArea);
           renderFogOutline();
@@ -895,6 +896,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             exposedArea = meta.getExposedAreaHistory();
             myCombined.add(new Area(exposedArea));
           }
+          areaRenderer.setColor(Color.CLEAR);
           areaRenderer.fillArea(batch, myCombined);
           renderFogArea(myCombined, visibleArea);
           renderFogOutline();
@@ -903,17 +905,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       timer.stop("renderFogArea");
 
       flushFog = false;
-      // createScreenshot("fog");
-      batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
       batch.flush();
+      createScreenshot("fog");
 
       backBuffer.end();
     }
-
+    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
     batch.setColor(Color.WHITE);
-    batch.draw(
-        backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, width, height, false, true);
+    batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
 
     setProjectionMatrix(cam.combined);
     timer.stop("renderFog");
@@ -927,21 +927,20 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void renderFogArea(Area softFog, Area visibleArea) {
     if (zoneRenderer.getZoneView().isUsingVision()) {
       if (visibleArea != null && !visibleArea.isEmpty()) {
-        drawer.setColor(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
-
+        tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
+        areaRenderer.setColor(tmpColor);
         // Fill in the exposed area
         areaRenderer.fillArea(batch, softFog);
 
-        // batch.setColor(Color.CLEAR);
-        drawer.setColor(Color.CLEAR);
-
+        areaRenderer.setColor(Color.CLEAR);
         areaRenderer.fillArea(batch, visibleArea);
       } else {
-        drawer.setColor(0, 0, 0, 80 / 255.0f);
+        tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
+        areaRenderer.setColor(tmpColor);
         areaRenderer.fillArea(batch, softFog);
-        drawer.setColor(Color.WHITE);
       }
     } else {
+      areaRenderer.setColor(Color.CLEAR);
       areaRenderer.fillArea(batch, softFog);
     }
   }
@@ -1206,9 +1205,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
-    renderLightOverlay(
-            drawableAuras,
-            alpha);
+    renderLightOverlay(drawableAuras, alpha);
     timer.stop("renderAuras:renderAuraOverlay");
   }
 
@@ -1240,7 +1237,102 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderLumensOverlay(
-      PlayerView view, ZoneRenderer.LightOverlayClipStyle lightOverlayClipStyle, float v) {}
+      PlayerView view,
+      ZoneRenderer.LightOverlayClipStyle lightOverlayClipStyle,
+      float overlayAlpha) {
+    /*  final var disjointLumensLevels = zoneView.getDisjointObscuredLumensLevels(view);
+
+        timer.start("renderLumensOverlay:allocateBuffer");
+        try (final var bufferHandle = tempBufferPool.acquire()) {
+          BufferedImage lumensOverlay = bufferHandle.get();
+          timer.stop("renderLumensOverlay:allocateBuffer");
+
+          Graphics2D newG = lumensOverlay.createGraphics();
+          // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
+          newG.setComposite(AlphaComposite.Src.derive(overlayOpacity));
+          newG.setPaint(
+                  zone.getVisionType() == Zone.VisionType.NIGHT
+                          ? new java.awt.Color(0.f, 0.f, 0.f, 1.f)
+                          : new java.awt.Color(0.f, 0.f, 0.f, 0.f));
+          newG.fillRect(0, 0, lumensOverlay.getWidth(), lumensOverlay.getHeight());
+
+          newG.setComposite(AlphaComposite.SrcOver.derive(overlayOpacity));
+          SwingUtil.useAntiAliasing(newG);
+
+          if (clipStyle != null && visibleScreenArea != null) {
+            timer.start("renderLumensOverlay:setClip");
+            Area clip = new Area(g.getClip());
+            switch (clipStyle) {
+              case CLIP_TO_VISIBLE_AREA -> clip.intersect(visibleScreenArea);
+              case CLIP_TO_NOT_VISIBLE_AREA -> clip.subtract(visibleScreenArea);
+            }
+            newG.setClip(clip);
+            g.setClip(clip);
+            timer.stop("renderLumensOverlay:setClip");
+          }
+
+          timer.start("renderLumensOverlay:setTransform");
+          AffineTransform af = new AffineTransform();
+          af.translate(getViewOffsetX(), getViewOffsetY());
+          af.scale(getScale(), getScale());
+          newG.setTransform(af);
+          timer.stop("renderLumensOverlay:setTransform");
+
+          timer.start("renderLumensOverlay:drawLumens");
+          for (final var lumensLevel : disjointLumensLevels) {
+            final var lumensStrength = lumensLevel.lumensStrength();
+
+            // Light is weaker than darkness, so do it first.
+            float lightOpacity;
+            float lightShade;
+            if (lumensStrength == 0) {
+              // This area represents daylight, so draw it as clear despite the low value.
+              lightShade = 1.f;
+              lightOpacity = 0;
+            } else if (lumensStrength >= 100) {
+              // Bright light, render mostly clear.
+              lightShade = 1.f;
+              lightOpacity = 1.f / 10.f;
+            } else {
+              lightShade = Math.max(0.f, Math.min(lumensStrength / 100.f, 1.f));
+              lightShade *= lightShade;
+              lightOpacity = 1.f;
+            }
+
+            timer.start("renderLumensOverlay:drawLights:fillArea");
+            newG.setPaint(new java.awt.Color(lightShade, lightShade, lightShade, lightOpacity));
+            newG.fill(lumensLevel.lightArea());
+
+            newG.setPaint(new java.awt.Color(0.f, 0.f, 0.f, 1.f));
+            newG.fill(lumensLevel.darknessArea());
+            timer.stop("renderLumensOverlay:drawLights:fillArea");
+          }
+
+          // Now draw borders around each region if configured.
+          final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
+          if (borderThickness > 0) {
+            newG.setStroke(
+                    new BasicStroke(
+                            (float) borderThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            newG.setComposite(AlphaComposite.SrcOver);
+            newG.setPaint(new java.awt.Color(0.f, 0.f, 0.f, 1.f));
+            for (final var lumensLevel : disjointLumensLevels) {
+              timer.start("renderLumensOverlay:drawLights:drawArea");
+              newG.draw(lumensLevel.lightArea());
+              newG.draw(lumensLevel.darknessArea());
+              timer.stop("renderLumensOverlay:drawLights:drawArea");
+            }
+          }
+
+          timer.stop("renderLumensOverlay:drawLumens");
+          newG.dispose();
+
+          timer.start("renderLumensOverlay:drawBuffer");
+          g.drawImage(lumensOverlay, null, 0, 0);
+          timer.stop("renderLumensOverlay:drawBuffer");
+        }
+    */
+  }
 
   private void renderLightOverlay(Collection<DrawableLight> lights, float alpha) {
     if (lights.isEmpty()) {
@@ -1255,9 +1347,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     ScreenUtils.clear(Color.CLEAR);
     setProjectionMatrix(cam.combined);
-    batch.setBlendFunctionSeparate(GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR, GL20.GL_ONE, GL20.GL_NONE);
+    batch.setBlendFunctionSeparate(
+        GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR, GL20.GL_ONE, GL20.GL_NONE);
     timer.stop("renderLightOverlay:allocateBuffer");
-    // drawer.setColor(tintColor);
+
     // Draw lights onto the buffer image so the map doesn't affect how they blend
     timer.start("renderLightOverlay:drawLights");
     for (var light : lights) {
@@ -1286,10 +1379,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.start("renderLightOverlay:drawBuffer");
     batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
-    //batch.setColor(1, 1, 1, alpha);
+    // batch.setColor(1, 1, 1, alpha);
     batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
     setProjectionMatrix(cam.combined);
-    //batch.setColor(Color.WHITE);
+    // batch.setColor(Color.WHITE);
     timer.stop("renderLightOverlay:drawBuffer");
   }
 
@@ -1681,10 +1774,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             batch.setTransformMatrix(tmpMatrix);
             drawer.update();
 
-            if (token.getFacing() < 0) drawer.setColor(Color.YELLOW);
-            else drawer.setColor(1, 1, 0, 0.5f);
+            if (token.getFacing() < 0) {
+              tmpColor.set(Color.YELLOW);
+            } else {
+              tmpColor.set(1, 1, 0, 0.5f);
+            }
 
             var arrowArea = new Area(arrow);
+            areaRenderer.setColor(tmpColor);
             areaRenderer.fillArea(batch, arrowArea);
 
             areaRenderer.setColor(Color.DARK_GRAY);
@@ -2811,8 +2908,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     image.draw(batch);
 
-    drawer.setColor(Color.CLEAR);
-
+    areaRenderer.setColor(Color.CLEAR);
     tmpArea.reset();
     tmpArea.add(bounds);
     tmpArea.subtract(clip);
