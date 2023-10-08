@@ -25,6 +25,8 @@ import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.badlogic.gdx.utils.IntArray;
 import net.rptools.lib.gdx.Joiner;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
 import space.earlygrey.shapedrawer.ShapeDrawer;
@@ -44,6 +46,8 @@ public class AreaRenderer {
   private TextureRegion whitePixel;
 
   private FloatArray tmpFloat = new FloatArray();
+
+  private IntArray segmentIndicies = new IntArray();
 
   private Color color;
 
@@ -76,6 +80,12 @@ public class AreaRenderer {
     if (area == null || area.isEmpty()) return;
 
     pathToFloatArray(area.getPathIterator(null));
+    while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
+            && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+      // make sure we don't have last and first point the same
+      tmpFloat.pop();
+      tmpFloat.pop();
+    }
     paintVertices(batch, tmpFloat.toArray());
   }
 
@@ -85,10 +95,29 @@ public class AreaRenderer {
     if (area == null || area.isEmpty()) return;
 
     pathToFloatArray(area.getPathIterator(null));
-    var vertices = path(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+    float[] vertices = null;
+    var floats = tmpFloat.toArray();
+    if(segmentIndicies.size == 1) {
+      vertices = path(floats, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+      paintVertices(batch, vertices);
+    } else {
+      var lastSegmentIndex = 0;
+      var color = this.color;
+      for(int i=0; i<segmentIndicies.size;i++) {
+        var idx = segmentIndicies.get(i);
+        var vertexCount = idx-lastSegmentIndex;
+        float[] array = new float[2*vertexCount];
+        System.arraycopy(floats, 2*lastSegmentIndex, array, 0, 2*vertexCount);
+        vertices = path(array, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+        this.color = color;
+        paintVertices(batch, vertices);
+        lastSegmentIndex = idx + 1;
+      }
+      this.color = null;
+    }
     // drawDebug(vertices);
     // debug = true;
-    paintVertices(batch, vertices);
+
     // debug = false;
   }
 
@@ -136,9 +165,11 @@ public class AreaRenderer {
 
   public FloatArray pathToFloatArray(PathIterator it) {
     tmpFloat.clear();
+    segmentIndicies.clear();
 
     float moveToX = 0;
     float moveToY = 0;
+    var index = 0;
     for (; !it.isDone(); it.next()) {
       int type = it.currentSegment(floatsFromArea);
 
@@ -149,17 +180,20 @@ public class AreaRenderer {
           moveToX = floatsFromArea[0];
           moveToY = -floatsFromArea[1];
           tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
-
+          index+=1;
           break;
         case PathIterator.SEG_CLOSE:
           //                   System.out.println("Close");
           tmpFloat.add(moveToX, moveToY);
+          segmentIndicies.add(index);
+          index+=1;
           break;
           // return tmpFloat;
         case PathIterator.SEG_LINETO:
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
           tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
+          index+=1;
           break;
         case PathIterator.SEG_QUADTO:
           //                  System.out.println("quadratic bezier with: ( " + floatsFromArea[0] +
@@ -178,6 +212,7 @@ public class AreaRenderer {
                 tmpVector2,
                 tmpVector);
             tmpFloat.add(tmpVectorOut.x, tmpVectorOut.y);
+            index+=1;
           }
           break;
         case PathIterator.SEG_CUBICTO:
@@ -201,18 +236,14 @@ public class AreaRenderer {
                 tmpVector3,
                 tmpVector);
             tmpFloat.add(tmpVectorOut.x, tmpVectorOut.y);
+            index += 1;
           }
           break;
         default:
           System.out.println("Type: " + type);
       }
     }
-    if (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-        && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
-      // make sure we don't have last and first point the same
-      tmpFloat.pop();
-      tmpFloat.pop();
-    }
+
     return tmpFloat;
   }
 
@@ -233,15 +264,15 @@ public class AreaRenderer {
     Round
   }
 
-  public float[] path(FloatArray path, float lineWidth, JoinType joinType, boolean open) {
+  public float[] path(float[] path, float lineWidth, JoinType joinType, boolean open) {
     var outer = new ArrayList<Float>();
     var inner = new ArrayList<Float>();
 
     float halfWidth = lineWidth / 2f;
 
-    if (path.size == 2) {
-      var x = path.get(0);
-      var y = path.get(1);
+    if (path.length == 2) {
+      var x = path[0];
+      var y = path[1];
       if (joinType == JoinType.Round) {
         addArc(outer, x, y, halfWidth, 0, MathUtils.PI2 - 0.1f, false);
       } else {
@@ -255,9 +286,9 @@ public class AreaRenderer {
         outer.add(y - halfWidth);
       }
 
-    } else if (path.size == 4) {
-      A.set(path.get(0), path.get(1));
-      B.set(path.get(2), path.get(3));
+    } else if (path.length == 4) {
+      A.set(path[0], path[1]);
+      B.set(path[2], path[3]);
       if (joinType == JoinType.Round) {
         Joiner.prepareFlatEndpoint(B, A, D, E, halfWidth);
         E0.set(D);
@@ -296,10 +327,10 @@ public class AreaRenderer {
       }
 
     } else {
-      for (int i = 2; i < path.size - 2; i += 2) {
-        A.set(path.get(i - 2), path.get(i - 1));
-        B.set(path.get(i), path.get(i + 1));
-        C.set(path.get(i + 2), path.get(i + 3));
+      for (int i = 2; i < path.length - 2; i += 2) {
+        A.set(path[i - 2], path[i - 1]);
+        B.set(path[i], path[i + 1]);
+        C.set(path[i + 2], path[i + 3]);
         if (i == 2) {
           if (open) {
             if (joinType == JoinType.Round) {
@@ -324,7 +355,7 @@ public class AreaRenderer {
               inner.add(E.y);
             }
           } else {
-            vec1.set(path.get(path.size - 2), path.get(path.size - 1));
+            vec1.set(path[path.length - 2], path[path.length - 1]);
             if (joinType == JoinType.Pointy) {
               Joiner.preparePointyJoin(vec1, A, B, D0, E0, halfWidth);
             } else {
@@ -402,7 +433,7 @@ public class AreaRenderer {
       } else {
         if (joinType == JoinType.Pointy) {
           // draw last link on path
-          A.set(path.get(0), path.get(1));
+          A.set(path[0], path[1]);
           Joiner.preparePointyJoin(B, C, A, D, E, halfWidth);
           outer.add(D.x);
           outer.add(D.y);
@@ -419,7 +450,7 @@ public class AreaRenderer {
           // draw last link on path
           A.set(B);
           B.set(C);
-          C.set(path.get(0), path.get(1));
+          C.set(path[0], path[1]);
           var bendsLeft = Joiner.prepareSmoothJoin(A, B, C, D, E, halfWidth, false);
           if (bendsLeft) {
             vec1.set(E);
@@ -459,7 +490,7 @@ public class AreaRenderer {
 
           A.set(B);
           B.set(C);
-          C.set(path.get(2), path.get(3));
+          C.set(path[2], path[3]);
           bendsLeft = Joiner.prepareSmoothJoin(A, B, C, D, E, halfWidth, false);
           if (bendsLeft) {
             vec1.set(E);

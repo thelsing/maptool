@@ -48,6 +48,8 @@ import java.util.*;
 import java.util.List;
 import java.util.zip.Deflater;
 import javax.swing.*;
+
+import com.jogamp.opengl.GL2;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.gdx.GifDecoder;
@@ -1228,110 +1230,97 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (AppState.isShowLumensOverlay()) {
       // Lumens overlay enabled.
       timer.start("renderLights:renderLumensOverlay");
-      renderLumensOverlay(
-          view,
-          view.isGMView() ? null : ZoneRenderer.LightOverlayClipStyle.CLIP_TO_VISIBLE_AREA,
-          AppPreferences.getLumensOverlayOpacity() / 255.0f);
+      renderLumensOverlay(view, AppPreferences.getLumensOverlayOpacity() / 255.0f);
       timer.stop("renderLights:renderLumensOverlay");
     }
   }
 
-  private void renderLumensOverlay(
-      PlayerView view,
-      ZoneRenderer.LightOverlayClipStyle lightOverlayClipStyle,
-      float overlayAlpha) {
-    /*  final var disjointLumensLevels = zoneView.getDisjointObscuredLumensLevels(view);
+  private void renderLumensOverlay(PlayerView view, float overlayAlpha) {
+    final var disjointLumensLevels =
+        zoneRenderer.getZoneView().getDisjointObscuredLumensLevels(view);
 
-        timer.start("renderLumensOverlay:allocateBuffer");
-        try (final var bufferHandle = tempBufferPool.acquire()) {
-          BufferedImage lumensOverlay = bufferHandle.get();
-          timer.stop("renderLumensOverlay:allocateBuffer");
+    timer.start("renderLumensOverlay:allocateBuffer");
+    batch.flush();
+    backBuffer.begin();
+    timer.stop("renderLumensOverlay:allocateBuffer");
 
-          Graphics2D newG = lumensOverlay.createGraphics();
-          // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
-          newG.setComposite(AlphaComposite.Src.derive(overlayOpacity));
-          newG.setPaint(
-                  zone.getVisionType() == Zone.VisionType.NIGHT
-                          ? new java.awt.Color(0.f, 0.f, 0.f, 1.f)
-                          : new java.awt.Color(0.f, 0.f, 0.f, 0.f));
-          newG.fillRect(0, 0, lumensOverlay.getWidth(), lumensOverlay.getHeight());
+    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
+    var A_d = overlayAlpha;
+    // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
+    if (zone.getVisionType() == Zone.VisionType.NIGHT) {
+      ScreenUtils.clear(0,0,0,overlayAlpha);
+    } else {
+      A_d = 0;
+      ScreenUtils.clear(Color.CLEAR);
+    }
 
-          newG.setComposite(AlphaComposite.SrcOver.derive(overlayOpacity));
-          SwingUtil.useAntiAliasing(newG);
+    //batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    //batch.setBlendFunctionSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE, GL20.GL_NONE);
 
-          if (clipStyle != null && visibleScreenArea != null) {
-            timer.start("renderLumensOverlay:setClip");
-            Area clip = new Area(g.getClip());
-            switch (clipStyle) {
-              case CLIP_TO_VISIBLE_AREA -> clip.intersect(visibleScreenArea);
-              case CLIP_TO_NOT_VISIBLE_AREA -> clip.subtract(visibleScreenArea);
-            }
-            newG.setClip(clip);
-            g.setClip(clip);
-            timer.stop("renderLumensOverlay:setClip");
-          }
+    //batch.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE, GL20.GL_NONE);
+    batch.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_NONE,  GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    timer.start("renderLumensOverlay:drawLumens");
+    for (final var lumensLevel : disjointLumensLevels) {
+      final var lumensStrength = lumensLevel.lumensStrength();
 
-          timer.start("renderLumensOverlay:setTransform");
-          AffineTransform af = new AffineTransform();
-          af.translate(getViewOffsetX(), getViewOffsetY());
-          af.scale(getScale(), getScale());
-          newG.setTransform(af);
-          timer.stop("renderLumensOverlay:setTransform");
+      // Light is weaker than darkness, so do it first.
+      float lightOpacity;
+      float lightShade;
+      if (lumensStrength == 0) {
+        // This area represents daylight, so draw it as clear despite the low value.
+        lightShade = 1.f;
+        lightOpacity = 0;
+      } else if (lumensStrength >= 100) {
+        // Bright light, render mostly clear.
+        lightShade = 1.f;
+        lightOpacity = 1.f / 10.f;
+      } else {
+        lightShade = Math.max(0.f, Math.min(lumensStrength / 100.f, 1.f));
+        lightShade *= lightShade;
+        lightOpacity = 1.f;
+      }
 
-          timer.start("renderLumensOverlay:drawLumens");
-          for (final var lumensLevel : disjointLumensLevels) {
-            final var lumensStrength = lumensLevel.lumensStrength();
+      timer.start("renderLumensOverlay:drawLights:fillArea");
+      var A_s = lightOpacity * overlayAlpha;
+      var A_r = A_s + A_d*(1-A_s);
+      var C_s = lightShade * A_s;
+      lightShade = C_s / A_r;
 
-            // Light is weaker than darkness, so do it first.
-            float lightOpacity;
-            float lightShade;
-            if (lumensStrength == 0) {
-              // This area represents daylight, so draw it as clear despite the low value.
-              lightShade = 1.f;
-              lightOpacity = 0;
-            } else if (lumensStrength >= 100) {
-              // Bright light, render mostly clear.
-              lightShade = 1.f;
-              lightOpacity = 1.f / 10.f;
-            } else {
-              lightShade = Math.max(0.f, Math.min(lumensStrength / 100.f, 1.f));
-              lightShade *= lightShade;
-              lightOpacity = 1.f;
-            }
+      areaRenderer.setColor(tmpColor.set(lightShade, lightShade, lightShade, lightOpacity*overlayAlpha));
+      areaRenderer.fillArea(batch, lumensLevel.lightArea());
 
-            timer.start("renderLumensOverlay:drawLights:fillArea");
-            newG.setPaint(new java.awt.Color(lightShade, lightShade, lightShade, lightOpacity));
-            newG.fill(lumensLevel.lightArea());
+      areaRenderer.setColor(tmpColor.set(0.f, 0.f, 0.f, overlayAlpha));
+      areaRenderer.fillArea(batch, lumensLevel.darknessArea());
+      timer.stop("renderLumensOverlay:drawLights:fillArea");
+    }
 
-            newG.setPaint(new java.awt.Color(0.f, 0.f, 0.f, 1.f));
-            newG.fill(lumensLevel.darknessArea());
-            timer.stop("renderLumensOverlay:drawLights:fillArea");
-          }
+    timer.stop("renderLumensOverlay:drawLumens");
+    batch.flush();
+    createScreenshot("lumens");
+    backBuffer.end();
 
-          // Now draw borders around each region if configured.
-          final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
-          if (borderThickness > 0) {
-            newG.setStroke(
-                    new BasicStroke(
-                            (float) borderThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            newG.setComposite(AlphaComposite.SrcOver);
-            newG.setPaint(new java.awt.Color(0.f, 0.f, 0.f, 1.f));
-            for (final var lumensLevel : disjointLumensLevels) {
-              timer.start("renderLumensOverlay:drawLights:drawArea");
-              newG.draw(lumensLevel.lightArea());
-              newG.draw(lumensLevel.darknessArea());
-              timer.stop("renderLumensOverlay:drawLights:drawArea");
-            }
-          }
+    timer.start("renderLumensOverlay:drawBuffer");
+    //batch.setColor(1,1,1,overlayAlpha);
+    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    setProjectionMatrix(hudCam.combined);
+    batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
+    setProjectionMatrix(cam.combined);
+    timer.stop("renderLumensOverlay:drawBuffer");
 
-          timer.stop("renderLumensOverlay:drawLumens");
-          newG.dispose();
-
-          timer.start("renderLumensOverlay:drawBuffer");
-          g.drawImage(lumensOverlay, null, 0, 0);
-          timer.stop("renderLumensOverlay:drawBuffer");
-        }
-    */
+    // Now draw borders around each region if configured.
+    batch.setColor(Color.WHITE);
+    final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
+    if (borderThickness > 0) {
+      tmpColor.set(0.f, 0.f, 0.f, 1.f);
+      for (final var lumensLevel : disjointLumensLevels) {
+        timer.start("renderLumensOverlay:drawLights:drawArea");
+        areaRenderer.setColor(tmpColor);
+        areaRenderer.drawArea(batch, lumensLevel.lightArea(), true, borderThickness);
+        areaRenderer.setColor(tmpColor);
+        areaRenderer.drawArea(batch, lumensLevel.darknessArea(), true, borderThickness);
+        timer.stop("renderLumensOverlay:drawLights:drawArea");
+      }
+    }
   }
 
   private void renderLightOverlay(Collection<DrawableLight> lights, float alpha) {
@@ -1379,7 +1368,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.start("renderLightOverlay:drawBuffer");
     batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
-    // batch.setColor(1, 1, 1, alpha);
     batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
     setProjectionMatrix(cam.combined);
     // batch.setColor(Color.WHITE);

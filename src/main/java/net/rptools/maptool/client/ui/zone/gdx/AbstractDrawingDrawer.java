@@ -71,7 +71,7 @@ public abstract class AbstractDrawingDrawer {
     floats.add(x1, y1, x2, y2);
     var path =
         areaRenderer.path(
-            floats,
+             floats.toArray(),
             pen.getThickness(),
             pen.getSquareCap() ? AreaRenderer.JoinType.Pointy : AreaRenderer.JoinType.Round,
             false);

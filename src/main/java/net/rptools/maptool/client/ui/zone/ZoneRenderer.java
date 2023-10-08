@@ -28,6 +28,7 @@ import java.awt.font.FontRenderContext;
 import java.awt.font.TextLayout;
 import java.awt.geom.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
@@ -38,6 +39,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+
+import net.didion.jwnl.data.Exc;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.*;
@@ -1587,7 +1590,8 @@ public class ZoneRenderer extends JComponent
         }
 
         timer.start("renderLumensOverlay:drawLights:fillArea");
-        newG.setPaint(new Color(lightShade, lightShade, lightShade, lightOpacity));
+        var color = new Color(lightShade, lightShade, lightShade, lightOpacity);
+        newG.setPaint(color);
         newG.fill(lumensLevel.lightArea());
 
         newG.setPaint(new Color(0.f, 0.f, 0.f, 1.f));
@@ -1613,10 +1617,21 @@ public class ZoneRenderer extends JComponent
 
       timer.stop("renderLumensOverlay:drawLumens");
       newG.dispose();
-
       timer.start("renderLumensOverlay:drawBuffer");
       g.drawImage(lumensOverlay, null, 0, 0);
       timer.stop("renderLumensOverlay:drawBuffer");
+    }
+  }
+
+  private void screenshot(String name, BufferedImage image) {
+    try {
+      File outputfile = new File("C:\\Users\\tkunze\\OneDrive\\Desktop\\" + name + "_j2d.png");
+      if(outputfile.exists())
+        return;
+
+      ImageIO.write(image, "png", outputfile);
+    } catch (Exception e) {
+      System.out.println(e.toString());
     }
   }
 
