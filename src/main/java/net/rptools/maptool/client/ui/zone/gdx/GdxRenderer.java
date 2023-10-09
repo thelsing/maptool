@@ -1207,7 +1207,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
-    renderLightOverlay(drawableAuras, alpha);
+    renderLightOverlay(drawableAuras, alpha, GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     timer.stop("renderAuras:renderAuraOverlay");
   }
 
@@ -1223,7 +1223,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       // zone.getLightingStyle() is not supported currently as you would probably need a custom
       // shader
 
-      renderLightOverlay(drawableLights, AppPreferences.getLightOverlayOpacity() / 255.f);
+      renderLightOverlay(drawableLights, AppPreferences.getLightOverlayOpacity() / 255.f, GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR);
       timer.stop("renderLights:renderLightOverlay");
     }
 
@@ -1254,10 +1254,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       ScreenUtils.clear(Color.CLEAR);
     }
 
-    //batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-    //batch.setBlendFunctionSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE, GL20.GL_NONE);
-
-    //batch.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA, GL20.GL_ONE, GL20.GL_NONE);
     batch.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_NONE,  GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     timer.start("renderLumensOverlay:drawLumens");
     for (final var lumensLevel : disjointLumensLevels) {
@@ -1281,6 +1277,11 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       }
 
       timer.start("renderLumensOverlay:drawLights:fillArea");
+
+      // precalculate the SRC_OVER stuff. Otherwise, we get pre-multiplied colors and would
+      // have to reverse it before drawing them (probably with a shader).
+      // See https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
+      // Rendering transparency to transparent buffers is a PITA.
       var A_s = lightOpacity * overlayAlpha;
       var A_r = A_s + A_d*(1-A_s);
       var C_s = lightShade * A_s;
@@ -1323,7 +1324,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     }
   }
 
-  private void renderLightOverlay(Collection<DrawableLight> lights, float alpha) {
+  private void renderLightOverlay(Collection<DrawableLight> lights, float alpha, int srcBlendFunc, int dstBlendFunc) {
     if (lights.isEmpty()) {
       // No points spending resources accomplishing nothing.
       return;
@@ -1337,7 +1338,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     ScreenUtils.clear(Color.CLEAR);
     setProjectionMatrix(cam.combined);
     batch.setBlendFunctionSeparate(
-        GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR, GL20.GL_ONE, GL20.GL_NONE);
+        srcBlendFunc, dstBlendFunc, GL20.GL_ONE, GL20.GL_NONE);
     timer.stop("renderLightOverlay:allocateBuffer");
 
     // Draw lights onto the buffer image so the map doesn't affect how they blend
