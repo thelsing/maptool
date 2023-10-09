@@ -39,8 +39,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-
-import net.didion.jwnl.data.Exc;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.*;
@@ -1626,8 +1624,7 @@ public class ZoneRenderer extends JComponent
   private void screenshot(String name, BufferedImage image) {
     try {
       File outputfile = new File("C:\\Users\\tkunze\\OneDrive\\Desktop\\" + name + "_j2d.png");
-      if(outputfile.exists())
-        return;
+      if (outputfile.exists()) return;
 
       ImageIO.write(image, "png", outputfile);
     } catch (Exception e) {

@@ -21,12 +21,11 @@ import com.badlogic.gdx.math.EarClippingTriangulator;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.IntArray;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
-
-import com.badlogic.gdx.utils.IntArray;
 import net.rptools.lib.gdx.Joiner;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
 import space.earlygrey.shapedrawer.ShapeDrawer;
@@ -81,7 +80,7 @@ public class AreaRenderer {
 
     pathToFloatArray(area.getPathIterator(null));
     while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-            && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+        && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
       // make sure we don't have last and first point the same
       tmpFloat.pop();
       tmpFloat.pop();
@@ -97,17 +96,17 @@ public class AreaRenderer {
     pathToFloatArray(area.getPathIterator(null));
     float[] vertices = null;
     var floats = tmpFloat.toArray();
-    if(segmentIndicies.size == 1) {
+    if (segmentIndicies.size == 1) {
       vertices = path(floats, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
       paintVertices(batch, vertices);
     } else {
       var lastSegmentIndex = 0;
       var color = this.color;
-      for(int i=0; i<segmentIndicies.size;i++) {
+      for (int i = 0; i < segmentIndicies.size; i++) {
         var idx = segmentIndicies.get(i);
-        var vertexCount = idx-lastSegmentIndex;
-        float[] array = new float[2*vertexCount];
-        System.arraycopy(floats, 2*lastSegmentIndex, array, 0, 2*vertexCount);
+        var vertexCount = idx - lastSegmentIndex;
+        float[] array = new float[2 * vertexCount];
+        System.arraycopy(floats, 2 * lastSegmentIndex, array, 0, 2 * vertexCount);
         vertices = path(array, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
         this.color = color;
         paintVertices(batch, vertices);
@@ -180,20 +179,20 @@ public class AreaRenderer {
           moveToX = floatsFromArea[0];
           moveToY = -floatsFromArea[1];
           tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
-          index+=1;
+          index += 1;
           break;
         case PathIterator.SEG_CLOSE:
           //                   System.out.println("Close");
           tmpFloat.add(moveToX, moveToY);
           segmentIndicies.add(index);
-          index+=1;
+          index += 1;
           break;
           // return tmpFloat;
         case PathIterator.SEG_LINETO:
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
           tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
-          index+=1;
+          index += 1;
           break;
         case PathIterator.SEG_QUADTO:
           //                  System.out.println("quadratic bezier with: ( " + floatsFromArea[0] +
@@ -212,7 +211,7 @@ public class AreaRenderer {
                 tmpVector2,
                 tmpVector);
             tmpFloat.add(tmpVectorOut.x, tmpVectorOut.y);
-            index+=1;
+            index += 1;
           }
           break;
         case PathIterator.SEG_CUBICTO:
