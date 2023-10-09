@@ -48,8 +48,6 @@ import java.util.*;
 import java.util.List;
 import java.util.zip.Deflater;
 import javax.swing.*;
-
-import com.jogamp.opengl.GL2;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.gdx.GifDecoder;
@@ -111,6 +109,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   // renderFog
   private final String ATLAS = "net/rptools/maptool/client/maptool.atlas";
   private final String FONT_NORMAL = "normalFont.ttf";
+  private final String FONT_BOLD = "boldFont.ttf";
   private final String FONT_DISTANCE = "distanceFont.ttf";
   private PixmapPacker packer;
   private TextureAtlas tokenAtlas;
@@ -141,8 +140,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private int width;
   private int height;
   private BitmapFont normalFont;
-  private BitmapFont distanceFont;
-  private float distanceFontScale = 0;
+  private BitmapFont boldFont;
+  private float boldFontScale = 0;
   private final CodeTimer timer = new CodeTimer("GdxRenderer.renderZone");
   private FrameBuffer backBuffer;
   private Integer fogX;
@@ -207,7 +206,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       atlas = null;
       normalFont = null;
-      distanceFont = null;
+      boldFont = null;
       fetchedSprites.clear();
       isoSprites.clear();
       fetchedRegions.clear();
@@ -353,7 +352,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       hudTextRenderer = new TextRenderer(atlas, batch, normalFont, false);
     }
 
-    ensureCorrectDistanceFont();
+    ensureTtfFont();
     ScreenUtils.clear(Color.BLACK);
     //  boolean stepped = fixedStep(delta);
 
@@ -389,23 +388,23 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     return new PixmapPacker(2048, 2048, Pixmap.Format.RGBA8888, 2, false);
   }
 
-  private void ensureCorrectDistanceFont() {
+  private void ensureTtfFont() {
     if (zone == null) return;
 
     var fontScale =
         (float) zone.getGrid().getSize() / 50; // Font size of 12 at grid size 50 is default
 
-    if (fontScale == this.distanceFontScale && distanceFont != null) return;
+    if (fontScale == this.boldFontScale && boldFont != null) return;
 
-    if (distanceFont != null) manager.unload(FONT_DISTANCE);
+    if (boldFont != null) manager.unload(FONT_DISTANCE);
 
     var fontParams = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
     fontParams.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Bold.ttf";
     fontParams.fontParameters.size = (int) (12 * fontScale);
-    manager.load(FONT_DISTANCE, BitmapFont.class, fontParams);
+    manager.load(FONT_BOLD, BitmapFont.class, fontParams);
     manager.finishLoading();
-    distanceFont = manager.get(FONT_DISTANCE, BitmapFont.class);
-    distanceFontScale = fontScale;
+    boldFont = manager.get(FONT_BOLD, BitmapFont.class);
+    boldFontScale = fontScale;
   }
 
   private void loadAssets() {
@@ -564,7 +563,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       renderAuras(view);
       timer.stop("auras");
     }
-
+    renderPlayerDarkness(view);
     /*
      * The following sections used to handle rendering of the Hidden (i.e. "GM") layer followed by
      * the Token layer. The problem was that we want all drawables to appear below all tokens, and
@@ -687,6 +686,114 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       renderPlayerVisionOverlay(view);
       timer.stop("visionOverlayPlayer");
     }
+
+    timer.start("renderCoordinates");
+    renderCoordinates(view);
+    timer.stop("renderCoordinates");
+
+    timer.start("lightSourceIconOverlay.paintOverlay");
+    if (Zone.Layer.TOKEN.isEnabled() && view.isGMView() && AppState.isShowLightSources()) {
+      paintlightSourceIconOverlay();
+    }
+    timer.stop("lightSourceIconOverlay.paintOverlay");
+  }
+
+  private void renderCoordinates(PlayerView view) {
+    if (!AppState.isShowCoordinates() || !(zone.getGrid() instanceof SquareGrid grid)) return;
+
+    var font = boldFont;
+
+    float cellSize = (float) zoneRenderer.getScaledGridSize();
+    CellPoint topLeft = grid.convert(new ScreenPoint(0, 0).convertToZone(zoneRenderer));
+
+    Dimension size = zoneRenderer.getSize();
+    glyphLayout.setText(font, "MMM");
+    float startX = glyphLayout.width + 10;
+
+    float x = topLeft.x * cellSize + cellSize / 2; // Start at middle of the cell that's on screen
+    float nextAvailableSpace = -1;
+    while (x < size.width) {
+      String coord = Integer.toString(topLeft.x);
+      glyphLayout.setText(font, coord);
+      float strWidth = glyphLayout.width;
+      float strX = (int) x - strWidth / 2;
+
+      if (x > startX && strX > nextAvailableSpace) {
+        font.setColor(Color.BLACK);
+        font.draw(batch, coord, strX, -glyphLayout.height / 2 - 1);
+        font.setColor(Color.ORANGE);
+        font.draw(batch, coord, strX - 1, -glyphLayout.height / 2);
+
+        nextAvailableSpace = strX + strWidth + 10;
+      }
+      x += cellSize;
+      topLeft.x++;
+    }
+    float y =
+        (float) topLeft.y * cellSize
+            + cellSize / 2f; // Start at middle of the cell that's on screen
+    nextAvailableSpace = -1;
+    while (y < size.height) {
+      String coord = grid.decimalToAlphaCoord(topLeft.y);
+
+      float strY = y + font.getAscent() / 2;
+
+      if (y > glyphLayout.height && strY > nextAvailableSpace) {
+        font.setColor(Color.BLACK);
+        font.draw(batch, coord, 10, -strY + glyphLayout.height / 2 - 1);
+        font.setColor(Color.YELLOW);
+        font.draw(batch, coord, 10 - 1, -strY + glyphLayout.height / 2);
+
+        nextAvailableSpace = strY + font.getAscent() / 2 + 10;
+      }
+      y += cellSize;
+      topLeft.y++;
+    }
+  }
+
+  private void paintlightSourceIconOverlay() {
+    var lightbulb = fetch("lightbulb");
+    for (Token token : zone.getAllTokens()) {
+
+      if (token.hasLightSources()) {
+        boolean foundNormalLight = false;
+        for (AttachedLightSource attachedLightSource : token.getLightSources()) {
+          LightSource lightSource =
+              MapTool.getCampaign().getLightSource(attachedLightSource.getLightSourceId());
+          if (lightSource != null && lightSource.getType() == LightSource.Type.NORMAL) {
+            foundNormalLight = true;
+            break;
+          }
+        }
+        if (!foundNormalLight) {
+          continue;
+        }
+
+        Area area = zoneRenderer.getTokenBounds(token);
+        if (area == null) {
+          continue;
+        }
+
+        int x = area.getBounds().x + (area.getBounds().width - lightbulb.getRegionWidth()) / 2;
+        int y = -area.getBounds().y - (area.getBounds().height + lightbulb.getRegionHeight()) / 2;
+        batch.draw(lightbulb, x, y);
+      }
+    }
+  }
+
+  private void renderPlayerDarkness(PlayerView view) {
+    if (view.isGMView()) {
+      // GMs see the darkness rendered as lights, not as blackness.
+      return;
+    }
+
+    final var darkness = zoneRenderer.getZoneView().getIllumination(view).getDarkenedArea();
+    if (darkness.isEmpty()) {
+      // Skip the rendering work if it isn't necessary.
+      return;
+    }
+    areaRenderer.setColor(Color.BLACK);
+    areaRenderer.fillArea(batch, darkness);
   }
 
   private void renderPlayerVisionOverlay(PlayerView view) {
@@ -1223,7 +1330,11 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       // zone.getLightingStyle() is not supported currently as you would probably need a custom
       // shader
 
-      renderLightOverlay(drawableLights, AppPreferences.getLightOverlayOpacity() / 255.f, GL20.GL_SRC_COLOR, GL20.GL_ONE_MINUS_SRC_COLOR);
+      renderLightOverlay(
+          drawableLights,
+          AppPreferences.getLightOverlayOpacity() / 255.f,
+          GL20.GL_SRC_COLOR,
+          GL20.GL_ONE_MINUS_SRC_COLOR);
       timer.stop("renderLights:renderLightOverlay");
     }
 
@@ -1248,7 +1359,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     var A_d = overlayAlpha;
     // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
     if (zone.getVisionType() == Zone.VisionType.NIGHT) {
-      ScreenUtils.clear(0,0,0,overlayAlpha);
+      ScreenUtils.clear(0, 0, 0, overlayAlpha);
     } else {
       A_d = 0;
       ScreenUtils.clear(Color.CLEAR);
@@ -1299,7 +1410,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     backBuffer.end();
 
     timer.start("renderLumensOverlay:drawBuffer");
-    //batch.setColor(1,1,1,overlayAlpha);
+    // batch.setColor(1,1,1,overlayAlpha);
     batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
     batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
@@ -1322,7 +1433,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     }
   }
 
-  private void renderLightOverlay(Collection<DrawableLight> lights, float alpha, int srcBlendFunc, int dstBlendFunc) {
+  private void renderLightOverlay(
+      Collection<DrawableLight> lights, float alpha, int srcBlendFunc, int dstBlendFunc) {
     if (lights.isEmpty()) {
       // No points spending resources accomplishing nothing.
       return;
@@ -1335,8 +1447,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     ScreenUtils.clear(Color.CLEAR);
     setProjectionMatrix(cam.combined);
-    batch.setBlendFunctionSeparate(
-        srcBlendFunc, dstBlendFunc, GL20.GL_ONE, GL20.GL_NONE);
+    batch.setBlendFunctionSeparate(srcBlendFunc, dstBlendFunc, GL20.GL_ONE, GL20.GL_NONE);
     timer.stop("renderLightOverlay:allocateBuffer");
 
     // Draw lights onto the buffer image so the map doesn't affect how they blend
@@ -3153,23 +3264,23 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     float iheight = cheight * size;
 
     var cellX = (point.x - iwidth / 2);
-    var cellY = (-point.y + iheight / 2) + distanceFont.getLineHeight();
+    var cellY = (-point.y + iheight / 2) + boldFont.getLineHeight();
 
     // Draw distance for each cell
-    var textOffset = 7 * distanceFontScale; // 7 pixels at 100% zoom & grid size of 50
+    var textOffset = 7 * boldFontScale; // 7 pixels at 100% zoom & grid size of 50
 
     String distanceText = NumberFormat.getInstance().format(distance);
     if (log.isDebugEnabled() || showAstarDebugging) {
       distanceText += " (" + NumberFormat.getInstance().format(distanceWithoutTerrain) + ")";
     }
 
-    glyphLayout.setText(distanceFont, distanceText);
+    glyphLayout.setText(boldFont, distanceText);
 
     var textWidth = glyphLayout.width;
 
-    distanceFont.setColor(Color.BLACK);
+    boldFont.setColor(Color.BLACK);
 
-    distanceFont.draw(
+    boldFont.draw(
         batch,
         distanceText,
         cellX + cwidth - textWidth - textOffset,
