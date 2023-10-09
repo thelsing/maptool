@@ -1254,7 +1254,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       ScreenUtils.clear(Color.CLEAR);
     }
 
-    batch.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_NONE,  GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     timer.start("renderLumensOverlay:drawLumens");
     for (final var lumensLevel : disjointLumensLevels) {
       final var lumensStrength = lumensLevel.lumensStrength();
@@ -1278,16 +1278,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       timer.start("renderLumensOverlay:drawLights:fillArea");
 
-      // precalculate the SRC_OVER stuff. Otherwise, we get pre-multiplied colors and would
-      // have to reverse it before drawing them (probably with a shader).
+      // for SRC_OVER on transparent destination we need GL_ONE, GL_ONE_MINUS_SRC_ALPHA
+      // we have to render the fbo with the same blending function to the screen not with
+      // GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA !
       // See https://apoorvaj.io/alpha-compositing-opengl-blending-and-premultiplied-alpha/
-      // Rendering transparency to transparent buffers is a PITA.
-      var A_s = lightOpacity * overlayAlpha;
-      var A_r = A_s + A_d*(1-A_s);
-      var C_s = lightShade * A_s;
-      lightShade = C_s / A_r;
 
-      areaRenderer.setColor(tmpColor.set(lightShade, lightShade, lightShade, lightOpacity*overlayAlpha));
+      lightOpacity *= overlayAlpha;
+      lightShade *= lightOpacity;
+      areaRenderer.setColor(tmpColor.set(lightShade, lightShade, lightShade, lightOpacity));
       areaRenderer.fillArea(batch, lumensLevel.lightArea());
 
       areaRenderer.setColor(tmpColor.set(0.f, 0.f, 0.f, overlayAlpha));
@@ -1302,12 +1300,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     timer.start("renderLumensOverlay:drawBuffer");
     //batch.setColor(1,1,1,overlayAlpha);
-    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
     batch.draw(backBuffer.getColorBufferTexture(), 0, 0, width, height, 0, 0, 1, 1);
     setProjectionMatrix(cam.combined);
     timer.stop("renderLumensOverlay:drawBuffer");
-
+    batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     // Now draw borders around each region if configured.
     batch.setColor(Color.WHITE);
     final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
