@@ -179,7 +179,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private final Area tmpArea = new Area();
   private final TiledDrawable tmpTile = new TiledDrawable();
 
-  private final EarClippingTriangulator triangulator = new EarClippingTriangulator();
   private World world;
   private Box2DDebugRenderer debugRenderer;
   private RayHandler rayHandler;
@@ -267,7 +266,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     TextureRegion region = new TextureRegion(onePixel, 0, 0, 1, 1);
     drawer = new ShapeDrawer(batch, region);
 
-    areaRenderer = new AreaRenderer(triangulator, region, drawer);
+    areaRenderer = new AreaRenderer(region, drawer);
     lineTemplateDrawer = new LineTemplateDrawer(areaRenderer);
     lineCellTemplateDrawer = new LineCellTemplateDrawer(areaRenderer);
     radiusTemplateDrawer = new RadiusTemplateDrawer(areaRenderer);

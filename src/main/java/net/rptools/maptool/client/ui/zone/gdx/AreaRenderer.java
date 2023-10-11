@@ -19,14 +19,20 @@ import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.Bezier;
 import com.badlogic.gdx.math.EarClippingTriangulator;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
+
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
+
+import net.rptools.lib.gdx.Earcut;
 import net.rptools.lib.gdx.Joiner;
+import org.locationtech.jts.awt.ShapeReader;
+import org.locationtech.jts.geom.GeometryFactory;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 import space.earlygrey.shapedrawer.ShapeUtils;
@@ -34,9 +40,7 @@ import space.earlygrey.shapedrawer.SideEstimator;
 
 public class AreaRenderer {
 
-  public AreaRenderer(
-      EarClippingTriangulator triangulator, TextureRegion whitePixelRegion, ShapeDrawer drawer) {
-    this.triangulator = triangulator;
+  public AreaRenderer(TextureRegion whitePixelRegion, ShapeDrawer drawer) {
     this.whitePixel = whitePixelRegion;
     this.drawer = drawer;
   }
@@ -54,8 +58,6 @@ public class AreaRenderer {
     color = value;
     textureRegion = whitePixel;
   }
-
-  public EarClippingTriangulator triangulator;
 
   private float[] floatsFromArea = new float[6];
   private Vector2 tmpVector = new Vector2();
@@ -79,13 +81,36 @@ public class AreaRenderer {
     if (area == null || area.isEmpty()) return;
 
     pathToFloatArray(area.getPathIterator(null));
-    while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-        && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
-      // make sure we don't have last and first point the same
-      tmpFloat.pop();
-      tmpFloat.pop();
+
+    if (segmentIndicies.size == 1) {
+      while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
+              && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+        // make sure we don't have last and first point the same
+        tmpFloat.pop();
+        tmpFloat.pop();
+      }
+      paintVertices(batch, tmpFloat.toArray());
+    } else {
+      var lastSegmentIndex = 0;
+      var color = this.color;
+      for (int i = 0; i < segmentIndicies.size; i++) {
+        var floats = tmpFloat.toArray();
+        var idx = segmentIndicies.get(i);
+        var vertexCount = idx - lastSegmentIndex;
+        var vertices = new FloatArray(true, floats, 2 * lastSegmentIndex, 2 * vertexCount);
+        while (vertices.get(0) == vertices.get(vertices.size - 2)
+                && vertices.get(1) == vertices.get(vertices.size - 1)) {
+          // make sure we don't have last and first point the same
+          vertices.pop();
+          vertices.pop();
+        }
+        paintVertices(batch, vertices.toArray());
+        this.color = color;
+
+        lastSegmentIndex = idx + 1;
+      }
+      this.color = null;
     }
-    paintVertices(batch, tmpFloat.toArray());
   }
 
   private boolean debug = false;
@@ -151,13 +176,14 @@ public class AreaRenderer {
   }
 
   protected void paintVertices(PolygonSpriteBatch batch, float[] vertices) {
-    var indicies = triangulator.computeTriangles(vertices).toArray();
-    var polyreg = new PolygonRegion(textureRegion, vertices, indicies);
+
+    var indices = Earcut.earcut(vertices).toArray();
+    var polyreg = new PolygonRegion(textureRegion, vertices, indices);
     var poly = new PolygonSprite(polyreg);
     if (color != null) {
       poly.setColor(color);
     }
-    if (debug) drawDebug(vertices, indicies);
+    if (debug) drawDebug(vertices, indices);
     else poly.draw(batch);
     color = null;
   }
