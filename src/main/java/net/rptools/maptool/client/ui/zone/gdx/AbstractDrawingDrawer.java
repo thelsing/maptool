@@ -75,7 +75,7 @@ public abstract class AbstractDrawingDrawer {
             pen.getThickness(),
             pen.getSquareCap() ? AreaRenderer.JoinType.Pointy : AreaRenderer.JoinType.Round,
             false);
-    areaRenderer.paintVertices(batch, path);
+    areaRenderer.paintVertices(batch, path, null);
   }
 
   protected FloatArray pathToFloatArray(PathIterator pathIterator) {

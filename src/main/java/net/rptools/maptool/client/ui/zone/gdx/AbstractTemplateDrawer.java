@@ -76,7 +76,7 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     int y = vertex.y + getYMult(q) * yOff + ((getYMult(q) - 1) / 2) * gridSize;
     var floats =
         new float[] {x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize};
-    areaRenderer.paintVertices(batch, floats);
+    areaRenderer.paintVertices(batch, floats, null);
   }
 
   protected int getXMult(AbstractTemplate.Quadrant q) {

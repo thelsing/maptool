@@ -17,22 +17,17 @@ package net.rptools.maptool.client.ui.zone.gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.Bezier;
-import com.badlogic.gdx.math.EarClippingTriangulator;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
-
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
-
 import net.rptools.lib.gdx.Earcut;
 import net.rptools.lib.gdx.Joiner;
-import org.locationtech.jts.awt.ShapeReader;
-import org.locationtech.jts.geom.GeometryFactory;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 import space.earlygrey.shapedrawer.ShapeUtils;
@@ -84,31 +79,63 @@ public class AreaRenderer {
 
     if (segmentIndicies.size == 1) {
       while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
-              && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+          && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
         // make sure we don't have last and first point the same
         tmpFloat.pop();
         tmpFloat.pop();
       }
-      paintVertices(batch, tmpFloat.toArray());
+      paintVertices(batch, tmpFloat.toArray(), null);
     } else {
       var lastSegmentIndex = 0;
       var color = this.color;
+      var polygons = new ArrayList<Polygon>();
+      // Polygons in a PathIterator are ordered. If polygon p contains q, q comes first.
+      // So we draw polygons that contains others, those others are the holes.
+      var floats = tmpFloat.toArray();
       for (int i = 0; i < segmentIndicies.size; i++) {
-        var floats = tmpFloat.toArray();
         var idx = segmentIndicies.get(i);
         var vertexCount = idx - lastSegmentIndex;
-        var vertices = new FloatArray(true, floats, 2 * lastSegmentIndex, 2 * vertexCount);
-        while (vertices.get(0) == vertices.get(vertices.size - 2)
-                && vertices.get(1) == vertices.get(vertices.size - 1)) {
-          // make sure we don't have last and first point the same
-          vertices.pop();
-          vertices.pop();
-        }
-        paintVertices(batch, vertices.toArray());
-        this.color = color;
-
+        var vertices = new float[2 * vertexCount];
+        System.arraycopy(floats, 2 * lastSegmentIndex, vertices, 0, 2 * vertexCount);
         lastSegmentIndex = idx + 1;
+
+        var poly = new Polygon(vertices);
+        var holes = new ArrayList<Polygon>();
+
+        for (int j = 0; j < polygons.size(); j++) {
+          var prevPoly = polygons.get(j);
+          var prevVertices = prevPoly.getVertices();
+          if (poly.contains(prevVertices[0], prevVertices[1])) {
+            holes.add(prevPoly);
+          }
+        }
+        if (holes.isEmpty()) {
+          polygons.add(poly);
+          continue;
+        }
+        tmpFloat.clear();
+        tmpFloat.addAll(poly.getVertices());
+
+        short[] holeIndices = new short[holes.size()];
+        var lastPoly = poly;
+        var lastHoleIndex = 0;
+        for (int j = 0; j < holes.size(); j++) {
+          lastHoleIndex += lastPoly.getVertices().length;
+          holeIndices[j] = (short) (lastHoleIndex / 2);
+          lastPoly = holes.get(j);
+          polygons.remove(lastPoly);
+          tmpFloat.addAll(lastPoly.getVertices());
+        }
+
+        paintVertices(batch, tmpFloat.toArray(), holeIndices);
+        this.color = color;
       }
+
+      for (var poly : polygons) {
+        paintVertices(batch, poly.getVertices(), null);
+        this.color = color;
+      }
+
       this.color = null;
     }
   }
@@ -123,7 +150,7 @@ public class AreaRenderer {
     var floats = tmpFloat.toArray();
     if (segmentIndicies.size == 1) {
       vertices = path(floats, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
-      paintVertices(batch, vertices);
+      paintVertices(batch, vertices, null);
     } else {
       var lastSegmentIndex = 0;
       var color = this.color;
@@ -134,7 +161,7 @@ public class AreaRenderer {
         System.arraycopy(floats, 2 * lastSegmentIndex, array, 0, 2 * vertexCount);
         vertices = path(array, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
         this.color = color;
-        paintVertices(batch, vertices);
+        paintVertices(batch, vertices, null);
         lastSegmentIndex = idx + 1;
       }
       this.color = null;
@@ -175,11 +202,11 @@ public class AreaRenderer {
     drawer.setColor(oldColor);
   }
 
-  protected void paintVertices(PolygonSpriteBatch batch, float[] vertices) {
+  protected void paintVertices(PolygonSpriteBatch batch, float[] vertices, short[] holeIndices) {
 
-    var indices = Earcut.earcut(vertices).toArray();
-    var polyreg = new PolygonRegion(textureRegion, vertices, indices);
-    var poly = new PolygonSprite(polyreg);
+    var indices = Earcut.earcut(vertices, holeIndices, (short) 2).toArray();
+    var polyReg = new PolygonRegion(textureRegion, vertices, indices);
+    var poly = new PolygonSprite(polyReg);
     if (color != null) {
       poly.setColor(color);
     }

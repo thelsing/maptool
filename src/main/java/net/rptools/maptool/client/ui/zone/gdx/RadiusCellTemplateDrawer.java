@@ -72,7 +72,7 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
         new float[] {
           x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize,
         };
-    areaRenderer.paintVertices(batch, floats);
+    areaRenderer.paintVertices(batch, floats, null);
   }
 
   @Override
