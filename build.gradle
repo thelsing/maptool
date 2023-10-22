@@ -190,7 +190,7 @@ tasks.register('deleteUiClasses') {
 }
 
 compileJava {
-    dependsOn(deleteUiClasses)
+   dependsOn(deleteUiClasses)
 }
 
 // Badass Runtime Plugin Options
@@ -502,9 +502,9 @@ dependencies {
     implementation 'com.miglayout:miglayout-swing:11.0'
 
     // libgdx
-    implementation 'com.github.thelsing:libgdx-jogl-backend:1.12.0'
+    implementation 'com.github.thelsing:libgdx-jogl-backend:1.12.1'
     //maven local for development
-    //implementation 'com.thelsing.gdx:gdx-backend-jogl:1.12.0'
+    //implementation 'com.thelsing.gdx:gdx-backend-jogl:1.12.1'
 
     implementation "com.badlogicgames.gdx:gdx:1.12.0"
     implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-desktop"

@@ -297,6 +297,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   @Override
   public void resize(int width, int height) {
+    System.out.println("Gdx: resize " + height + "x" + width);
+    System.out.println("Gdx: zr " + zoneRenderer.getHeight() + "x" + zoneRenderer.getWidth());
     this.width = width;
     this.height = height;
     backBuffer.dispose();
@@ -411,7 +413,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     var mySmallFont = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
     mySmallFont.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Regular.ttf";
-    mySmallFont.fontParameters.size = (int) (12 * Gdx.graphics.getBackBufferScale());
+    mySmallFont.fontParameters.size = 12;
     manager.load(FONT_NORMAL, BitmapFont.class, mySmallFont);
   }
 
@@ -445,11 +447,11 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     else if (MapTool.getCampaign().isBeingSerialized())
       hudTextRenderer.drawBoxedString("    Please Wait    ", width / 2f, height / 2f);
 
-    float noteVPos = 20 * Gdx.graphics.getBackBufferScale();
+    float noteVPos = 20;
     if (!zone.isVisible() && playerView.isGMView()) {
       hudTextRenderer.drawBoxedString(
           I18N.getText("zone.map_not_visible"), width / 2f, height - noteVPos);
-      noteVPos += 20 * Gdx.graphics.getBackBufferScale();
+      noteVPos += 20;
     }
     if (AppState.isShowAsPlayer()) {
       hudTextRenderer.drawBoxedString(
@@ -700,16 +702,18 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void renderCoordinates(PlayerView view) {
     if (!AppState.isShowCoordinates() || !(zone.getGrid() instanceof SquareGrid grid)) return;
 
+    batch.setProjectionMatrix(hudCam.combined);
     var font = boldFont;
 
     float cellSize = (float) zoneRenderer.getScaledGridSize();
     CellPoint topLeft = grid.convert(new ScreenPoint(0, 0).convertToZone(zoneRenderer));
+    ScreenPoint sp = ScreenPoint.fromZonePoint(zoneRenderer, grid.convert(topLeft));
 
     Dimension size = zoneRenderer.getSize();
     glyphLayout.setText(font, "MMM");
     float startX = glyphLayout.width + 10;
 
-    float x = topLeft.x * cellSize + cellSize / 2; // Start at middle of the cell that's on screen
+    float x = (float) (sp.x + cellSize / 2); // Start at middle of the cell that's on screen
     float nextAvailableSpace = -1;
     while (x < size.width) {
       String coord = Integer.toString(topLeft.x);
@@ -719,9 +723,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       if (x > startX && strX > nextAvailableSpace) {
         font.setColor(Color.BLACK);
-        font.draw(batch, coord, strX, -glyphLayout.height / 2 - 1);
+        font.draw(batch, coord, strX, height-glyphLayout.height / 2 - 1);
         font.setColor(Color.ORANGE);
-        font.draw(batch, coord, strX - 1, -glyphLayout.height / 2);
+        font.draw(batch, coord, strX - 1, height-glyphLayout.height / 2);
 
         nextAvailableSpace = strX + strWidth + 10;
       }
@@ -729,8 +733,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       topLeft.x++;
     }
     float y =
-        (float) topLeft.y * cellSize
-            + cellSize / 2f; // Start at middle of the cell that's on screen
+        (float) sp.y + cellSize / 2f; // Start at middle of the cell that's on screen
     nextAvailableSpace = -1;
     while (y < size.height) {
       String coord = grid.decimalToAlphaCoord(topLeft.y);
@@ -739,15 +742,16 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       if (y > glyphLayout.height && strY > nextAvailableSpace) {
         font.setColor(Color.BLACK);
-        font.draw(batch, coord, 10, -strY + glyphLayout.height / 2 - 1);
+        font.draw(batch, coord, 10, height-strY + glyphLayout.height / 2 - 1);
         font.setColor(Color.YELLOW);
-        font.draw(batch, coord, 10 - 1, -strY + glyphLayout.height / 2);
+        font.draw(batch, coord, 10 - 1, height-strY + glyphLayout.height / 2);
 
         nextAvailableSpace = strY + font.getAscent() / 2 + 10;
       }
       y += cellSize;
       topLeft.y++;
     }
+    batch.setProjectionMatrix(cam.combined);
   }
 
   private void paintlightSourceIconOverlay() {
@@ -1521,7 +1525,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     drawer.setColor(tmpColor);
     var path = grid.createShape(zoneRenderer.getScale());
-    areaRenderer.pathToFloatArray(path.getPathIterator(null));
+    var floats = areaRenderer.pathToFloatArray(path.getPathIterator(null));
 
     int offU = grid.getOffU(zoneRenderer);
     int offV = grid.getOffV(zoneRenderer);
@@ -1563,7 +1567,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         batch.setTransformMatrix(tmpMatrix);
         drawer.update();
 
-        drawer.path(tmpFloat.toArray(), lineWidth, JoinType.SMOOTH, true);
+        drawer.path(floats, lineWidth, JoinType.SMOOTH, true);
         tmpMatrix.idt();
         batch.setTransformMatrix(tmpMatrix);
         drawer.update();
@@ -2033,9 +2037,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         setProjectionMatrix(hudCam.combined);
         tmpWorldCoord.set(gdxTokenRectangle.x, gdxTokenRectangle.y, 0);
         cam.project(tmpWorldCoord);
-
-        tmpWorldCoord.x *= Gdx.graphics.getBackBufferScale();
-        tmpWorldCoord.y *= Gdx.graphics.getBackBufferScale();
 
         gdxTokenRectangle.set(
             tmpWorldCoord.x,
@@ -3487,10 +3488,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       return;
     }
 
-    var dpiScale = Gdx.graphics.getBackBufferScale();
-    offsetX = (int) (scale.getOffsetX() * dpiScale * -1);
-    offsetY = (int) (scale.getOffsetY() * dpiScale);
-    zoom = (float) (1f / scale.getScale() / dpiScale);
+    offsetX = (int) (scale.getOffsetX() * -1);
+    offsetY = (int) (scale.getOffsetY());
+    zoom = (float) (1f / scale.getScale());
     updateCam();
   }
 

@@ -76,7 +76,7 @@ public class MapToolServer {
     assetProducerThread.start();
 
     // Start a heartbeat if requested
-    if (config.isServerRegistered()) {
+    if (!config.isPersonalServer()) {
       heartbeatThread = new HeartbeatThread();
       heartbeatThread.start();
     }

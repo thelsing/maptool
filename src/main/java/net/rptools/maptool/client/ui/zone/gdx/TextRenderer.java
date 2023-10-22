@@ -14,7 +14,6 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.*;
 import javax.swing.*;
@@ -89,12 +88,8 @@ public class TextRenderer {
       }
     }
 
-    var dpiScale = scaling ? Gdx.graphics.getBackBufferScale() : 1.0f;
-    x *= dpiScale;
-    y *= dpiScale;
-
-    var BOX_PADDINGX = 10 * dpiScale;
-    var BOX_PADDINGY = 2 * dpiScale;
+    var BOX_PADDINGX = 10;
+    var BOX_PADDINGY = 2;
 
     if (text == null) text = "";
 
