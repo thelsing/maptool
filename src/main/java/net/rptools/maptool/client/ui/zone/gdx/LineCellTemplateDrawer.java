@@ -31,6 +31,7 @@ public class LineCellTemplateDrawer extends AbstractTemplateDrawer {
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,
@@ -39,7 +40,7 @@ public class LineCellTemplateDrawer extends AbstractTemplateDrawer {
       int gridSize,
       int distance) {
     var lineCellTemplate = (LineCellTemplate) template;
-    paintArea(batch, template, xOff, yOff, gridSize, lineCellTemplate.getQuadrant());
+    paintArea(batch, pen, template, xOff, yOff, gridSize, lineCellTemplate.getQuadrant());
   }
 
   @Override
@@ -104,18 +105,18 @@ public class LineCellTemplateDrawer extends AbstractTemplateDrawer {
       int yOff = p.y * gridSize;
       int distance = template.getDistance(p.x, p.y);
 
-      if (quadrant.equals(AbstractTemplate.Quadrant.NORTH_EAST.name())) {
+      if (quadrant == AbstractTemplate.Quadrant.NORTH_EAST) {
         yOff = yOff - gridSize;
-      } else if (quadrant.equals(AbstractTemplate.Quadrant.SOUTH_WEST.name())) {
+      } else if (quadrant == AbstractTemplate.Quadrant.SOUTH_WEST) {
         xOff = xOff - gridSize;
-      } else if (quadrant.equals(AbstractTemplate.Quadrant.NORTH_WEST.name())) {
+      } else if (quadrant == AbstractTemplate.Quadrant.NORTH_WEST) {
         xOff = xOff - gridSize;
         yOff = yOff - gridSize;
       }
 
       // Paint what is needed.
       if (area) {
-        paintArea(batch, template, p.x, p.y, xOff, yOff, gridSize, distance);
+        paintArea(batch, pen, template, p.x, p.y, xOff, yOff, gridSize, distance);
       } // endif
       if (border) {
         paintBorder(batch, pen, template, p.x, p.y, xOff, yOff, gridSize, i.previousIndex());

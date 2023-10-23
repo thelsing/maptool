@@ -723,17 +723,16 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       if (x > startX && strX > nextAvailableSpace) {
         font.setColor(Color.BLACK);
-        font.draw(batch, coord, strX, height-glyphLayout.height / 2 - 1);
+        font.draw(batch, coord, strX, height - glyphLayout.height / 2 - 1);
         font.setColor(Color.ORANGE);
-        font.draw(batch, coord, strX - 1, height-glyphLayout.height / 2);
+        font.draw(batch, coord, strX - 1, height - glyphLayout.height / 2);
 
         nextAvailableSpace = strX + strWidth + 10;
       }
       x += cellSize;
       topLeft.x++;
     }
-    float y =
-        (float) sp.y + cellSize / 2f; // Start at middle of the cell that's on screen
+    float y = (float) sp.y + cellSize / 2f; // Start at middle of the cell that's on screen
     nextAvailableSpace = -1;
     while (y < size.height) {
       String coord = grid.decimalToAlphaCoord(topLeft.y);
@@ -742,9 +741,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       if (y > glyphLayout.height && strY > nextAvailableSpace) {
         font.setColor(Color.BLACK);
-        font.draw(batch, coord, 10, height-strY + glyphLayout.height / 2 - 1);
+        font.draw(batch, coord, 10, height - strY + glyphLayout.height / 2 - 1);
         font.setColor(Color.YELLOW);
-        font.draw(batch, coord, 10 - 1, height-strY + glyphLayout.height / 2);
+        font.draw(batch, coord, 10 - 1, height - strY + glyphLayout.height / 2);
 
         nextAvailableSpace = strY + font.getAscent() / 2 + 10;
       }

@@ -27,6 +27,7 @@ public class RadiusTemplateDrawer extends AbstractTemplateDrawer {
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,
@@ -39,7 +40,7 @@ public class RadiusTemplateDrawer extends AbstractTemplateDrawer {
     if (distance <= radiusTemplate.getRadius()) {
       // Paint the squares
       for (AbstractTemplate.Quadrant q : AbstractTemplate.Quadrant.values()) {
-        paintArea(batch, template, xOff, yOff, gridSize, q);
+        paintArea(batch, pen, template, xOff, yOff, gridSize, q);
       }
     }
   }

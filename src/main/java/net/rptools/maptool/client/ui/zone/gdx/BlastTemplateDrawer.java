@@ -29,8 +29,8 @@ public class BlastTemplateDrawer extends AbstractDrawingDrawer {
   @Override
   protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
     var template = (BlastTemplate) element;
-    tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, AbstractTemplate.DEFAULT_BG_ALPHA);
-    fillArea(batch, template.getArea());
+    alpha = AbstractTemplate.DEFAULT_BG_ALPHA;
+    fillArea(batch, template.getArea(), pen);
   }
 
   @Override

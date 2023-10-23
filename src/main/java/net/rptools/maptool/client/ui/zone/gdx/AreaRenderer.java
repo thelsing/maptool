@@ -50,7 +50,11 @@ public class AreaRenderer {
   private Color color;
 
   public void setColor(Color value) {
-    color = value;
+    if (value == null) {
+      color = Color.WHITE;
+    } else {
+      color = value;
+    }
     textureRegion = whitePixel;
   }
 
@@ -146,12 +150,19 @@ public class AreaRenderer {
     if (area == null || area.isEmpty()) return;
 
     pathToFloatArray(area.getPathIterator(null));
-    float[] vertices = null;
-    var floats = tmpFloat.toArray();
+
     if (segmentIndicies.size == 1) {
-      vertices = path(floats, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+      while (tmpFloat.get(0) == tmpFloat.get(tmpFloat.size - 2)
+          && tmpFloat.get(1) == tmpFloat.get(tmpFloat.size - 1)) {
+        // make sure we don't have last and first point the same
+        tmpFloat.pop();
+        tmpFloat.pop();
+      }
+      var floats = tmpFloat.toArray();
+      var vertices = path(floats, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
       paintVertices(batch, vertices, null);
     } else {
+      var floats = tmpFloat.toArray();
       var lastSegmentIndex = 0;
       var color = this.color;
       for (int i = 0; i < segmentIndicies.size; i++) {
@@ -159,7 +170,7 @@ public class AreaRenderer {
         var vertexCount = idx - lastSegmentIndex;
         float[] array = new float[2 * vertexCount];
         System.arraycopy(floats, 2 * lastSegmentIndex, array, 0, 2 * vertexCount);
-        vertices = path(array, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+        var vertices = path(array, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
         this.color = color;
         paintVertices(batch, vertices, null);
         lastSegmentIndex = idx + 1;
@@ -207,12 +218,10 @@ public class AreaRenderer {
     var indices = Earcut.earcut(vertices, holeIndices, (short) 2).toArray();
     var polyReg = new PolygonRegion(textureRegion, vertices, indices);
     var poly = new PolygonSprite(polyReg);
-    if (color != null) {
-      poly.setColor(color);
-    }
+    poly.setColor(color);
     if (debug) drawDebug(vertices, indices);
     else poly.draw(batch);
-    color = null;
+    color = Color.WHITE;
   }
 
   public FloatArray pathToFloatArray(PathIterator it) {

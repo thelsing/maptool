@@ -613,9 +613,9 @@ test {
 }
 
 task createWrapper(type: Wrapper) {
-    gradleVersion = '8.2.1'
+    gradleVersion = '8.4'
 }
 
 // Configure current release tag in Sentry.io properties
 processResources.dependsOn configSentryRelease
-//configSentryRelease.dependsOn 'spotlessCheck'
+configSentryRelease.dependsOn 'spotlessCheck'

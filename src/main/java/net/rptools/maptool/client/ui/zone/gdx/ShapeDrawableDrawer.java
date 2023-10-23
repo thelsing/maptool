@@ -28,7 +28,7 @@ public class ShapeDrawableDrawer extends AbstractDrawingDrawer {
   @Override
   protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
     var shape = (ShapeDrawable) element;
-    fillArea(batch, shape.getArea());
+    fillArea(batch, shape.getArea(), pen);
   }
 
   @Override

@@ -28,6 +28,7 @@ public class ConeTemplateDrawer extends RadiusTemplateDrawer {
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,
@@ -53,7 +54,7 @@ public class ConeTemplateDrawer extends RadiusTemplateDrawer {
     }
     for (AbstractTemplate.Quadrant q : AbstractTemplate.Quadrant.values()) {
       if (coneTemplate.withinQuadrant(q)) {
-        paintArea(batch, template, xOff, yOff, gridSize, q);
+        paintArea(batch, pen, template, xOff, yOff, gridSize, q);
       }
     }
   }

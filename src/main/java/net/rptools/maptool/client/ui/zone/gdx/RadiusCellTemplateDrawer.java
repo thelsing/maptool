@@ -31,6 +31,7 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,
@@ -41,25 +42,26 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
     // Only squares w/in the radius
     int radius = template.getRadius();
     if (distance <= radius) {
-      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
+      paintArea(batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_EAST);
     }
 
     if (template.getDistance(x, y + 1) <= radius) {
-      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
+      paintArea(batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_EAST);
     }
 
     if (template.getDistance(x + 1, y) <= radius) {
-      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
+      paintArea(batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.SOUTH_WEST);
     }
 
     if (template.getDistance(x + 1, y + 1) <= radius) {
-      paintArea(batch, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
+      paintArea(batch, pen, template, xOff, yOff, gridSize, AbstractTemplate.Quadrant.NORTH_WEST);
     }
   }
 
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int xOff,
       int yOff,
@@ -72,6 +74,7 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
         new float[] {
           x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize,
         };
+    applyColor(pen.getBackgroundPaint(), true);
     areaRenderer.paintVertices(batch, floats, null);
   }
 
@@ -219,7 +222,7 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
         if (border)
           paintBorder(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
         if (area)
-          paintArea(batch, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+          paintArea(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
       } // endfor
     } // endfor
   }

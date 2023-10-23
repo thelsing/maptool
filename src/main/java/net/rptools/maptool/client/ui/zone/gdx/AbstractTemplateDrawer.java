@@ -29,7 +29,7 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
 
   @Override
   protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
-    tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, AbstractTemplate.DEFAULT_BG_ALPHA);
+    alpha = AbstractTemplate.DEFAULT_BG_ALPHA;
     paint(batch, pen, (AbstractTemplate) element, false, true);
   }
 
@@ -59,13 +59,14 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
         if (border)
           paintBorder(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
         if (area)
-          paintArea(batch, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
+          paintArea(batch, pen, template, x, y, xOff, yOff, gridSize, template.getDistance(x, y));
       } // endfor
     } // endfor
   }
 
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int xOff,
       int yOff,
@@ -76,6 +77,7 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
     int y = vertex.y + getYMult(q) * yOff + ((getYMult(q) - 1) / 2) * gridSize;
     var floats =
         new float[] {x, -y - gridSize, x, -y, x + gridSize, -y, x + gridSize, -y - gridSize};
+    applyColor(pen.getBackgroundPaint(), true);
     areaRenderer.paintVertices(batch, floats, null);
   }
 
@@ -149,6 +151,7 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
 
   protected abstract void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,

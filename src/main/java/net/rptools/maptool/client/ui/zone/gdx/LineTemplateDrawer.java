@@ -51,7 +51,7 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
 
       // Paint what is needed.
       if (area) {
-        paintArea(batch, template, p.x, p.y, xOff, yOff, gridSize, distance);
+        paintArea(batch, pen, template, p.x, p.y, xOff, yOff, gridSize, distance);
       } // endif
       if (border) {
         paintBorder(batch, pen, template, p.x, p.y, xOff, yOff, gridSize, i.previousIndex());
@@ -62,6 +62,7 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
   @Override
   protected void paintArea(
       PolygonSpriteBatch batch,
+      Pen pen,
       AbstractTemplate template,
       int x,
       int y,
@@ -70,7 +71,8 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
       int gridSize,
       int distance) {
     var lineTemplate = (LineTemplate) template;
-    paintArea(batch, template, xOff, yOff, gridSize, lineTemplate.getQuadrant());
+
+    paintArea(batch, pen, template, xOff, yOff, gridSize, lineTemplate.getQuadrant());
   }
 
   @Override
