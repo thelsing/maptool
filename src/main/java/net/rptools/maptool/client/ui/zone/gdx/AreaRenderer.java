@@ -16,10 +16,7 @@ package net.rptools.maptool.client.ui.zone.gdx;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.*;
-import com.badlogic.gdx.math.Bezier;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Polygon;
-import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
 import java.awt.geom.Area;
@@ -34,6 +31,7 @@ import space.earlygrey.shapedrawer.ShapeUtils;
 import space.earlygrey.shapedrawer.SideEstimator;
 
 public class AreaRenderer {
+  public record TriangledPolygon(float[] vertices, short[] indices) {}
 
   public AreaRenderer(TextureRegion whitePixelRegion, ShapeDrawer drawer) {
     this.whitePixel = whitePixelRegion;
@@ -76,8 +74,10 @@ public class AreaRenderer {
     this.textureRegion = textureRegion;
   }
 
-  public void fillArea(PolygonSpriteBatch batch, Area area) {
-    if (area == null || area.isEmpty()) return;
+  public List<TriangledPolygon> triangulate(Area area) {
+    if (area == null || area.isEmpty()) return new ArrayList<>();
+
+    var result = new ArrayList<TriangledPolygon>();
 
     pathToFloatArray(area.getPathIterator(null));
 
@@ -88,60 +88,72 @@ public class AreaRenderer {
         tmpFloat.pop();
         tmpFloat.pop();
       }
-      paintVertices(batch, tmpFloat.toArray(), null);
-    } else {
-      var lastSegmentIndex = 0;
-      var color = this.color;
-      var polygons = new ArrayList<Polygon>();
-      // Polygons in a PathIterator are ordered. If polygon p contains q, q comes first.
-      // So we draw polygons that contains others, those others are the holes.
-      var floats = tmpFloat.toArray();
-      for (int i = 0; i < segmentIndicies.size; i++) {
-        var idx = segmentIndicies.get(i);
-        var vertexCount = idx - lastSegmentIndex;
-        var vertices = new float[2 * vertexCount];
-        System.arraycopy(floats, 2 * lastSegmentIndex, vertices, 0, 2 * vertexCount);
-        lastSegmentIndex = idx + 1;
-
-        var poly = new Polygon(vertices);
-        var holes = new ArrayList<Polygon>();
-
-        for (int j = 0; j < polygons.size(); j++) {
-          var prevPoly = polygons.get(j);
-          var prevVertices = prevPoly.getVertices();
-          if (poly.contains(prevVertices[0], prevVertices[1])) {
-            holes.add(prevPoly);
-          }
-        }
-        if (holes.isEmpty()) {
-          polygons.add(poly);
-          continue;
-        }
-        tmpFloat.clear();
-        tmpFloat.addAll(poly.getVertices());
-
-        short[] holeIndices = new short[holes.size()];
-        var lastPoly = poly;
-        var lastHoleIndex = 0;
-        for (int j = 0; j < holes.size(); j++) {
-          lastHoleIndex += lastPoly.getVertices().length;
-          holeIndices[j] = (short) (lastHoleIndex / 2);
-          lastPoly = holes.get(j);
-          polygons.remove(lastPoly);
-          tmpFloat.addAll(lastPoly.getVertices());
-        }
-
-        paintVertices(batch, tmpFloat.toArray(), holeIndices);
-        this.color = color;
-      }
-
-      for (var poly : polygons) {
-        paintVertices(batch, poly.getVertices(), null);
-        this.color = color;
-      }
-
-      this.color = null;
+      var vertices = tmpFloat.toArray();
+      var indices = Earcut.earcut(vertices).toArray();
+      result.add(new TriangledPolygon(vertices, indices));
+      return result;
     }
+
+    var lastSegmentIndex = 0;
+    var color = this.color;
+    var polygons = new ArrayList<Polygon>();
+    // Polygons in a PathIterator are ordered. If polygon p contains q, q comes first.
+    // So we draw polygons that contains others, those others are the holes.
+    var floats = tmpFloat.toArray();
+    for (int i = 0; i < segmentIndicies.size; i++) {
+      var idx = segmentIndicies.get(i);
+      var vertexCount = idx - lastSegmentIndex;
+      var currentPolyVertices = new float[2 * vertexCount];
+      System.arraycopy(floats, 2 * lastSegmentIndex, currentPolyVertices, 0, 2 * vertexCount);
+      lastSegmentIndex = idx + 1;
+
+      var poly = new Polygon(currentPolyVertices);
+      var holes = new ArrayList<Polygon>();
+
+      for (int j = 0; j < polygons.size(); j++) {
+        var prevPoly = polygons.get(j);
+        var prevVertices = prevPoly.getVertices();
+        if (poly.contains(prevVertices[0], prevVertices[1])) {
+          holes.add(prevPoly);
+        }
+      }
+      if (holes.isEmpty()) {
+        polygons.add(poly);
+        continue;
+      }
+      tmpFloat.clear();
+      tmpFloat.addAll(poly.getVertices());
+
+      short[] holeIndices = new short[holes.size()];
+      var lastPoly = poly;
+      var lastHoleIndex = 0;
+      for (int j = 0; j < holes.size(); j++) {
+        lastHoleIndex += lastPoly.getVertices().length;
+        holeIndices[j] = (short) (lastHoleIndex / 2);
+        lastPoly = holes.get(j);
+        polygons.remove(lastPoly);
+        tmpFloat.addAll(lastPoly.getVertices());
+      }
+
+      var indices = Earcut.earcut(tmpFloat.toArray(), holeIndices, (short) 2);
+      result.add(new TriangledPolygon(tmpFloat.toArray(), indices.toArray()));
+    }
+
+    for (var poly : polygons) {
+      var indices = Earcut.earcut(poly.getVertices());
+      result.add(new TriangledPolygon(poly.getVertices(), indices.toArray()));
+    }
+    return result;
+  }
+
+  public void fillArea(PolygonSpriteBatch batch, Area area) {
+    for (var poly : triangulate(area)) {
+      var polyRegion = new PolygonRegion(textureRegion, poly.vertices, poly.indices);
+      var color = this.color;
+      paintRegion(batch, polyRegion);
+      this.color = color;
+    }
+    this.color = Color.WHITE;
   }
 
   private boolean debug = false;
@@ -214,13 +226,24 @@ public class AreaRenderer {
   }
 
   protected void paintVertices(PolygonSpriteBatch batch, float[] vertices, short[] holeIndices) {
-
     var indices = Earcut.earcut(vertices, holeIndices, (short) 2).toArray();
     var polyReg = new PolygonRegion(textureRegion, vertices, indices);
-    var poly = new PolygonSprite(polyReg);
-    poly.setColor(color);
+
     if (debug) drawDebug(vertices, indices);
-    else poly.draw(batch);
+    else paintRegion(batch, polyReg);
+    color = Color.WHITE;
+  }
+
+  private PolygonSprite sprite = null;
+
+  protected void paintRegion(PolygonSpriteBatch batch, PolygonRegion polygonRegion) {
+    if (sprite == null) {
+      sprite = new PolygonSprite(polygonRegion);
+    } else {
+      sprite.setRegion(polygonRegion);
+    }
+    sprite.setColor(color);
+    sprite.draw(batch);
     color = Color.WHITE;
   }
 
