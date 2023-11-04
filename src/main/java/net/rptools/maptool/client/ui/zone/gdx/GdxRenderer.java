@@ -33,25 +33,17 @@ import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
 import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
-import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.video.VideoPlayer;
-import com.badlogic.gdx.video.VideoPlayerCreator;
 import com.google.common.eventbus.Subscribe;
 import java.awt.*;
 import java.awt.Shape;
 import java.awt.geom.*;
-import java.io.ByteArrayInputStream;
-import java.io.FileNotFoundException;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
 import java.util.zip.Deflater;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
-import net.rptools.lib.MD5Key;
-import net.rptools.lib.gdx.GifDecoder;
-import net.rptools.lib.image.ImageUtil;
 import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.events.ZoneActivated;
 import net.rptools.maptool.client.swing.ImageBorder;
@@ -77,10 +69,8 @@ import net.rptools.maptool.model.Path;
 import net.rptools.maptool.model.drawing.*;
 import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.GraphicsUtil;
-import net.rptools.maptool.util.ImageManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
@@ -91,28 +81,19 @@ import space.earlygrey.shapedrawer.ShapeDrawer;
  *
  * <p>
  */
-public class GdxRenderer extends ApplicationAdapter implements AssetAvailableListener {
+public class GdxRenderer extends ApplicationAdapter {
 
   private static final Logger log = LogManager.getLogger(GdxRenderer.class);
 
   public static final float POINTS_PER_BEZIER = 10f;
-
   private static GdxRenderer _instance;
-
-  private final Map<String, Sprite> fetchedSprites = new HashMap<>();
-  private final Map<MD5Key, Sprite> isoSprites = new HashMap<>();
-  private final Map<String, TextureRegion> fetchedRegions = new HashMap<>();
-  private final Map<MD5Key, Sprite> bigSprites = new HashMap<>();
-  private final Map<MD5Key, Animation<TextureRegion>> animationMap = new HashMap<>();
-  private final Map<MD5Key, VideoPlayer> videoPlayerMap = new HashMap<>();
 
   // renderFog
   private final String ATLAS = "net/rptools/maptool/client/maptool.atlas";
   private final String FONT_NORMAL = "normalFont.ttf";
   private final String FONT_BOLD = "boldFont.ttf";
   private final String FONT_DISTANCE = "distanceFont.ttf";
-  private PixmapPacker packer;
-  private TextureAtlas tokenAtlas;
+
   private boolean flushFog = true;
   // from renderToken:
   private Area visibleScreenArea;
@@ -121,8 +102,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private final List<ItemRenderer> itemRenderList = new LinkedList<>();
 
   // zone specific resources
-  private Zone zone;
-  private ZoneRenderer zoneRenderer;
+  private ZoneCache zoneCache;
 
   private int offsetX = 0;
   private int offsetY = 0;
@@ -149,8 +129,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private com.badlogic.gdx.assets.AssetManager manager;
   private TextureAtlas atlas;
   private Texture onePixel;
-  private Texture fog;
-  private Texture background;
+
   private ShapeDrawer drawer;
   private final GlyphLayout glyphLayout = new GlyphLayout();
   private LineTemplateDrawer lineTemplateDrawer;
@@ -206,11 +185,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       atlas = null;
       normalFont = null;
       boldFont = null;
-      fetchedSprites.clear();
-      isoSprites.clear();
-      fetchedRegions.clear();
-      bigSprites.clear();
-      animationMap.clear();
     }
     /*
         world = new World(new Vector2(0, 0), true);
@@ -228,10 +202,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         new PointLight(rayHandler, 128, Color.BLUE, 600, 350, -350);
 
     */
-    tokenAtlas = new TextureAtlas();
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
-    packer = createPacker();
 
     var resolver = new InternalFileHandleResolver();
     manager.setLoader(FreeTypeFontGenerator.class, new FreeTypeFontGeneratorLoader(resolver));
@@ -277,28 +249,22 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     shapeDrawableDrawer = new ShapeDrawableDrawer(areaRenderer);
 
     initialized = true;
-    initializeZoneResources(zone);
   }
 
   @Override
   public void dispose() {
     manager.dispose();
     batch.dispose();
-    disposeZoneResources();
-    disposeZoneTextures();
+    if (zoneCache != null) {
+      zoneCache.dispose();
+    }
     onePixel.dispose();
-    packer.updateTextureAtlas(
-        atlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
-    packer.dispose();
-    tokenAtlas.dispose();
     rayHandler.dispose();
     world.dispose();
   }
 
   @Override
   public void resize(int width, int height) {
-    System.out.println("Gdx: resize " + height + "x" + width);
-    System.out.println("Gdx: zr " + zoneRenderer.getHeight() + "x" + zoneRenderer.getWidth());
     this.width = width;
     this.height = height;
     backBuffer.dispose();
@@ -340,8 +306,6 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     var delta = Gdx.graphics.getDeltaTime();
     stateTime += delta;
     manager.finishLoading();
-    packer.updateTextureAtlas(
-        tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
 
     if (atlas == null) {
       atlas = manager.get(ATLAS, TextureAtlas.class);
@@ -384,16 +348,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     return stepped;
   }
 
-  @NotNull
-  private PixmapPacker createPacker() {
-    return new PixmapPacker(2048, 2048, Pixmap.Format.RGBA8888, 2, false);
-  }
-
   private void ensureTtfFont() {
-    if (zone == null) return;
+    if (zoneCache == null) return;
 
     var fontScale =
-        (float) zone.getGrid().getSize() / 50; // Font size of 12 at grid size 50 is default
+        (float) zoneCache.getZone().getGrid().getSize()
+            / 50; // Font size of 12 at grid size 50 is default
 
     if (fontScale == this.boldFontScale && boldFont != null) return;
 
@@ -425,15 +385,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (batch.isDrawing()) batch.end();
     batch.begin();
 
-    if (zone == null || !renderZone) return;
+    if (zoneCache == null || !renderZone) return;
 
     initializeTimer();
-    if (zoneRenderer == null) return;
+    if (zoneCache.getZoneRenderer() == null) return;
 
-    setScale(zoneRenderer.getZoneScale());
+    setScale(zoneCache.getZoneRenderer().getZoneScale());
 
     timer.start("paintComponent:createView");
-    PlayerView playerView = zoneRenderer.getPlayerView();
+    PlayerView playerView = zoneCache.getZoneRenderer().getPlayerView();
     timer.stop("paintComponent:createView");
 
     setProjectionMatrix(cam.combined);
@@ -442,13 +402,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     setProjectionMatrix(hudCam.combined);
 
-    if (zoneRenderer.isLoading())
-      hudTextRenderer.drawBoxedString(zoneRenderer.getLoadingProgress(), width / 2f, height / 2f);
+    if (zoneCache.getZoneRenderer().isLoading())
+      hudTextRenderer.drawBoxedString(
+          zoneCache.getZoneRenderer().getLoadingProgress(), width / 2f, height / 2f);
     else if (MapTool.getCampaign().isBeingSerialized())
       hudTextRenderer.drawBoxedString("    Please Wait    ", width / 2f, height / 2f);
 
     float noteVPos = 20;
-    if (!zone.isVisible() && playerView.isGMView()) {
+    if (!zoneCache.getZone().isVisible() && playerView.isGMView()) {
       hudTextRenderer.drawBoxedString(
           I18N.getText("zone.map_not_visible"), width / 2f, height - noteVPos);
       noteVPos += 20;
@@ -487,14 +448,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     visibleScreenArea = null;
     lastView = null;
 
-    var zoneView = zoneRenderer.getZoneView();
+    var zoneView = zoneCache.getZoneRenderer().getZoneView();
     if (zoneView != null) {
       zoneView.flush();
     }
   }
 
   private void renderZone(PlayerView view) {
-    if (zoneRenderer.isLoading() || MapTool.getCampaign().isBeingSerialized()) return;
+    if (zoneCache.getZoneRenderer().isLoading() || MapTool.getCampaign().isBeingSerialized())
+      return;
 
     if (lastView != null && !lastView.equals(view)) {
       invalidateCurrentViewCache();
@@ -506,25 +468,29 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.start("calcs-1");
     timer.start("ZoneRenderer-getVisibleArea");
     if (visibleScreenArea == null) {
-      visibleScreenArea = zoneRenderer.getZoneView().getVisibleArea(zoneRenderer.getPlayerView());
+      visibleScreenArea =
+          zoneCache
+              .getZoneRenderer()
+              .getZoneView()
+              .getVisibleArea(zoneCache.getZoneRenderer().getPlayerView());
     }
     timer.stop("ZoneRenderer-getVisibleArea");
 
     timer.stop("calcs-1");
     timer.start("calcs-2");
-    exposedFogArea = new Area(zone.getExposedArea());
+    exposedFogArea = new Area(zoneCache.getZone().getExposedArea());
     timer.stop("calcs-2");
 
     renderBoard();
 
     if (Zone.Layer.BACKGROUND.isEnabled()) {
-      List<DrawnElement> drawables = zone.getBackgroundDrawnElements();
+      List<DrawnElement> drawables = zoneCache.getZone().getBackgroundDrawnElements();
 
       timer.start("drawableBackground");
       renderDrawableOverlay(view, drawables);
       timer.stop("drawableBackground");
 
-      List<Token> background = zone.getBackgroundStamps(false);
+      List<Token> background = zoneCache.getZone().getBackgroundStamps(false);
       if (!background.isEmpty()) {
         timer.start("tokensBackground");
         renderTokens(background, view, false);
@@ -533,7 +499,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     }
     if (Zone.Layer.OBJECT.isEnabled()) {
       // Drawables on the object layer are always below the grid, and...
-      List<DrawnElement> drawables = zone.getObjectDrawnElements();
+      List<DrawnElement> drawables = zoneCache.getZone().getObjectDrawnElements();
       // if (!drawables.isEmpty()) {
       timer.start("drawableObjects");
       renderDrawableOverlay(view, drawables);
@@ -548,7 +514,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     if (Zone.Layer.OBJECT.isEnabled()) {
       // ... Images on the object layer are always ABOVE the grid.
-      List<Token> stamps = zone.getStampTokens(false);
+      List<Token> stamps = zoneCache.getZone().getStampTokens(false);
       if (!stamps.isEmpty()) {
         timer.start("tokensStamp");
         renderTokens(stamps, view, false);
@@ -587,7 +553,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
      * </ol>
      */
     if (Zone.Layer.TOKEN.isEnabled()) {
-      List<DrawnElement> drawables = zone.getDrawnElements();
+      List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements();
       // if (!drawables.isEmpty()) {
       timer.start("drawableTokens");
       renderDrawableOverlay(view, drawables);
@@ -595,27 +561,27 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       // }
 
       if (view.isGMView() && Zone.Layer.GM.isEnabled()) {
-        drawables = zone.getGMDrawnElements();
+        drawables = zoneCache.getZone().getGMDrawnElements();
         // if (!drawables.isEmpty()) {
         timer.start("drawableGM");
         renderDrawableOverlay(view, drawables);
         timer.stop("drawableGM");
         // }
-        List<Token> stamps = zone.getGMStamps(false);
+        List<Token> stamps = zoneCache.getZone().getGMStamps(false);
         if (!stamps.isEmpty()) {
           timer.start("tokensGM");
           renderTokens(stamps, view, false);
           timer.stop("tokensGM");
         }
       }
-      List<Token> tokens = zone.getTokens(false);
+      List<Token> tokens = zoneCache.getZone().getTokens(false);
       if (!tokens.isEmpty()) {
         timer.start("tokens");
         renderTokens(tokens, view, false);
         timer.stop("tokens");
       }
       timer.start("unowned movement");
-      showBlockedMoves(view, zoneRenderer.getUnOwnedMovementSet(view));
+      showBlockedMoves(view, zoneCache.getZoneRenderer().getUnOwnedMovementSet(view));
       timer.stop("unowned movement");
     }
 
@@ -633,7 +599,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     }
 
     // (This method has it's own 'timer' calls)
-    if (zone.hasFog()) {
+    if (zoneCache.getZone().hasFog()) {
       renderFog(view);
     }
 
@@ -641,7 +607,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       // Jamz: If there is fog or vision we may need to re-render vision-blocking type tokens
       // For example. this allows a "door" stamp to block vision but still allow you to see the
       // door.
-      List<Token> vblTokens = zone.getTokensAlwaysVisible();
+      List<Token> vblTokens = zoneCache.getZone().getTokensAlwaysVisible();
       if (!vblTokens.isEmpty()) {
         timer.start("tokens - always visible");
         renderTokens(vblTokens, view, true);
@@ -650,9 +616,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       // if there is fog or vision we may need to re-render figure type tokens
       // and figure tokens need sorting via alternative logic.
-      List<Token> tokens = zone.getFigureTokens();
+      List<Token> tokens = zoneCache.getZone().getFigureTokens();
       List<Token> sortedTokens = new ArrayList<>(tokens);
-      sortedTokens.sort(zone.getFigureZOrderComparator());
+      sortedTokens.sort(zoneCache.getZone().getFigureZOrderComparator());
       if (!tokens.isEmpty()) {
         timer.start("tokens - figures");
         renderTokens(sortedTokens, view, true);
@@ -660,7 +626,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       }
 
       timer.start("owned movement");
-      showBlockedMoves(view, zoneRenderer.getOwnedMovementSet(view));
+      showBlockedMoves(view, zoneCache.getZoneRenderer().getOwnedMovementSet(view));
       timer.stop("owned movement");
 
       // Text associated with tokens being moved is added to a list to be drawn after, i.e. on top
@@ -677,7 +643,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       setProjectionMatrix(cam.combined);
     }
 
-    // if (zone.visionType ...)
+    // if (zoneCache.getZone().visionType ...)
     if (view.isGMView()) {
       timer.start("visionOverlayGM");
       renderGMVisionOverlay(view);
@@ -700,16 +666,18 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderCoordinates(PlayerView view) {
-    if (!AppState.isShowCoordinates() || !(zone.getGrid() instanceof SquareGrid grid)) return;
+    if (!AppState.isShowCoordinates()
+        || !(zoneCache.getZone().getGrid() instanceof SquareGrid grid)) return;
 
     batch.setProjectionMatrix(hudCam.combined);
     var font = boldFont;
 
-    float cellSize = (float) zoneRenderer.getScaledGridSize();
-    CellPoint topLeft = grid.convert(new ScreenPoint(0, 0).convertToZone(zoneRenderer));
-    ScreenPoint sp = ScreenPoint.fromZonePoint(zoneRenderer, grid.convert(topLeft));
+    float cellSize = (float) zoneCache.getZoneRenderer().getScaledGridSize();
+    CellPoint topLeft =
+        grid.convert(new ScreenPoint(0, 0).convertToZone(zoneCache.getZoneRenderer()));
+    ScreenPoint sp = ScreenPoint.fromZonePoint(zoneCache.getZoneRenderer(), grid.convert(topLeft));
 
-    Dimension size = zoneRenderer.getSize();
+    Dimension size = zoneCache.getZoneRenderer().getSize();
     glyphLayout.setText(font, "MMM");
     float startX = glyphLayout.width + 10;
 
@@ -754,8 +722,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void paintlightSourceIconOverlay() {
-    var lightbulb = fetch("lightbulb");
-    for (Token token : zone.getAllTokens()) {
+    var lightbulb = zoneCache.fetch("lightbulb");
+    for (Token token : zoneCache.getZone().getAllTokens()) {
 
       if (token.hasLightSources()) {
         boolean foundNormalLight = false;
@@ -771,7 +739,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           continue;
         }
 
-        Area area = zoneRenderer.getTokenBounds(token);
+        Area area = zoneCache.getZoneRenderer().getTokenBounds(token);
         if (area == null) {
           continue;
         }
@@ -789,7 +757,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       return;
     }
 
-    final var darkness = zoneRenderer.getZoneView().getIllumination(view).getDarkenedArea();
+    final var darkness =
+        zoneCache.getZoneRenderer().getZoneView().getIllumination(view).getDarkenedArea();
     if (darkness.isEmpty()) {
       // Skip the rendering work if it isn't necessary.
       return;
@@ -800,14 +769,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void renderPlayerVisionOverlay(PlayerView view) {
     /* //  This doesn't seem to have any effect ??
-    if (zone.hasFog()) {
+    if (zoneCache.getZone().hasFog()) {
            Area clip = new Area(new Rectangle(getSize().width, getSize().height));
 
            Area viewArea = new Area(exposedFogArea);
            List<Token> tokens = view.getTokens();
            if (tokens != null && !tokens.isEmpty()) {
                for (Token tok : tokens) {
-                   ExposedAreaMetaData exposedMeta = zone.getExposedAreaMetaData(tok.getExposedAreaGUID());
+                   ExposedAreaMetaData exposedMeta = zoneCache.getZone().getExposedAreaMetaData(tok.getExposedAreaGUID());
                    viewArea.add(exposedMeta.getExposedAreaHistory());
                }
            }
@@ -826,17 +795,19 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderVisionOverlay(PlayerView view) {
-    var tokenUnderMouse = zoneRenderer.getTokenUnderMouse();
-    Area currentTokenVisionArea = zoneRenderer.getZoneView().getVisibleArea(tokenUnderMouse, view);
+    var tokenUnderMouse = zoneCache.getZoneRenderer().getTokenUnderMouse();
+    Area currentTokenVisionArea =
+        zoneCache.getZoneRenderer().getZoneView().getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
       return;
     }
     Area combined = new Area(currentTokenVisionArea);
-    ExposedAreaMetaData meta = zone.getExposedAreaMetaData(tokenUnderMouse.getExposedAreaGUID());
+    ExposedAreaMetaData meta =
+        zoneCache.getZone().getExposedAreaMetaData(tokenUnderMouse.getExposedAreaGUID());
 
     Area tmpArea = new Area(meta.getExposedAreaHistory());
-    tmpArea.add(zone.getExposedArea());
-    if (zone.hasFog()) {
+    tmpArea.add(zoneCache.getZone().getExposedArea());
+    if (zoneCache.getZone().hasFog()) {
       if (tmpArea.isEmpty()) {
         return;
       }
@@ -860,7 +831,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderHaloArea(Area visible) {
-    var tokenUnderMouse = zoneRenderer.getTokenUnderMouse();
+    var tokenUnderMouse = zoneCache.getZoneRenderer().getTokenUnderMouse();
     if (tokenUnderMouse == null) return;
 
     boolean useHaloColor =
@@ -891,7 +862,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (!flushFog
         && fogX != null
         && fogY != null
-        && (fogX != zoneRenderer.getViewOffsetX() || fogY != zoneRenderer.getViewOffsetY())) {
+        && (fogX != zoneCache.getZoneRenderer().getViewOffsetX()
+            || fogY != zoneCache.getZoneRenderer().getViewOffsetY())) {
       flushFog = true;
     }
     boolean cacheNotValid =
@@ -910,37 +882,21 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       timer.start("renderFog-allocateBufferedImage");
       timer.stop("renderFog-allocateBufferedImage");
-      fogX = zoneRenderer.getViewOffsetX();
-      fogY = zoneRenderer.getViewOffsetY();
+      fogX = zoneCache.getZoneRenderer().getViewOffsetX();
+      fogY = zoneCache.getZoneRenderer().getViewOffsetY();
 
       timer.start("renderFog-fill");
 
       // Fill
       batch.setColor(Color.WHITE);
-      var paint = zone.getFogPaint();
-      if (paint instanceof DrawableColorPaint) {
-        Color.argb8888ToColor(tmpColor, ((DrawableColorPaint) paint).getColor());
-        tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, view.isGMView() ? .6f : 1f);
-        drawer.setColor(tmpColor);
-        drawer.filledRectangle(
-            cam.position.x - width * zoom / 2f,
-            cam.position.y - height * zoom / 2f,
-            width * zoom,
-            height * zoom);
-      } else {
-        if (fog == null) {
-          var texturePaint = (DrawableTexturePaint) paint;
-          var image = texturePaint.getAsset().getData();
-          var pix = new Pixmap(image, 0, image.length);
-          fog = new Texture(pix);
-          fog.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
-          pix.dispose();
-        }
-        fillViewportWith(fog);
-      }
+      var paint = zoneCache.getZone().getFogPaint();
+      var fogPaint = zoneCache.getPaint(paint);
+      var fogColor = fogPaint.color();
+      fogPaint.color().set(fogColor.r, fogColor.g, fogColor.b, view.isGMView() ? .6f : 1f);
+      fillViewportWith(fogPaint);
 
       timer.start("renderFog-visibleArea");
-      Area visibleArea = zoneRenderer.getZoneView().getVisibleArea(view);
+      Area visibleArea = zoneCache.getZoneRenderer().getZoneView().getVisibleArea(view);
       timer.stop("renderFog-visibleArea");
 
       String msg = null;
@@ -949,14 +905,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         msg = "renderFog-combined(" + (list == null ? 0 : list.size()) + ")";
       }
       timer.start(msg);
-      combined = zone.getExposedArea(view);
+      combined = zoneCache.getZone().getExposedArea(view);
       timer.stop(msg);
 
       timer.start("renderFogArea");
       Area exposedArea = null;
       Area tempArea = new Area();
       boolean combinedView =
-          !zoneRenderer.getZoneView().isUsingVision()
+          !zoneCache.getZoneRenderer().getZoneView().isUsingVision()
               || MapTool.isPersonalServer()
               || !MapTool.getServerPolicy().isUseIndividualFOW()
               || view.isGMView();
@@ -965,7 +921,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         // if there are tokens selected combine the areas, then, if individual FOW is enabled
         // we pass the combined exposed area to build the soft FOW and visible area.
         for (Token tok : view.getTokens()) {
-          ExposedAreaMetaData meta = zone.getExposedAreaMetaData(tok.getExposedAreaGUID());
+          ExposedAreaMetaData meta =
+              zoneCache.getZone().getExposedAreaMetaData(tok.getExposedAreaGUID());
           exposedArea = meta.getExposedAreaHistory();
           tempArea.add(new Area(exposedArea));
         }
@@ -988,7 +945,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         // exposed area's to build the soft FOW.
         if (combinedView) {
           if (combined.isEmpty()) {
-            combined = zone.getExposedArea();
+            combined = zoneCache.getZone().getExposedArea();
           }
           areaRenderer.setColor(Color.CLEAR);
           areaRenderer.fillArea(batch, combined);
@@ -996,14 +953,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           renderFogOutline();
         } else {
           Area myCombined = new Area();
-          List<Token> myToks = zone.getTokens();
+          List<Token> myToks = zoneCache.getZone().getTokens();
           for (Token tok : myToks) {
             if (!AppUtil.playerOwns(
                 tok)) { // Only here if !isGMview() so should the tokens already be in
               // PlayerView.getTokens()?
               continue;
             }
-            ExposedAreaMetaData meta = zone.getExposedAreaMetaData(tok.getExposedAreaGUID());
+            ExposedAreaMetaData meta =
+                zoneCache.getZone().getExposedAreaMetaData(tok.getExposedAreaGUID());
             exposedArea = meta.getExposedAreaHistory();
             myCombined.add(new Area(exposedArea));
           }
@@ -1036,7 +994,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderFogArea(Area softFog, Area visibleArea) {
-    if (zoneRenderer.getZoneView().isUsingVision()) {
+    if (zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
       if (visibleArea != null && !visibleArea.isEmpty()) {
         tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
         areaRenderer.setColor(tmpColor);
@@ -1066,7 +1024,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void renderLabels(PlayerView view) {
     timer.start("labels-1");
 
-    for (Label label : zone.getLabels()) {
+    for (Label label : zoneCache.getZone().getLabels()) {
       timer.start("labels-1.1");
       Color.argb8888ToColor(tmpColor, label.getForegroundColor().getRGB());
       if (label.isShowBackground()) {
@@ -1086,14 +1044,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void showBlockedMoves(PlayerView view, Set<ZoneRenderer.SelectionSet> movementSet) {
-    var selectionSetMap = zoneRenderer.getSelectionSetMap();
+    var selectionSetMap = zoneCache.getZoneRenderer().getSelectionSetMap();
     if (selectionSetMap.isEmpty()) {
       return;
     }
 
     boolean clipInstalled = false;
     for (ZoneRenderer.SelectionSet set : movementSet) {
-      Token keyToken = zone.getToken(set.getKeyToken());
+      Token keyToken = zoneCache.getZone().getToken(set.getKeyToken());
       if (keyToken == null) {
         // It was removed ?
         selectionSetMap.remove(set.getKeyToken());
@@ -1106,7 +1064,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       ZoneWalker walker = set.getWalker();
 
       for (GUID tokenGUID : set.getTokens()) {
-        Token token = zone.getToken(tokenGUID);
+        Token token = zoneCache.getZone().getToken(tokenGUID);
 
         // Perhaps deleted?
         if (token == null) {
@@ -1128,8 +1086,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         if (!view.isGMView()
             && !AppUtil.playerOwns(token)
             && visibleScreenArea == null
-            && zone.hasFog()
-            && zoneRenderer.getZoneView().isUsingVision()) {
+            && zoneCache.getZone().hasFog()
+            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
           continue;
         }
 
@@ -1140,10 +1098,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         }
 
         // OPTIMIZE: combine this with the code in renderTokens()
-        java.awt.Rectangle footprintBounds = token.getBounds(zone);
+        java.awt.Rectangle footprintBounds = token.getBounds(zoneCache.getZone());
 
         // get token image, using image table if present
-        Sprite image = getSprite(token.getImageAssetId());
+        Sprite image = zoneCache.getSprite(token.getImageAssetId(), stateTime);
         if (image == null) continue;
 
         // Vision visibility
@@ -1169,7 +1127,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         if (token == keyToken && !token.isStamp()) {
           renderPath(
               walker != null ? walker.getPath() : set.getGridlessPath(),
-              token.getFootprint(zone.getGrid()));
+              token.getFootprint(zoneCache.getZone().getGrid()));
         }
 
         // Show current Blocked Movement directions for A*
@@ -1181,9 +1139,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             var blockedMoves = entry.getValue();
 
             for (CellPoint point : blockedMoves) {
-              ZonePoint zp = point.midZonePoint(zoneRenderer.getZone().getGrid(), position);
+              ZonePoint zp =
+                  point.midZonePoint(zoneCache.getZoneRenderer().getZone().getGrid(), position);
               double r = (zp.x - 1) * 45;
-              showBlockedMoves(zp, r, getSprite("block_move"), 1.0f);
+              showBlockedMoves(zp, r, zoneCache.getSprite("block_move"), 1.0f);
             }
           }
         }
@@ -1201,10 +1160,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           var w = footprintBounds.width;
           var h = footprintBounds.height;
 
-          Grid grid = zone.getGrid();
+          Grid grid = zoneCache.getZone().getGrid();
           boolean checkForFog =
               MapTool.getServerPolicy().isUseIndividualFOW()
-                  && zoneRenderer.getZoneView().isUsingVision();
+                  && zoneCache.getZoneRenderer().getZoneView().isUsingVision();
           boolean showLabels = isOwner;
           if (checkForFog) {
             Path<? extends AbstractPoint> path =
@@ -1225,7 +1184,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
               if (lastPoint instanceof CellPoint) {
                 tokenRectangle = token.getFootprint(grid).getBounds(grid, (CellPoint) lastPoint);
               } else {
-                java.awt.Rectangle tokBounds = token.getBounds(zone);
+                java.awt.Rectangle tokBounds = token.getBounds(zoneCache.getZone());
                 tokenRectangle = new java.awt.Rectangle();
                 tokenRectangle.setBounds(
                     lastPoint.x,
@@ -1235,10 +1194,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
               }
               showLabels =
                   showLabels
-                      || zoneRenderer.getZoneView().getVisibleArea(view).intersects(tokenRectangle);
+                      || zoneCache
+                          .getZoneRenderer()
+                          .getZoneView()
+                          .getVisibleArea(view)
+                          .intersects(tokenRectangle);
             }
           } else {
-            boolean hasFog = zone.hasFog();
+            boolean hasFog = zoneCache.getZone().hasFog();
             boolean fogIntersects = exposedFogArea.intersects(footprintBounds);
             showLabels = showLabels || (visibleScreenArea == null && !hasFog); // no vision - fog
             showLabels =
@@ -1276,8 +1239,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
                   c += Math.hypot(a, b);
                   lastPoint = zp;
                 }
-                c /= zone.getGrid().getSize(); // Number of "cells"
-                c *= zone.getUnitsPerCell(); // "actual" distance traveled
+                c /= zoneCache.getZone().getGrid().getSize(); // Number of "cells"
+                c *= zoneCache.getZone().getUnitsPerCell(); // "actual" distance traveled
                 distance = NumberFormat.getInstance().format(c);
               }
               if (!distance.isEmpty()) {
@@ -1296,8 +1259,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void showBlockedMoves(ZonePoint zp, double angle, Sprite image, float size) {
     // Resize image to size of 1/4 size of grid
-    var resizeWidth = (float) zone.getGrid().getCellWidth() / image.getWidth() * .25f;
-    var resizeHeight = (float) zone.getGrid().getCellHeight() / image.getHeight() * .25f;
+    var resizeWidth =
+        (float) zoneCache.getZone().getGrid().getCellWidth() / image.getWidth() * .25f;
+    var resizeHeight =
+        (float) zoneCache.getZone().getGrid().getCellHeight() / image.getHeight() * .25f;
 
     var w = image.getWidth() * resizeWidth * size;
     var h = image.getHeight() * resizeHeight * size;
@@ -1312,7 +1277,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     // Setup
     timer.start("renderAuras:getAuras");
-    final var drawableAuras = zoneRenderer.getZoneView().getDrawableAuras();
+    final var drawableAuras = zoneCache.getZoneRenderer().getZoneView().getDrawableAuras();
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
@@ -1323,13 +1288,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   private void renderLights(PlayerView view) {
     // Collect and organize lights
     timer.start("renderLights:getLights");
-    final var drawableLights = zoneRenderer.getZoneView().getDrawableLights(view);
+    final var drawableLights = zoneCache.getZoneRenderer().getZoneView().getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
     if (AppState.isShowLights()) {
       // Lighting enabled.
       timer.start("renderLights:renderLightOverlay");
-      // zone.getLightingStyle() is not supported currently as you would probably need a custom
+      // zoneCache.getZone().getLightingStyle() is not supported currently as you would probably
+      // need a custom
       // shader
 
       renderLightOverlay(
@@ -1350,7 +1316,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void renderLumensOverlay(PlayerView view, float overlayAlpha) {
     final var disjointLumensLevels =
-        zoneRenderer.getZoneView().getDisjointObscuredLumensLevels(view);
+        zoneCache.getZoneRenderer().getZoneView().getDisjointObscuredLumensLevels(view);
 
     timer.start("renderLumensOverlay:allocateBuffer");
     batch.flush();
@@ -1360,7 +1326,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
     var A_d = overlayAlpha;
     // At night, show any uncovered areas as dark. In daylight, show them as light (clear).
-    if (zone.getVisionType() == Zone.VisionType.NIGHT) {
+    if (zoneCache.getZone().getVisionType() == Zone.VisionType.NIGHT) {
       ScreenUtils.clear(0, 0, 0, overlayAlpha);
     } else {
       A_d = 0;
@@ -1496,8 +1462,8 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderGrid(PlayerView view) {
-    var grid = zone.getGrid();
-    var scale = (float) zoneRenderer.getScale();
+    var grid = zoneCache.getZone().getGrid();
+    var scale = (float) zoneCache.getZoneRenderer().getScale();
     int gridSize = (int) (grid.getSize() * scale);
 
     if (!AppState.isShowGrid() || gridSize < ZoneRenderer.MIN_GRID_SIZE) {
@@ -1520,21 +1486,21 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void renderGrid(HexGrid grid) {
 
-    Color.argb8888ToColor(tmpColor, zone.getGridColor());
+    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
 
     drawer.setColor(tmpColor);
-    var path = grid.createShape(zoneRenderer.getScale());
+    var path = grid.createShape(zoneCache.getZoneRenderer().getScale());
     var floats = areaRenderer.pathToFloatArray(path.getPathIterator(null));
 
-    int offU = grid.getOffU(zoneRenderer);
-    int offV = grid.getOffV(zoneRenderer);
+    int offU = grid.getOffU(zoneCache.getZoneRenderer());
+    int offV = grid.getOffV(zoneCache.getZoneRenderer());
 
     int count = 0;
 
     var lineWidth = AppState.getGridSize();
 
     for (double v = offV % (grid.getScaledMinorRadius() * 2) - (grid.getScaledMinorRadius() * 2);
-        v < grid.getRendererSizeV(zoneRenderer);
+        v < grid.getRendererSizeV(zoneCache.getZoneRenderer());
         v += grid.getScaledMinorRadius()) {
       double offsetU =
           (int)
@@ -1547,7 +1513,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           offU % (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection())
               - (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection());
       double end =
-          grid.getRendererSizeU(zoneRenderer)
+          grid.getRendererSizeU(zoneCache.getZoneRenderer())
               + 2 * grid.getScaledEdgeLength()
               + 2 * grid.getScaledEdgeProjection();
       double incr = 2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection();
@@ -1575,10 +1541,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderGrid(IsometricGrid grid) {
-    var scale = (float) zoneRenderer.getScale();
+    var scale = (float) zoneCache.getZoneRenderer().getScale();
     int gridSize = (int) (grid.getSize() * scale);
 
-    Color.argb8888ToColor(tmpColor, zone.getGridColor());
+    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
 
     drawer.setColor(tmpColor);
 
@@ -1590,8 +1556,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     double isoHeight = grid.getSize() * scale;
     double isoWidth = grid.getSize() * 2 * scale;
 
-    int offX = (int) (zoneRenderer.getViewOffsetX() % isoWidth + grid.getOffsetX() * scale) + 1;
-    int offY = (int) (zoneRenderer.getViewOffsetY() % gridSize + grid.getOffsetY() * scale) + 1;
+    int offX =
+        (int) (zoneCache.getZoneRenderer().getViewOffsetX() % isoWidth + grid.getOffsetX() * scale)
+            + 1;
+    int offY =
+        (int) (zoneCache.getZoneRenderer().getViewOffsetY() % gridSize + grid.getOffsetY() * scale)
+            + 1;
 
     int startCol = (int) ((int) (x / isoWidth) * isoWidth);
     int startRow = (int) ((int) (y / gridSize) * gridSize);
@@ -1610,7 +1580,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void drawHatch(IsometricGrid grid, float x, float y) {
-    double isoWidth = grid.getSize() * zoneRenderer.getScale();
+    double isoWidth = grid.getSize() * zoneCache.getZoneRenderer().getScale();
     int hatchSize = isoWidth > 10 ? (int) isoWidth / 8 : 2;
 
     var lineWidth = AppState.getGridSize();
@@ -1620,9 +1590,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderGrid(SquareGrid grid) {
-    var scale = (float) zoneRenderer.getScale();
+    var scale = (float) zoneCache.getZoneRenderer().getScale();
     float gridSize = (grid.getSize() * scale);
-    Color.argb8888ToColor(tmpColor, zone.getGridColor());
+    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
 
     drawer.setColor(tmpColor);
 
@@ -1631,8 +1601,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     var w = hudCam.viewportWidth;
     var h = hudCam.viewportHeight;
 
-    var offX = Math.round(zoneRenderer.getViewOffsetX() % gridSize + grid.getOffsetX() * scale);
-    var offY = Math.round(zoneRenderer.getViewOffsetY() % gridSize + grid.getOffsetY() * scale);
+    var offX =
+        Math.round(
+            zoneCache.getZoneRenderer().getViewOffsetX() % gridSize + grid.getOffsetX() * scale);
+    var offY =
+        Math.round(
+            zoneCache.getZoneRenderer().getViewOffsetY() % gridSize + grid.getOffsetY() * scale);
 
     var startCol = ((int) (x / gridSize) * gridSize);
     var startRow = ((int) (y / gridSize) * gridSize);
@@ -1670,47 +1644,39 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderBoard() {
-    if (!zone.drawBoard()) return;
+    if (!zoneCache.getZone().drawBoard()) return;
 
-    var paint = zone.getBackgroundPaint();
-    if (paint instanceof DrawableColorPaint) {
-      Color.argb8888ToColor(tmpColor, ((DrawableColorPaint) paint).getColor());
-      drawer.setColor(tmpColor);
-      drawer.filledRectangle(
-          cam.position.x - width * zoom / 2f,
-          cam.position.y - height * zoom / 2f,
-          width * zoom,
-          height * zoom);
-    } else {
-      if (background == null) {
-        var texturePaint = (DrawableTexturePaint) paint;
-        var image = texturePaint.getAsset().getData();
-        var pix = new Pixmap(image, 0, image.length);
-        background = new Texture(pix);
-        background.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
-        pix.dispose();
-      }
-      fillViewportWith(background);
-    }
+    var paint = zoneCache.getZone().getBackgroundPaint();
+    fillViewportWith(zoneCache.getPaint(paint));
 
-    var map = getSprite(zone.getMapAssetId());
+    var map = zoneCache.getSprite(zoneCache.getZone().getMapAssetId(), stateTime);
     if (map != null) {
-      map.setPosition(zone.getBoardX(), zone.getBoardY() - map.getHeight());
+      map.setPosition(
+          zoneCache.getZone().getBoardX(), zoneCache.getZone().getBoardY() - map.getHeight());
       map.draw(batch);
     }
   }
 
-  private void fillViewportWith(Texture texture) {
-    var w = ((int) (cam.viewportWidth * zoom / texture.getWidth()) + 4) * texture.getWidth();
-    var h = ((int) (cam.viewportHeight * zoom / texture.getHeight()) + 4) * texture.getHeight();
+  private void fillViewportWith(ZoneCache.GdxPaint paint) {
+    // var w = ((int) (cam.viewportWidth * zoom / texture.getWidth()) + 4) * texture.getWidth();
+    // var h = ((int) (cam.viewportHeight * zoom / texture.getHeight()) + 4) * texture.getHeight();
 
+    var w = cam.viewportWidth * zoom;
+    var h = cam.viewportHeight * zoom;
     var startX = (cam.position.x - cam.viewportWidth * zoom / 2);
-    startX = (((int) startX) / texture.getWidth()) * texture.getWidth() - texture.getWidth();
+    // startX = (((int) startX) / texture.getWidth()) * texture.getWidth() - texture.getWidth();
 
     var startY = (cam.position.y - cam.viewportHeight * zoom / 2);
-    startY = (((int) startY) / texture.getHeight()) * texture.getHeight() - texture.getHeight();
+    // startY = (((int) startY) / texture.getHeight()) * texture.getHeight() - texture.getHeight();
+    var vertices =
+        new float[] {
+          startX, startY, startX, startY + h, startX + w, startY + h, startX + w, startY,
+        };
+    var indices = new short[] {0, 1, 2, 0, 2, 4};
 
-    batch.draw(texture, startX, startY, 0, 0, w, h);
+    var polySprite = new PolygonSprite(new PolygonRegion(paint.textureRegion(), vertices, indices));
+    polySprite.setColor(paint.color());
+    polySprite.draw(batch);
   }
 
   private void renderTokens(List<Token> tokenList, PlayerView view, boolean figuresOnly) {
@@ -1725,11 +1691,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       timer.start("tokenlist-1");
       try {
-        if (token.isStamp() && zoneRenderer.isTokenMoving(token)) {
+        if (token.isStamp() && zoneCache.getZoneRenderer().isTokenMoving(token)) {
           continue;
         }
         // Don't bother if it's not visible
-        // NOTE: Not going to use zone.isTokenVisible as it is very slow. In fact, it's faster
+        // NOTE: Not going to use zoneCache.getZone().isTokenVisible as it is very slow. In fact,
+        // it's faster
         // to just draw the tokens and let them be clipped
         if ((!token.isVisible() || token.isGMStamp()) && !isGMView) {
           continue;
@@ -1742,7 +1709,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         timer.stop("tokenlist-1");
       }
 
-      java.awt.Rectangle footprintBounds = token.getBounds(zone);
+      java.awt.Rectangle footprintBounds = token.getBounds(zoneCache.getZone());
       java.awt.Rectangle origBounds = (java.awt.Rectangle) footprintBounds.clone();
       Area tokenBounds = new Area(footprintBounds);
 
@@ -1761,7 +1728,9 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       try {
 
         // Vision visibility
-        if (!isGMView && token.isToken() && zoneRenderer.getZoneView().isUsingVision()) {
+        if (!isGMView
+            && token.isToken()
+            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
           if (!GraphicsUtil.intersects(visibleScreenArea, tokenBounds)) {
             continue;
           }
@@ -1773,14 +1742,15 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       // Previous path
       timer.start("renderTokens:ShowPath");
-      if (zoneRenderer.getShowPathList().contains(token) && token.getLastPath() != null) {
-        renderPath(token.getLastPath(), token.getFootprint(zone.getGrid()));
+      if (zoneCache.getZoneRenderer().getShowPathList().contains(token)
+          && token.getLastPath() != null) {
+        renderPath(token.getLastPath(), token.getFootprint(zoneCache.getZone().getGrid()));
       }
       timer.stop("renderTokens:ShowPath");
 
       // get token image sprite, using image table if present
       var imageKey = token.getTokenImageAssetId();
-      Sprite image = getSprite(imageKey);
+      Sprite image = zoneCache.getSprite(imageKey, stateTime);
 
       prepareTokenSprite(image, token, footprintBounds);
 
@@ -1790,16 +1760,16 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         areaRenderer.setColor(tmpColor);
         areaRenderer.drawArea(
             batch,
-            zone.getGrid().getTokenCellArea(tokenBounds),
+            zoneCache.getZone().getGrid().getTokenCellArea(tokenBounds),
             false,
             AppPreferences.getHaloLineWidth());
       }
 
       // Calculate alpha Transparency from token and use opacity for indicating that token is moving
       float opacity = token.getTokenOpacity();
-      if (zoneRenderer.isTokenMoving(token)) opacity = opacity / 2.0f;
+      if (zoneCache.getZoneRenderer().isTokenMoving(token)) opacity = opacity / 2.0f;
 
-      Area tokenCellArea = zone.getGrid().getTokenCellArea(tokenBounds);
+      Area tokenCellArea = zoneCache.getZone().getGrid().getTokenCellArea(tokenBounds);
       Area cellArea = new Area(visibleScreenArea);
       cellArea.intersect(tokenCellArea);
 
@@ -1807,9 +1777,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       timer.start("tokenlist-7");
       image.setColor(1, 1, 1, opacity);
       if (!isGMView
-          && zoneRenderer.getZoneView().isUsingVision()
+          && zoneCache.getZoneRenderer().getZoneView().isUsingVision()
           && (token.getShape() == Token.TokenShape.FIGURE)) {
-        if (zone.getGrid().checkCenterRegion(tokenCellArea.getBounds(), visibleScreenArea)) {
+        if (zoneCache
+            .getZone()
+            .getGrid()
+            .checkCenterRegion(tokenCellArea.getBounds(), visibleScreenArea)) {
           // if we can see the centre, draw the whole token
           image.draw(batch);
         } else {
@@ -1817,12 +1790,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           paintClipped(image, tokenCellArea, cellArea);
         }
       } else if (!isGMView
-          && zoneRenderer.getZoneView().isUsingVision()
+          && zoneCache.getZoneRenderer().getZoneView().isUsingVision()
           && token.isAlwaysVisible()) {
         // Jamz: Always Visible tokens will get rendered again here to place on top of FoW
         if (GraphicsUtil.intersects(visibleScreenArea, tokenCellArea)) {
           // if we can see a portion of the stamp/token, draw the whole thing, defaults to 2/9ths
-          if (zone.getGrid()
+          if (zoneCache
+              .getZone()
+              .getGrid()
               .checkRegion(
                   tokenCellArea.getBounds(),
                   visibleScreenArea,
@@ -1840,7 +1815,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       } else {
         // fallthrough normal token rendered against visible area
 
-        if (zoneRenderer.isTokenInNeedOfClipping(token, tokenCellArea, isGMView)) {
+        if (zoneCache.getZoneRenderer().isTokenInNeedOfClipping(token, tokenCellArea, isGMView)) {
           paintClipped(image, tokenCellArea, cellArea);
         } else image.draw(batch);
       }
@@ -1862,7 +1837,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             java.awt.Shape arrow =
                 getFigureFacingArrow(token.getFacing(), footprintBounds.width / 2);
 
-            if (!zone.getGrid().isIsometric()) {
+            if (!zoneCache.getZone().getGrid().isIsometric()) {
               arrow = getCircleFacingArrow(token.getFacing(), footprintBounds.width / 2);
             }
 
@@ -1894,7 +1869,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             }
           case CIRCLE:
             arrow = getCircleFacingArrow(token.getFacing(), footprintBounds.width / 2);
-            if (zone.getGrid().isIsometric()) {
+            if (zoneCache.getZone().getGrid().isIsometric()) {
               arrow = getFigureFacingArrow(token.getFacing(), footprintBounds.width / 2);
             }
             arrowArea = new Area(arrow);
@@ -1914,7 +1889,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
             batch.setTransformMatrix(tmpMatrix);
             break;
           case SQUARE:
-            if (zone.getGrid().isIsometric()) {
+            if (zoneCache.getZone().getGrid().isIsometric()) {
               arrow = getFigureFacingArrow(token.getFacing(), footprintBounds.width / 2);
               cx = origBounds.x + origBounds.width / 2f;
               cy = origBounds.y + origBounds.height / 2f;
@@ -1970,7 +1945,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           overlay = (AbstractTokenOverlay) stateValue;
         }
         if (overlay == null
-            || overlay.isMouseover() && token != zoneRenderer.getTokenUnderMouse()
+            || overlay.isMouseover() && token != zoneCache.getZoneRenderer().getTokenUnderMouse()
             || !overlay.showPlayer(token, MapTool.getPlayer())) {
           continue;
         }
@@ -1984,7 +1959,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         Object barValue = token.getState(bar);
         BarTokenOverlay overlay = MapTool.getCampaign().getTokenBarsMap().get(bar);
         if (overlay == null
-            || overlay.isMouseover() && token != zoneRenderer.getTokenUnderMouse()
+            || overlay.isMouseover() && token != zoneCache.getZoneRenderer().getTokenUnderMouse()
             || !overlay.showPlayer(token, MapTool.getPlayer())) {
           continue;
         }
@@ -1995,7 +1970,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       timer.start("tokenlist-11");
       // Keep track of which tokens have been drawn so we can perform post-processing on them later
       // (such as selection borders and names/labels)
-      if (!zoneRenderer.getActiveLayer().equals(token.getLayer())) continue;
+      if (!zoneCache.getZoneRenderer().getActiveLayer().equals(token.getLayer())) continue;
 
       timer.stop("tokenlist-11");
       timer.start("tokenlist-12");
@@ -2004,24 +1979,27 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       // Selection and labels
 
-      var tokenRectangle = token.getBounds(zone);
+      var tokenRectangle = token.getBounds(zoneCache.getZone());
       var gdxTokenRectangle =
           new Rectangle(
               tokenRectangle.x,
               -tokenRectangle.y - tokenRectangle.height,
               tokenRectangle.width,
               tokenRectangle.height);
-      boolean isSelected = zoneRenderer.getSelectedTokenSet().contains(token.getId());
+      boolean isSelected =
+          zoneCache.getZoneRenderer().getSelectedTokenSet().contains(token.getId());
       if (isSelected) {
         ImageBorder selectedBorder =
             token.isStamp() ? AppStyle.selectedStampBorder : AppStyle.selectedBorder;
-        if (zoneRenderer.getHighlightCommonMacros().contains(token)) {
+        if (zoneCache.getZoneRenderer().getHighlightCommonMacros().contains(token)) {
           selectedBorder = AppStyle.commonMacroBorder;
         }
         if (!AppUtil.playerOwns(token)) {
           selectedBorder = AppStyle.selectedUnownedBorder;
         }
-        if (useIF && !token.isStamp() && zoneRenderer.getZoneView().isUsingVision()) {
+        if (useIF
+            && !token.isStamp()
+            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
           Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
           if (tool
                   instanceof
@@ -2069,33 +2047,34 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
       // Token names and labels
       boolean showCurrentTokenLabel =
-          AppState.isShowTokenNames() || token == zoneRenderer.getTokenUnderMouse();
+          AppState.isShowTokenNames() || token == zoneCache.getZoneRenderer().getTokenUnderMouse();
 
       // if policy does not auto-reveal FoW, check if fog covers the token (slow)
       if (showCurrentTokenLabel
           && !isGMView
-          && (!zoneRenderer.getZoneView().isUsingVision()
+          && (!zoneCache.getZoneRenderer().getZoneView().isUsingVision()
               || !MapTool.getServerPolicy().isAutoRevealOnMovement())
-          && !zone.isTokenVisible(token)) {
+          && !zoneCache.getZone().isTokenVisible(token)) {
         showCurrentTokenLabel = false;
       }
       if (showCurrentTokenLabel) {
-        itemRenderList.add(new TokenLabelRenderer(token, zone, isGMView, textRenderer));
+        itemRenderList.add(
+            new TokenLabelRenderer(token, zoneCache.getZone(), isGMView, textRenderer));
       }
       timer.stop("tokenlist-12");
     }
 
     timer.start("tokenlist-13");
 
-    var tokenStackMap = zoneRenderer.getTokenStackMap();
+    var tokenStackMap = zoneCache.getZoneRenderer().getTokenStackMap();
 
     // Stacks
     if (!tokenList.isEmpty()
         && !tokenList.get(0).isStamp()) { // TODO: find a cleaner way to indicate token layer
       if (tokenStackMap != null) { // FIXME Needed to prevent NPE but how can it be null?
         for (Token token : tokenStackMap.keySet()) {
-          var tokenRectangle = token.getBounds(zone);
-          var stackImage = fetch("stack");
+          var tokenRectangle = token.getBounds(zoneCache.getZone());
+          var stackImage = zoneCache.fetch("stack");
           batch.draw(
               stackImage,
               tokenRectangle.x + tokenRectangle.width - stackImage.getRegionWidth() + 2,
@@ -2123,23 +2102,10 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     timer.start("tokenlist-5a");
     if (token.isFlippedIso()) {
-      var assetId = token.getImageAssetId();
-      if (!isoSprites.containsKey(assetId)) {
-        var workImage = IsometricGrid.isoImage(ImageManager.getImage(assetId));
-        try {
-          var bytes = ImageUtil.imageToBytes(workImage, "png");
-          var pix = new Pixmap(bytes, 0, bytes.length);
-          image = new Sprite(new Texture(pix));
-          pix.dispose();
-        } catch (Exception e) {
-        }
-        isoSprites.put(assetId, image);
-      } else {
-        image = isoSprites.get(assetId);
-      }
+      image = zoneCache.getIsoSprite(token.getImageAssetId());
       token.setHeight((int) image.getHeight());
       token.setWidth((int) image.getWidth());
-      footprintBounds = token.getBounds(zone);
+      footprintBounds = token.getBounds(zoneCache.getZone());
     }
     timer.stop("tokenlist-5a");
 
@@ -2207,98 +2173,19 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     timer.stop("tokenlist-6");
   }
 
-  private Sprite getSprite(MD5Key key) {
-    if (key == null) return null;
-
-    var videoPlayer = videoPlayerMap.get(key);
-    if (videoPlayer != null) {
-      boolean skip = false;
-      if (!videoPlayer.isPlaying()) {
-        try {
-          var file = AssetManager.getAssetCacheFile(key);
-          if (file != null) {
-            videoPlayer.play(Gdx.files.absolute(file.getAbsolutePath()));
-            videoPlayer.setVolume(0);
-          } else skip = true;
-
-        } catch (FileNotFoundException ex) {
-          log.warn(ex.toString());
-        }
-      }
-      if (!skip) {
-        videoPlayer.update();
-        var texture = videoPlayer.getTexture();
-        if (texture != null) {
-          var sprite = new Sprite(texture);
-          sprite.setSize(texture.getWidth(), texture.getHeight());
-          return sprite;
-        }
-      }
-    }
-
-    var animation = animationMap.get(key);
-    if (animation != null) {
-      var currentFrame = animation.getKeyFrame(stateTime, true);
-      var sprite = new Sprite(currentFrame);
-      sprite.setSize(currentFrame.getRegionWidth(), currentFrame.getRegionHeight());
-      return sprite;
-    }
-
-    var sprite = bigSprites.get(key);
-    if (sprite != null) {
-      sprite.setSize(sprite.getTexture().getWidth(), sprite.getTexture().getHeight());
-      return sprite;
-    }
-
-    return getSprite(key.toString());
-  }
-
-  private Sprite getSprite(String name) {
-    var sprite = fetchedSprites.get(name);
-    if (sprite != null) {
-      var region = fetchedRegions.get(name);
-      sprite.setSize(region.getRegionWidth(), region.getRegionHeight());
-      return sprite;
-    }
-
-    var region = fetch(name);
-
-    if (name != "unknown" && region == null) {
-      AssetManager.getAssetAsynchronously(new MD5Key(name), this);
-      return getSprite("unknown");
-    }
-
-    sprite = new Sprite(region);
-    sprite.setSize(region.getRegionWidth(), region.getRegionHeight());
-
-    fetchedSprites.put(name, sprite);
-    return sprite;
-  }
-
-  private TextureRegion fetch(String regionName) {
-    var region = fetchedRegions.get(regionName);
-    if (region != null) return region;
-
-    region = tokenAtlas.findRegion(regionName);
-    if (region == null) region = atlas.findRegion(regionName);
-
-    fetchedRegions.put(regionName, region);
-    return region;
-  }
-
   private void renderImageBorderAround(ImageBorder border, Rectangle bounds) {
     var imagePath = border.getImagePath();
     var index = imagePath.indexOf("border/");
     var bordername = imagePath.substring(index);
 
-    var topRight = fetch(bordername + "/tr");
-    var top = fetch(bordername + "/top");
-    var topLeft = fetch(bordername + "/tl");
-    var left = fetch(bordername + "/left");
-    var bottomLeft = fetch(bordername + "/bl");
-    var bottom = fetch(bordername + "/bottom");
-    var bottomRight = fetch(bordername + "/br");
-    var right = fetch(bordername + "/right");
+    var topRight = zoneCache.fetch(bordername + "/tr");
+    var top = zoneCache.fetch(bordername + "/top");
+    var topLeft = zoneCache.fetch(bordername + "/tl");
+    var left = zoneCache.fetch(bordername + "/left");
+    var bottomLeft = zoneCache.fetch(bordername + "/bl");
+    var bottom = zoneCache.fetch(bordername + "/bottom");
+    var bottomRight = zoneCache.fetch(bordername + "/br");
+    var right = zoneCache.fetch(bordername + "/right");
 
     // x,y is bottom left of the rectangle
     var leftMargin = border.getLeftMargin();
@@ -2393,12 +2280,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       MultipleImageBarTokenOverlay overlay, Token token, double barValue) {
     int incr = overlay.findIncrement(barValue);
 
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
 
     // Get the images
-    var image = getSprite(overlay.getAssetIds()[incr]);
+    var image = zoneCache.getSprite(overlay.getAssetIds()[incr], stateTime);
 
     Dimension d = bounds.getSize();
     Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
@@ -2423,12 +2310,12 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
   private void renderTokenOverlay(
       SingleImageBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
 
     // Get the images
-    var image = getSprite(overlay.getAssetId());
+    var image = zoneCache.getSprite(overlay.getAssetId(), stateTime);
 
     Dimension d = bounds.getSize();
     Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
@@ -2488,7 +2375,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(DrawnBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2530,7 +2417,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(TwoToneBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2585,13 +2472,13 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(TwoImageBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
 
     // Get the images
-    var topImage = getSprite(overlay.getTopAssetId());
-    var bottomImage = getSprite(overlay.getBottomAssetId());
+    var topImage = zoneCache.getSprite(overlay.getTopAssetId(), stateTime);
+    var bottomImage = zoneCache.getSprite(overlay.getBottomAssetId(), stateTime);
 
     Dimension d = bounds.getSize();
     Dimension size = new Dimension((int) topImage.getWidth(), (int) topImage.getHeight());
@@ -2686,7 +2573,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(ShadedTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2701,7 +2588,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(ImageTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y;
 
@@ -2709,7 +2596,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     java.awt.Rectangle iBounds = overlay.getImageBounds(bounds, token);
     Dimension d = iBounds.getSize();
 
-    var image = getSprite(overlay.getAssetId());
+    var image = zoneCache.getSprite(overlay.getAssetId(), stateTime);
 
     Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
     SwingUtil.constrainTo(size, d.width, d.height);
@@ -2732,7 +2619,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(XTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2755,7 +2642,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(FlowColorDotTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2775,7 +2662,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(YieldTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2804,7 +2691,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(OTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2832,7 +2719,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(ColorDotTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2872,7 +2759,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(DiamondTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2901,7 +2788,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(TriangleTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -2930,7 +2817,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void renderTokenOverlay(CrossTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zone);
+    var bounds = token.getBounds(zoneCache.getZone());
     var x = bounds.x;
     var y = -bounds.y - bounds.height;
     var w = bounds.width;
@@ -3048,7 +2935,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
     if (path.getCellPath().isEmpty()) {
       return;
     }
-    Grid grid = zone.getGrid();
+    Grid grid = zoneCache.getZone().getGrid();
 
     // log.info("Rendering path..." + System.currentTimeMillis());
 
@@ -3083,7 +2970,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       // log.info("pathSet size: " + pathSet.size());
 
       timer.start("renderPath-2");
-      Dimension cellOffset = zone.getGrid().getCellOffset();
+      Dimension cellOffset = zoneCache.getZone().getGrid().getCellOffset();
       for (CellPoint p : pathSet) {
         ZonePoint zp = grid.convert(p);
         zp.x += grid.getCellWidth() / 2 + cellOffset.width;
@@ -3099,14 +2986,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
           addDistanceText(
               zp,
               1.0f,
-              (float) p.getDistanceTraveled(zone),
+              (float) p.getDistanceTraveled(zoneCache.getZone()),
               (float) p.getDistanceTraveledWithoutTerrain());
         }
       }
       int w = 0;
       for (ZonePoint p : waypointList) {
         ZonePoint zp = new ZonePoint(p.x + cellOffset.width, p.y + cellOffset.height);
-        highlightCell(zp, fetch("redDot"), .333f);
+        highlightCell(zp, zoneCache.fetch("redDot"), .333f);
       }
 
       // Line path
@@ -3192,14 +3079,14 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         if (lastPoint == null) {
           lastPoint =
               ScreenPoint.fromZonePointRnd(
-                  zoneRenderer,
+                  zoneCache.getZoneRenderer(),
                   zp.x + (footprintBounds.width / 2) * footprint.getScale(),
                   zp.y + (footprintBounds.height / 2) * footprint.getScale());
           continue;
         }
         ScreenPoint nextPoint =
             ScreenPoint.fromZonePoint(
-                zoneRenderer,
+                zoneCache.getZoneRenderer(),
                 zp.x + (footprintBounds.width / 2) * footprint.getScale(),
                 zp.y + (footprintBounds.height / 2) * footprint.getScale());
 
@@ -3237,16 +3124,16 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
         p =
             new ZonePoint(
                 (p.x + (footprintBounds.width / 2)), (p.y + (footprintBounds.height / 2)));
-        highlightCell(p, fetch("redDot"), .333f);
+        highlightCell(p, zoneCache.fetch("redDot"), .333f);
       }
       timer.stop("renderPath-3");
     }
   }
 
   private TextureRegion getCellHighlight() {
-    if (zone.getGrid() instanceof SquareGrid) return fetch("whiteBorder");
-    if (zone.getGrid() instanceof HexGrid) return fetch("hexBorder");
-    if (zone.getGrid() instanceof IsometricGrid) return fetch("isoBorder");
+    if (zoneCache.getZone().getGrid() instanceof SquareGrid) return zoneCache.fetch("whiteBorder");
+    if (zoneCache.getZone().getGrid() instanceof HexGrid) return zoneCache.fetch("hexBorder");
+    if (zoneCache.getZone().getGrid() instanceof IsometricGrid) return zoneCache.fetch("isoBorder");
 
     return null;
   }
@@ -3255,7 +3142,7 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
       ZonePoint point, float size, float distance, float distanceWithoutTerrain) {
     if (distance == 0) return;
 
-    Grid grid = zone.getGrid();
+    Grid grid = zoneCache.getZone().getGrid();
     float cwidth = (float) grid.getCellWidth();
     float cheight = (float) grid.getCellHeight();
 
@@ -3287,198 +3174,28 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
   }
 
   private void highlightCell(ZonePoint zp, TextureRegion image, float size) {
-    Grid grid = zone.getGrid();
+    Grid grid = zoneCache.getZone().getGrid();
     float cwidth = (float) grid.getCellWidth() * size;
     float cheight = (float) grid.getCellHeight() * size;
 
     float rotation = 0;
-    if (zone.getGrid() instanceof HexGridHorizontal) rotation = 90;
+    if (zoneCache.getZone().getGrid() instanceof HexGridHorizontal) rotation = 90;
 
     batch.draw(
         image, zp.x - cwidth / 2, -zp.y - cheight / 2, 0, 0, cwidth, cheight, 1f, 1f, rotation);
   }
 
-  private void disposeZoneResources() {
-    if (!initialized) return;
-
-    // cam.zoom = 1.0f;
-    offsetX = 0;
-    offsetY = 0;
-    fogX = null;
-    fogY = null;
-    fetchedRegions.clear();
-    fetchedSprites.clear();
-    var oldPacker = packer;
-    packer = createPacker();
-    oldPacker.dispose();
-
-    Gdx.app.postRunnable(
-        () -> {
-          disposeZoneTextures();
-        });
-  }
-
-  private void disposeZoneTextures() {
-    updateCam();
-    var background = this.background;
-    this.background = null;
-    if (background != null) {
-      background.dispose();
-    }
-
-    var fog = this.fog;
-    this.fog = null;
-    if (fog != null) {
-      fog.dispose();
-    }
-
-    for (var sprite : isoSprites.values()) {
-      sprite.getTexture().dispose();
-    }
-    isoSprites.clear();
-
-    for (var sprite : bigSprites.values()) {
-      sprite.getTexture().dispose();
-    }
-    bigSprites.clear();
-    animationMap.clear();
-  }
-
-  private void initializeZoneResources(Zone newZone) {
-    if (newZone == null || !initialized) {
-      return;
-    }
-
-    zoneRenderer = MapTool.getFrame().getZoneRenderer(newZone);
-
-    for (var assetId : newZone.getAllAssetIds()) {
-      AssetManager.getAssetAsynchronously(assetId, this);
-    }
-    zone = newZone;
-  }
-
-  /*
-  @Override
-  public void modelChanged(ModelChangeEvent event) {
-
-        Object evt = event.getEvent();
-        System.out.println("ModelChangend: " + evt);
-        if (!(evt instanceof Zone.Event)) return;
-        var eventType = (Zone.Event) evt;
-        switch (eventType) {
-          case TOPOLOGY_CHANGED:
-            flushFog();
-            // flushLight();
-            break;
-          case FOG_CHANGED:
-            flushFog = true;
-            break;
-          case TOKEN_CHANGED:
-            {
-              updateVisibleArea();
-              var token = (Token) event.getArg();
-              break;
-            }
-          case TOKEN_ADDED:
-            {
-              var token = (Token) event.getArg();
-              System.out.println();
-              break;
-            }
-        }
-    */
-  /*
-  if (evt == Zone.Event.TOKEN_CHANGED
-          || evt == Zone.Event.TOKEN_REMOVED
-          || evt == Zone.Event.TOKEN_ADDED) {
-      if (event.getArg() instanceof List<?>) {
-          @SuppressWarnings("unchecked")
-          List<Token> list = (List<Token>) (event.getArg());
-          for (Token token : list) {
-              zoneRenderer.flush(token);
-          }
-      } else {
-          zoneRenderer.flush((Token) event.getArg());
-      }
-  }*/
-  /*
-            var currentZone = zone;
-
-            // for now quick and dirty
-            disposeZoneResources();
-            initializeZoneResources(currentZone);
-
-    }
-  */
-
-  // shapedrawer has to learn how to draw with texturePaint first.
-  private Texture paintToTexture(DrawablePaint paint) {
-    if (paint instanceof DrawableTexturePaint) {
-      var texturePaint = (DrawableTexturePaint) paint;
-      var image = texturePaint.getAsset().getData();
-      var pix = new Pixmap(image, 0, image.length);
-      var texture = new Texture(pix);
-      pix.dispose();
-      return texture;
-    }
-    if (paint instanceof DrawableColorPaint) {
-      var colorPaint = (DrawableColorPaint) paint;
-      var colorValue = colorPaint.getColor();
-      var color = new Color();
-      Color.argb8888ToColor(color, colorValue);
-      var pix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-
-      pix.setColor(color);
-      pix.fill();
-      var texture = new Texture(pix);
-      pix.dispose();
-      return texture;
-    }
-    return null;
-  }
-
-  private Sprite paintToSprite(DrawablePaint paint) {
-    if (paint instanceof DrawableTexturePaint) {
-      var texturePaint = (DrawableTexturePaint) paint;
-      var image = texturePaint.getAsset().getData();
-      var pix = new Pixmap(image, 0, image.length);
-      var sprite = new Sprite(new Texture(pix));
-      sprite.setSize(pix.getWidth(), pix.getHeight());
-      sprite.setPosition(0, -1 * sprite.getHeight());
-      pix.dispose();
-      return sprite;
-    }
-    if (paint instanceof DrawableColorPaint) {
-      var colorPaint = (DrawableColorPaint) paint;
-      var colorValue = colorPaint.getColor();
-      var color = new Color();
-      Color.argb8888ToColor(color, colorValue);
-      var pix = new Pixmap(64, 64, Pixmap.Format.RGBA8888);
-
-      pix.setColor(color);
-      pix.fill();
-      var sprite = new Sprite(new Texture(pix));
-      sprite.setSize(pix.getWidth(), pix.getHeight());
-      sprite.setPosition(0, -1 * sprite.getHeight());
-      pix.dispose();
-      return sprite;
-    }
-    return null;
-  }
-
   @Subscribe
   void onZoneActivated(ZoneActivated event) {
+    if (!initialized) return;
 
-    var oldZone = zone;
     renderZone = false;
 
-    if (oldZone != null) {
-      disposeZoneResources();
-    }
+    fogX = null;
+    fogY = null;
 
     var newZone = event.zone();
-    initializeZoneResources(newZone);
-    zone = newZone;
+    zoneCache = new ZoneCache(newZone, atlas);
     renderZone = true;
   }
 
@@ -3498,56 +3215,5 @@ public class GdxRenderer extends ApplicationAdapter implements AssetAvailableLis
 
     flushFog = true;
     visibleScreenArea = null;
-  }
-
-  @Override
-  public void assetAvailable(MD5Key key) {
-    try {
-      var asset = AssetManager.getAsset(key);
-      if (asset.getExtension().equals("gif")) {
-
-        Gdx.app.postRunnable(
-            () -> {
-              // var ass = AssetManager.getAsset(key);
-              var is = new ByteArrayInputStream(asset.getData());
-              var animation = GifDecoder.loadGIFAnimation(Animation.PlayMode.LOOP, is);
-              animationMap.put(key, animation);
-            });
-        return;
-      }
-      if (asset.getExtension().equals("data")) {
-        var videoPlayer = VideoPlayerCreator.createVideoPlayer();
-        videoPlayerMap.put(key, videoPlayer);
-        return;
-      }
-      var img =
-          ImageUtil.createCompatibleImage(
-              ImageUtil.bytesToImage(asset.getData(), asset.getName()), null);
-      // var img = ImageManager.getImage(key);
-      var bytes = ImageUtil.imageToBytes(img, "png");
-      // without imageutil there seem to be some issues with tranparency  for some images.
-      // (black background instead of tranparent)
-      // var bytes = AssetManager.getAsset(key).getImage();
-      var pix = new Pixmap(bytes, 0, bytes.length);
-
-      try {
-        var name = key.toString();
-        synchronized (packer) {
-          if (packer.getRect(name) == null) packer.pack(name, pix);
-
-          pix.dispose();
-        }
-      } catch (GdxRuntimeException x) {
-        // this means that the pixmap is to big for the atlas.
-        Gdx.app.postRunnable(
-            () -> {
-              synchronized (bigSprites) {
-                if (!bigSprites.containsKey(key)) bigSprites.put(key, new Sprite(new Texture(pix)));
-              }
-              pix.dispose();
-            });
-      }
-    } catch (Exception e) {
-    }
   }
 }
