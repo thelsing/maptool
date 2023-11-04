@@ -15,10 +15,7 @@
 package net.rptools.maptool.client.ui.zone.gdx;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
 import net.rptools.maptool.model.drawing.*;
@@ -28,6 +25,12 @@ public abstract class AbstractDrawingDrawer {
 
   protected Float alpha = null;
   protected AreaRenderer areaRenderer;
+
+  protected ZoneCache zoneCache;
+
+  public void setZoneCache(ZoneCache zoneCache) {
+    this.zoneCache = zoneCache;
+  }
 
   public AbstractDrawingDrawer(AreaRenderer areaRenderer) {
     this.areaRenderer = areaRenderer;
@@ -42,27 +45,13 @@ public abstract class AbstractDrawingDrawer {
   }
 
   protected void applyColor(DrawablePaint paint, boolean applyAlpha) {
-    if (paint instanceof DrawableColorPaint colorPaint) {
-      Color.argb8888ToColor(tmpColor, colorPaint.getColor());
-
-      if (alpha != null && applyAlpha) {
-        tmpColor.set(tmpColor.r, tmpColor.g, tmpColor.b, alpha);
-      }
-      areaRenderer.setColor(tmpColor);
-    } else if (paint instanceof DrawableTexturePaint texturePaint) {
-      var image = texturePaint.getAsset().getData();
-      var pix = new Pixmap(image, 0, image.length);
-      var tex = new Texture(pix);
-      tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
-      // FIXME properly dispose
-      var region = new TextureRegion(tex);
-      if (alpha != null) {
-        tmpColor.set(1, 1, 1, alpha);
-        areaRenderer.setColor(tmpColor);
-      }
-      areaRenderer.setTextureRegion(region);
-      pix.dispose();
+    var gdxPaint = zoneCache.getPaint(paint);
+    if (alpha != null && applyAlpha) {
+      var color = gdxPaint.color();
+      gdxPaint.color().set(color.r, color.g, color.b, alpha);
     }
+    areaRenderer.setTextureRegion(gdxPaint.textureRegion());
+    areaRenderer.setColor(gdxPaint.color());
   }
 
   protected void line(PolygonSpriteBatch batch, Pen pen, float x1, float y1, float x2, float y2) {

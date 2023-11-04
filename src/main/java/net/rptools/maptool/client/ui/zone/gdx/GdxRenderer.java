@@ -3196,6 +3196,14 @@ public class GdxRenderer extends ApplicationAdapter {
 
     var newZone = event.zone();
     zoneCache = new ZoneCache(newZone, atlas);
+    lineTemplateDrawer.setZoneCache(zoneCache);
+    lineCellTemplateDrawer.setZoneCache(zoneCache);
+    radiusTemplateDrawer.setZoneCache(zoneCache);
+    burstTemplateDrawer.setZoneCache(zoneCache);
+    coneTemplateDrawer.setZoneCache(zoneCache);
+    blastTemplateDrawer.setZoneCache(zoneCache);
+    radiusCellTemplateDrawer.setZoneCache(zoneCache);
+    shapeDrawableDrawer.setZoneCache(zoneCache);
     renderZone = true;
   }
 
