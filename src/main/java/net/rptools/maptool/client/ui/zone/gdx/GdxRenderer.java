@@ -1670,9 +1670,10 @@ public class GdxRenderer extends ApplicationAdapter {
     // startY = (((int) startY) / texture.getHeight()) * texture.getHeight() - texture.getHeight();
     var vertices =
         new float[] {
-          startX, startY, startX, startY + h, startX + w, startY + h, startX + w, startY,
+          startX, startY, startX, startY + h, startX + w, startY + h, startX + w, startY
         };
-    var indices = new short[] {0, 1, 2, 0, 2, 4};
+
+    var indices = new short[] {1, 0, 3, 3, 2, 1};
 
     var polySprite = new PolygonSprite(new PolygonRegion(paint.textureRegion(), vertices, indices));
     polySprite.setColor(paint.color());
@@ -3187,24 +3188,25 @@ public class GdxRenderer extends ApplicationAdapter {
 
   @Subscribe
   void onZoneActivated(ZoneActivated event) {
-    if (!initialized) return;
+    Gdx.app.postRunnable(
+        () -> {
+          renderZone = false;
 
-    renderZone = false;
+          fogX = null;
+          fogY = null;
 
-    fogX = null;
-    fogY = null;
-
-    var newZone = event.zone();
-    zoneCache = new ZoneCache(newZone, atlas);
-    lineTemplateDrawer.setZoneCache(zoneCache);
-    lineCellTemplateDrawer.setZoneCache(zoneCache);
-    radiusTemplateDrawer.setZoneCache(zoneCache);
-    burstTemplateDrawer.setZoneCache(zoneCache);
-    coneTemplateDrawer.setZoneCache(zoneCache);
-    blastTemplateDrawer.setZoneCache(zoneCache);
-    radiusCellTemplateDrawer.setZoneCache(zoneCache);
-    shapeDrawableDrawer.setZoneCache(zoneCache);
-    renderZone = true;
+          var newZone = event.zone();
+          zoneCache = new ZoneCache(newZone, atlas);
+          lineTemplateDrawer.setZoneCache(zoneCache);
+          lineCellTemplateDrawer.setZoneCache(zoneCache);
+          radiusTemplateDrawer.setZoneCache(zoneCache);
+          burstTemplateDrawer.setZoneCache(zoneCache);
+          coneTemplateDrawer.setZoneCache(zoneCache);
+          blastTemplateDrawer.setZoneCache(zoneCache);
+          radiusCellTemplateDrawer.setZoneCache(zoneCache);
+          shapeDrawableDrawer.setZoneCache(zoneCache);
+          renderZone = true;
+        });
   }
 
   public void setScale(Scale scale) {
