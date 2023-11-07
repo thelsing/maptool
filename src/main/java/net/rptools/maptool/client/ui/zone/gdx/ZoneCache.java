@@ -47,28 +47,24 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class ZoneCache implements Disposable, AssetAvailableListener {
+
   public record GdxPaint(Color color, TextureRegion textureRegion) {}
-  ;
 
   private static final Logger log = LogManager.getLogger(ZoneCache.class);
   private final Zone zone;
   private final ZoneRenderer zoneRenderer;
   private final PixmapPacker packer =
       new PixmapPacker(2048, 2048, Pixmap.Format.RGBA8888, 2, false);
-
   private final TextureAtlas tokenAtlas = new TextureAtlas();
 
   // this atlas is shared by all zones and must not be disposed here.
-  private final TextureAtlas sharedAtlas;
-
+  private TextureAtlas sharedAtlas;
   private final Map<MD5Key, Animation<TextureRegion>> animationMap = new HashMap<>();
   private final Map<MD5Key, VideoPlayer> videoPlayerMap = new HashMap<>();
-
   private final Map<String, Sprite> fetchedSprites = new HashMap<>();
   private final Map<MD5Key, Sprite> isoSprites = new HashMap<>();
   private final Map<String, TextureRegion> fetchedRegions = new HashMap<>();
   private final Map<MD5Key, Sprite> bigSprites = new HashMap<>();
-
   private final Map<MD5Key, Texture> paintTextures = new HashMap<>();
   private final Texture whitePixel;
   private final TextureRegion whitePixelRegion;
@@ -79,6 +75,10 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
 
   public ZoneRenderer getZoneRenderer() {
     return zoneRenderer;
+  }
+
+  public void setSharedAtlas(TextureAtlas atlas) {
+    sharedAtlas = atlas;
   }
 
   public ZoneCache(@Nonnull Zone zone, @Nonnull TextureAtlas sharedAtlas) {
@@ -148,8 +148,11 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
             pix.dispose();
           });
     }
-    packer.updateTextureAtlas(
-        tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
+    Gdx.app.postRunnable(
+        () -> {
+          packer.updateTextureAtlas(
+              tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
+        });
   }
 
   public TextureRegion fetch(String regionName) {

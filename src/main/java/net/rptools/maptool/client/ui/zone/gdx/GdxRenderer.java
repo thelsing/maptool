@@ -309,6 +309,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     if (atlas == null) {
       atlas = manager.get(ATLAS, TextureAtlas.class);
+      zoneCache.setSharedAtlas(atlas);
     }
 
     if (normalFont == null) {
@@ -728,8 +729,7 @@ public class GdxRenderer extends ApplicationAdapter {
       if (token.hasLightSources()) {
         boolean foundNormalLight = false;
         for (AttachedLightSource attachedLightSource : token.getLightSources()) {
-          LightSource lightSource =
-              MapTool.getCampaign().getLightSource(attachedLightSource.getLightSourceId());
+          LightSource lightSource = attachedLightSource.resolve(token, MapTool.getCampaign());
           if (lightSource != null && lightSource.getType() == LightSource.Type.NORMAL) {
             foundNormalLight = true;
             break;
@@ -1658,16 +1658,11 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   private void fillViewportWith(ZoneCache.GdxPaint paint) {
-    // var w = ((int) (cam.viewportWidth * zoom / texture.getWidth()) + 4) * texture.getWidth();
-    // var h = ((int) (cam.viewportHeight * zoom / texture.getHeight()) + 4) * texture.getHeight();
-
     var w = cam.viewportWidth * zoom;
     var h = cam.viewportHeight * zoom;
     var startX = (cam.position.x - cam.viewportWidth * zoom / 2);
-    // startX = (((int) startX) / texture.getWidth()) * texture.getWidth() - texture.getWidth();
 
     var startY = (cam.position.y - cam.viewportHeight * zoom / 2);
-    // startY = (((int) startY) / texture.getHeight()) * texture.getHeight() - texture.getHeight();
     var vertices =
         new float[] {
           startX, startY, startX, startY + h, startX + w, startY + h, startX + w, startY
@@ -3059,7 +3054,7 @@ public class GdxRenderer extends ApplicationAdapter {
           }
           previousPoint = p;
         }
-        drawer.path(tmpFloat.toArray(), drawer.getDefaultLineWidth(), JoinType.SMOOTH, true);
+        drawer.path(tmpFloat.toArray(), drawer.getDefaultLineWidth(), JoinType.NONE, true);
       }
       drawer.setColor(Color.WHITE);
       timer.stop("renderPath-2");
