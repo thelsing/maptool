@@ -211,6 +211,8 @@ public class Token implements Cloneable {
     setPortraitImage,
     setCharsheetImage,
     setLayout,
+    createUniqueLightSource,
+    deleteUniqueLightSource,
     clearLightSources,
     removeLightSource,
     addLightSource,
@@ -270,6 +272,7 @@ public class Token implements Cloneable {
   private Area vbl;
   private Area hillVbl;
   private Area pitVbl;
+  private Area coverVbl;
   private Area mbl;
 
   private String name = "";
@@ -334,6 +337,7 @@ public class Token implements Cloneable {
   private MD5Key charsheetImage;
   private MD5Key portraitImage;
 
+  private Map<GUID, LightSource> uniqueLightSources = new LinkedHashMap<>();
   private List<AttachedLightSource> lightSourceList = new ArrayList<>();
   private String sightType;
   private boolean hasSight;
@@ -432,6 +436,7 @@ public class Token implements Cloneable {
     vbl = token.vbl;
     hillVbl = token.hillVbl;
     pitVbl = token.pitVbl;
+    coverVbl = token.coverVbl;
     mbl = token.mbl;
 
     name = token.name;
@@ -471,7 +476,10 @@ public class Token implements Cloneable {
 
     ownerType = token.ownerType;
     ownerList.addAll(token.ownerList);
+
+    uniqueLightSources.putAll(token.uniqueLightSources);
     lightSourceList.addAll(token.lightSourceList);
+
     state.putAll(token.state);
     getPropertyMap().clear();
     getPropertyMap().putAll(token.propertyMapCI);
@@ -916,14 +924,30 @@ public class Token implements Cloneable {
     return imageTableName;
   }
 
-  public void addLightSource(LightSource source) {
-    lightSourceList.add(new AttachedLightSource(source));
+  public @Nonnull Collection<LightSource> getUniqueLightSources() {
+    return uniqueLightSources.values();
+  }
+
+  public @Nullable LightSource getUniqueLightSource(GUID lightSourceId) {
+    return uniqueLightSources.getOrDefault(lightSourceId, null);
+  }
+
+  public void addUniqueLightSource(LightSource source) {
+    uniqueLightSources.put(source.getId(), source);
+  }
+
+  public void removeUniqueLightSource(GUID lightSourceId) {
+    uniqueLightSources.remove(lightSourceId);
+  }
+
+  public void addLightSource(GUID lightSourceId) {
+    lightSourceList.add(new AttachedLightSource(lightSourceId));
   }
 
   public void removeLightSourceType(LightSource.Type lightType) {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null && lightSource.getType() == lightType) {
         i.remove();
       }
@@ -933,7 +957,7 @@ public class Token implements Cloneable {
   public void removeGMAuras() {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -948,7 +972,7 @@ public class Token implements Cloneable {
   public void removeOwnerOnlyAuras() {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -962,7 +986,7 @@ public class Token implements Cloneable {
 
   public boolean hasOwnerOnlyAuras() {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -977,7 +1001,7 @@ public class Token implements Cloneable {
 
   public boolean hasGMAuras() {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -992,7 +1016,7 @@ public class Token implements Cloneable {
 
   public boolean hasLightSourceType(LightSource.Type lightType) {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = MapTool.getCampaign().getLightSource(als.getLightSourceId());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null && lightSource.getType() == lightType) {
         return true;
       }
@@ -1000,12 +1024,8 @@ public class Token implements Cloneable {
     return false;
   }
 
-  public void removeLightSource(LightSource source) {
-    lightSourceList.removeIf(
-        als ->
-            als != null
-                && als.getLightSourceId() != null
-                && als.getLightSourceId().equals(source.getId()));
+  public void removeLightSource(GUID lightSourceId) {
+    lightSourceList.removeIf(als -> als.matches(lightSourceId));
   }
 
   /** Clear the lightSourceList */
@@ -1014,13 +1034,13 @@ public class Token implements Cloneable {
   }
 
   public boolean hasLightSource(LightSource source) {
-    if (lightSourceList.size() == 0) {
+    if (source.getId() == null) {
+      // Shouldn't happen as this method should only be used with non-personal lights.
       return false;
     }
+
     for (AttachedLightSource als : lightSourceList) {
-      if (als != null
-          && als.getLightSourceId() != null
-          && als.getLightSourceId().equals(source.getId())) {
+      if (als.matches(source.getId())) {
         return true;
       }
     }
@@ -1125,7 +1145,7 @@ public class Token implements Cloneable {
   public void validateName(String name) throws ParserException {
     if (!MapTool.getPlayer().isGM() && !MapTool.getParser().isMacroTrusted()) {
       Zone curZone = getZoneRenderer().getZone();
-      List<Token> tokensList = curZone.getTokens();
+      List<Token> tokensList = curZone.getAllTokens();
 
       for (Token token : tokensList) {
         String curTokenName = token.getName();
@@ -1406,6 +1426,7 @@ public class Token implements Cloneable {
       case WALL_VBL -> vbl;
       case HILL_VBL -> hillVbl;
       case PIT_VBL -> pitVbl;
+      case COVER_VBL -> coverVbl;
       case MBL -> mbl;
     };
   }
@@ -1433,6 +1454,7 @@ public class Token implements Cloneable {
       case WALL_VBL -> vbl = topology;
       case HILL_VBL -> hillVbl = topology;
       case PIT_VBL -> pitVbl = topology;
+      case COVER_VBL -> coverVbl = topology;
       case MBL -> mbl = topology;
     }
     ;
@@ -1754,6 +1776,18 @@ public class Token implements Cloneable {
    */
   public Object getState(String property) {
     return state.get(property);
+  }
+
+  public List<String> getSetStates() {
+    List<String> setStates = new ArrayList<String>();
+    for (Map.Entry<String, Object> entry : state.entrySet()) {
+      if (entry.getValue() instanceof Boolean) {
+        if ((Boolean) entry.getValue()) {
+          setStates.add(entry.getKey());
+        }
+      }
+    }
+    return setStates;
   }
 
   /**
@@ -2506,9 +2540,16 @@ public class Token implements Cloneable {
     if (ownerList == null) {
       ownerList = new HashSet<>();
     }
+    if (uniqueLightSources == null) {
+      uniqueLightSources = new LinkedHashMap<>();
+    }
     if (lightSourceList == null) {
       lightSourceList = new ArrayList<>();
     }
+    // There used to be checks elsewhere that elements were not null. In case those were legitimate,
+    // let's filter them out here instead.
+    lightSourceList.removeIf(Objects::isNull);
+
     if (macroPropertiesMap == null) {
       macroPropertiesMap = new HashMap<>();
     }
@@ -2815,6 +2856,14 @@ public class Token implements Cloneable {
         setSizeScale(parameters.get(0).getDoubleValue());
         setAnchor(parameters.get(1).getIntValue(), parameters.get(2).getIntValue());
         break;
+      case createUniqueLightSource:
+        lightChanged = true;
+        addUniqueLightSource(LightSource.fromDto(parameters.get(0).getLightSource()));
+        break;
+      case deleteUniqueLightSource:
+        lightChanged = true;
+        removeUniqueLightSource(GUID.valueOf(parameters.get(0).getLightSourceId()));
+        break;
       case clearLightSources:
         if (hasLightSources()) {
           lightChanged = true;
@@ -2825,11 +2874,11 @@ public class Token implements Cloneable {
         if (hasLightSources()) {
           lightChanged = true;
         }
-        removeLightSource(LightSource.fromDto(parameters.get(0).getLightSource()));
+        removeLightSource(GUID.valueOf(parameters.get(0).getLightSourceId()));
         break;
       case addLightSource:
         lightChanged = true;
-        addLightSource(LightSource.fromDto(parameters.get(0).getLightSource()));
+        addLightSource(GUID.valueOf(parameters.get(0).getLightSourceId()));
         break;
       case setHasSight:
         if (hasLightSources()) {
@@ -2919,6 +2968,7 @@ public class Token implements Cloneable {
     token.vbl = dto.hasVbl() ? Mapper.map(dto.getVbl()) : null;
     token.hillVbl = dto.hasHillVbl() ? Mapper.map(dto.getHillVbl()) : null;
     token.pitVbl = dto.hasPitVbl() ? Mapper.map(dto.getPitVbl()) : null;
+    token.coverVbl = dto.hasCoverVbl() ? Mapper.map(dto.getCoverVbl()) : null;
     token.mbl = dto.hasMbl() ? Mapper.map(dto.getMbl()) : null;
     token.name = dto.getName();
     token.ownerList.addAll(dto.getOwnerListList());
@@ -2947,6 +2997,10 @@ public class Token implements Cloneable {
         dto.hasCharsheetImage() ? new MD5Key(dto.getCharsheetImage().getValue()) : null;
     token.portraitImage =
         dto.hasPortraitImage() ? new MD5Key(dto.getPortraitImage().getValue()) : null;
+
+    dto.getUniqueLightSourcesList().stream()
+        .map(LightSource::fromDto)
+        .forEach(source -> token.uniqueLightSources.put(source.getId(), source));
     token.lightSourceList.addAll(
         dto.getLightSourcesList().stream()
             .map(AttachedLightSource::fromDto)
@@ -3034,6 +3088,9 @@ public class Token implements Cloneable {
     if (pitVbl != null) {
       dto.setPitVbl(Mapper.map(pitVbl));
     }
+    if (coverVbl != null) {
+      dto.setCoverVbl(Mapper.map(coverVbl));
+    }
     if (mbl != null) {
       dto.setMbl(Mapper.map(mbl));
     }
@@ -3071,6 +3128,8 @@ public class Token implements Cloneable {
     if (portraitImage != null) {
       dto.setPortraitImage(StringValue.of(portraitImage.toString()));
     }
+    dto.addAllUniqueLightSources(
+        uniqueLightSources.values().stream().map(LightSource::toDto).collect(Collectors.toList()));
     dto.addAllLightSources(
         lightSourceList.stream().map(AttachedLightSource::toDto).collect(Collectors.toList()));
     if (sightType != null) {

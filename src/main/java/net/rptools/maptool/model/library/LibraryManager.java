@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import net.rptools.maptool.client.AppActions;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.MapToolMacroContext;
 import net.rptools.maptool.events.MapToolEventBus;
@@ -42,7 +41,7 @@ import org.apache.logging.log4j.Logger;
 public class LibraryManager {
 
   /** Class for logging messages. */
-  private static final Logger log = LogManager.getLogger(AppActions.class);
+  private static final Logger log = LogManager.getLogger(LibraryManager.class);
 
   /** The reserved library name prefixes. */
   private static final Set<String> RESERVED_PREFIXES =
@@ -77,6 +76,7 @@ public class LibraryManager {
 
   static {
     libraryTokenManager.init();
+    builtInLibraryManager.loadBuiltIns();
     new MapToolEventBus().getMainEventBus().register(addOnSlashCommandManager);
   }
 
