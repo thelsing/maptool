@@ -47,7 +47,6 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import javax.imageio.ImageIO;
-import javax.imageio.spi.IIORegistry;
 import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import net.rptools.lib.BackupManager;
@@ -77,8 +76,8 @@ import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.theme.ThemeSupport;
 import net.rptools.maptool.client.ui.zone.PlayerView;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
-import net.rptools.maptool.client.ui.zone.ZoneRendererFactory;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRendererFactory;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.events.TokenHoverListener;
 import net.rptools.maptool.events.ZoneLoadedListener;
@@ -294,7 +293,7 @@ public class MapTool {
    */
   public static void showError(String msgKey, Throwable t) {
     String msg = generateMessage(msgKey, t);
-    log.error(I18N.getString(msgKey), t);
+    log.error(I18N.getText(msgKey), t);
     showMessage(msg, "msg.title.messageDialogError", JOptionPane.ERROR_MESSAGE);
   }
 
@@ -874,23 +873,6 @@ public class MapTool {
    */
   public static void addGlobalMessage(String message) {
     addMessage(TextMessage.say(null, message));
-  }
-
-  /**
-   * Add a message all specified clients will see. This is a shortcut for addMessage(WHISPER, ...)
-   * and addMessage(GM, ...). The <code>targets</code> is expected do be in a string list built with
-   * <code>separator</code>.
-   *
-   * @param message message to be sent
-   * @param targets string specifying clients to send the message to (spaces are trimmed)
-   * @param separator the separator between entries in <code>targets</code>
-   */
-  public static void addGlobalMessage(String message, String targets, String separator) {
-    List<String> list = new LinkedList<String>();
-    for (String target : targets.split(separator)) {
-      list.add(target.trim());
-    }
-    addGlobalMessage(message, list);
   }
 
   /**
@@ -1770,11 +1752,6 @@ public class MapTool {
     }
 
     URL.setURLStreamHandlerFactory(factory);
-
-    // Register ImageReaderSpi for jpeg2000 from JAI manually (issue due to uberJar packaging)
-    // https://github.com/jai-imageio/jai-imageio-core/issues/29
-    IIORegistry registry = IIORegistry.getDefaultInstance();
-    registry.registerServiceProvider(new com.github.jaiimageio.jpeg2000.impl.J2KImageReaderSpi());
 
     final Toolkit tk = Toolkit.getDefaultToolkit();
     tk.getSystemEventQueue().push(new MapToolEventQueue());

@@ -51,8 +51,8 @@ import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.MapToolVariableResolver;
 import net.rptools.maptool.client.functions.json.JSONMacroFunctions;
 import net.rptools.maptool.client.swing.SwingUtil;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer.SelectionSet;
+import net.rptools.maptool.client.ui.zone.renderer.SelectionSet;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.sheet.stats.StatSheetProperties;
 import net.rptools.maptool.server.Mapper;
@@ -338,7 +338,13 @@ public class Token implements Cloneable {
   private MD5Key portraitImage;
 
   private Map<GUID, LightSource> uniqueLightSources = new LinkedHashMap<>();
+  /**
+   * All light sources attached to the token.
+   *
+   * <p>The elements should be unique, i.e., no two should reference the same light source.
+   */
   private List<AttachedLightSource> lightSourceList = new ArrayList<>();
+
   private String sightType;
   private boolean hasSight;
   private Boolean hasImageTable = false;
@@ -941,6 +947,10 @@ public class Token implements Cloneable {
   }
 
   public void addLightSource(GUID lightSourceId) {
+    if (lightSourceList.stream().anyMatch(source -> source.matches(lightSourceId))) {
+      // Avoid duplicates.
+      return;
+    }
     lightSourceList.add(new AttachedLightSource(lightSourceId));
   }
 
@@ -2543,12 +2553,18 @@ public class Token implements Cloneable {
     if (uniqueLightSources == null) {
       uniqueLightSources = new LinkedHashMap<>();
     }
-    if (lightSourceList == null) {
-      lightSourceList = new ArrayList<>();
+
+    // Remove null and duplicate attached light sources.
+    List<AttachedLightSource> lightSources =
+        Objects.requireNonNullElseGet(lightSourceList, ArrayList::new);
+    lightSourceList = new ArrayList<>();
+    final var seenGuids = new HashSet<GUID>();
+    for (final var source : lightSources) {
+      if (source != null && !seenGuids.contains(source.getId())) {
+        lightSourceList.add(source);
+        seenGuids.add(source.getId());
+      }
     }
-    // There used to be checks elsewhere that elements were not null. In case those were legitimate,
-    // let's filter them out here instead.
-    lightSourceList.removeIf(Objects::isNull);
 
     if (macroPropertiesMap == null) {
       macroPropertiesMap = new HashMap<>();
