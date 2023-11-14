@@ -34,7 +34,7 @@ import net.rptools.lib.MD5Key;
 import net.rptools.lib.gdx.GifDecoder;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.maptool.client.MapTool;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.AssetAvailableListener;
 import net.rptools.maptool.model.AssetManager;
 import net.rptools.maptool.model.IsometricGrid;

@@ -59,7 +59,8 @@ import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.token.*;
 import net.rptools.maptool.client.ui.zone.DrawableLight;
 import net.rptools.maptool.client.ui.zone.PlayerView;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.SelectionSet;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.client.walker.ZoneWalker;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
@@ -1043,14 +1044,14 @@ public class GdxRenderer extends ApplicationAdapter {
     timer.stop("labels-1");
   }
 
-  private void showBlockedMoves(PlayerView view, Set<ZoneRenderer.SelectionSet> movementSet) {
+  private void showBlockedMoves(PlayerView view, Set<SelectionSet> movementSet) {
     var selectionSetMap = zoneCache.getZoneRenderer().getSelectionSetMap();
     if (selectionSetMap.isEmpty()) {
       return;
     }
 
     boolean clipInstalled = false;
-    for (ZoneRenderer.SelectionSet set : movementSet) {
+    for (SelectionSet set : movementSet) {
       Token keyToken = zoneCache.getZone().getToken(set.getKeyToken());
       if (keyToken == null) {
         // It was removed ?
