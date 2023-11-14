@@ -95,7 +95,6 @@ public class GdxRenderer extends ApplicationAdapter {
   private final String FONT_BOLD = "boldFont.ttf";
   private final String FONT_DISTANCE = "distanceFont.ttf";
 
-  private boolean flushFog = true;
   // from renderToken:
   private Area visibleScreenArea;
   private Area exposedFogArea;
@@ -125,8 +124,6 @@ public class GdxRenderer extends ApplicationAdapter {
   private float boldFontScale = 0;
   private final CodeTimer timer = new CodeTimer("GdxRenderer.renderZone");
   private FrameBuffer backBuffer;
-  private Integer fogX;
-  private Integer fogY;
   private com.badlogic.gdx.assets.AssetManager manager;
   private TextureAtlas atlas;
   private Texture onePixel;
@@ -446,14 +443,8 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   public void invalidateCurrentViewCache() {
-    flushFog = true;
     visibleScreenArea = null;
     lastView = null;
-
-    var zoneView = zoneCache.getZoneRenderer().getZoneView();
-    if (zoneView != null) {
-      zoneView.flush();
-    }
   }
 
   private void renderZone(PlayerView view) {
@@ -471,10 +462,7 @@ public class GdxRenderer extends ApplicationAdapter {
     timer.start("ZoneRenderer-getVisibleArea");
     if (visibleScreenArea == null) {
       visibleScreenArea =
-          zoneCache
-              .getZoneRenderer()
-              .getZoneView()
-              .getVisibleArea(zoneCache.getZoneRenderer().getPlayerView());
+          zoneCache.getZoneView().getVisibleArea(zoneCache.getZoneRenderer().getPlayerView());
     }
     timer.stop("ZoneRenderer-getVisibleArea");
 
@@ -758,8 +746,7 @@ public class GdxRenderer extends ApplicationAdapter {
       return;
     }
 
-    final var darkness =
-        zoneCache.getZoneRenderer().getZoneView().getIllumination(view).getDarkenedArea();
+    final var darkness = zoneCache.getZoneView().getIllumination(view).getDarkenedArea();
     if (darkness.isEmpty()) {
       // Skip the rendering work if it isn't necessary.
       return;
@@ -797,8 +784,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
   private void renderVisionOverlay(PlayerView view) {
     var tokenUnderMouse = zoneCache.getZoneRenderer().getTokenUnderMouse();
-    Area currentTokenVisionArea =
-        zoneCache.getZoneRenderer().getZoneView().getVisibleArea(tokenUnderMouse, view);
+    Area currentTokenVisionArea = zoneCache.getZoneView().getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
       return;
     }
@@ -860,126 +846,55 @@ public class GdxRenderer extends ApplicationAdapter {
   private void renderFog(PlayerView view) {
     Area combined = null;
 
-    if (!flushFog
-        && fogX != null
-        && fogY != null
-        && (fogX != zoneCache.getZoneRenderer().getViewOffsetX()
-            || fogY != zoneCache.getZoneRenderer().getViewOffsetY())) {
-      flushFog = true;
-    }
-    boolean cacheNotValid =
-        (backBuffer.getColorBufferTexture().getWidth() != width
-            || backBuffer.getColorBufferTexture().getHeight() != height);
     timer.start("renderFog");
-    //  if (flushFog || cacheNotValid)
-    {
-      batch.flush();
 
-      backBuffer.begin();
-      ScreenUtils.clear(Color.CLEAR);
+    batch.flush();
 
-      batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
-      setProjectionMatrix(cam.combined);
+    backBuffer.begin();
+    ScreenUtils.clear(Color.CLEAR);
 
-      timer.start("renderFog-allocateBufferedImage");
-      timer.stop("renderFog-allocateBufferedImage");
-      fogX = zoneCache.getZoneRenderer().getViewOffsetX();
-      fogY = zoneCache.getZoneRenderer().getViewOffsetY();
+    batch.setBlendFunction(GL20.GL_ONE, GL20.GL_NONE);
+    setProjectionMatrix(cam.combined);
 
-      timer.start("renderFog-fill");
+    timer.start("renderFog-allocateBufferedImage");
+    timer.stop("renderFog-allocateBufferedImage");
 
-      // Fill
-      batch.setColor(Color.WHITE);
-      var paint = zoneCache.getZone().getFogPaint();
-      var fogPaint = zoneCache.getPaint(paint);
-      var fogColor = fogPaint.color();
-      fogPaint.color().set(fogColor.r, fogColor.g, fogColor.b, view.isGMView() ? .6f : 1f);
-      fillViewportWith(fogPaint);
+    timer.start("renderFog-fill");
 
-      timer.start("renderFog-visibleArea");
-      Area visibleArea = zoneCache.getZoneRenderer().getZoneView().getVisibleArea(view);
-      timer.stop("renderFog-visibleArea");
+    // Fill
+    batch.setColor(Color.WHITE);
+    var paint = zoneCache.getZone().getFogPaint();
+    var fogPaint = zoneCache.getPaint(paint);
+    var fogColor = fogPaint.color();
+    fogPaint.color().set(fogColor.r, fogColor.g, fogColor.b, view.isGMView() ? .6f : 1f);
+    fillViewportWith(fogPaint);
 
-      String msg = null;
-      if (timer.isEnabled()) {
-        List<Token> list = view.getTokens();
-        msg = "renderFog-combined(" + (list == null ? 0 : list.size()) + ")";
-      }
-      timer.start(msg);
-      combined = zoneCache.getZone().getExposedArea(view);
-      timer.stop(msg);
+    var zoneView = zoneCache.getZoneView();
 
-      timer.start("renderFogArea");
-      Area exposedArea = null;
-      Area tempArea = new Area();
-      boolean combinedView =
-          !zoneCache.getZoneRenderer().getZoneView().isUsingVision()
-              || MapTool.isPersonalServer()
-              || !MapTool.getServerPolicy().isUseIndividualFOW()
-              || view.isGMView();
+    timer.start("renderFog-visibleArea");
+    Area visibleArea = zoneView.getVisibleArea(view);
+    timer.stop("renderFog-visibleArea");
 
-      if (view.getTokens() != null) {
-        // if there are tokens selected combine the areas, then, if individual FOW is enabled
-        // we pass the combined exposed area to build the soft FOW and visible area.
-        for (Token tok : view.getTokens()) {
-          ExposedAreaMetaData meta =
-              zoneCache.getZone().getExposedAreaMetaData(tok.getExposedAreaGUID());
-          exposedArea = meta.getExposedAreaHistory();
-          tempArea.add(new Area(exposedArea));
-        }
-        if (combinedView) {
-          areaRenderer.setColor(Color.CLEAR);
-          areaRenderer.fillArea(batch, combined);
-          renderFogArea(combined, visibleArea);
-          renderFogOutline();
-        } else {
-          // 'combined' already includes the area encompassed by 'tempArea', so just
-          // use 'combined' instead in this block of code?
-          tempArea.add(combined);
-          areaRenderer.setColor(Color.CLEAR);
-          areaRenderer.fillArea(batch, tempArea);
-          renderFogArea(tempArea, visibleArea);
-          renderFogOutline();
-        }
-      } else {
-        // No tokens selected, so if we are using Individual FOW, we build up all the owned tokens
-        // exposed area's to build the soft FOW.
-        if (combinedView) {
-          if (combined.isEmpty()) {
-            combined = zoneCache.getZone().getExposedArea();
-          }
-          areaRenderer.setColor(Color.CLEAR);
-          areaRenderer.fillArea(batch, combined);
-          renderFogArea(combined, visibleArea);
-          renderFogOutline();
-        } else {
-          Area myCombined = new Area();
-          List<Token> myToks = zoneCache.getZone().getTokens();
-          for (Token tok : myToks) {
-            if (!AppUtil.playerOwns(
-                tok)) { // Only here if !isGMview() so should the tokens already be in
-              // PlayerView.getTokens()?
-              continue;
-            }
-            ExposedAreaMetaData meta =
-                zoneCache.getZone().getExposedAreaMetaData(tok.getExposedAreaGUID());
-            exposedArea = meta.getExposedAreaHistory();
-            myCombined.add(new Area(exposedArea));
-          }
-          areaRenderer.setColor(Color.CLEAR);
-          areaRenderer.fillArea(batch, myCombined);
-          renderFogArea(myCombined, visibleArea);
-          renderFogOutline();
-        }
-      }
-      timer.stop("renderFogArea");
-
-      flushFog = false;
-      batch.flush();
-      // createScreenshot("fog");
-
-      backBuffer.end();
+    String msg = null;
+    if (timer.isEnabled()) {
+      msg = "renderFog-combined(" + (view.isUsingTokenView() ? view.getTokens().size() : 0) + ")";
     }
+    timer.start(msg);
+    combined = zoneView.getExposedArea(view);
+    timer.stop(msg);
+
+    timer.start("renderFogArea");
+    areaRenderer.setColor(Color.CLEAR);
+    areaRenderer.fillArea(batch, combined);
+    renderFogArea(combined, visibleArea);
+    renderFogOutline();
+    timer.stop("renderFogArea");
+
+    batch.flush();
+    // createScreenshot("fog");
+
+    backBuffer.end();
+
     batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     setProjectionMatrix(hudCam.combined);
     batch.setColor(Color.WHITE);
@@ -995,7 +910,7 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   private void renderFogArea(Area softFog, Area visibleArea) {
-    if (zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
+    if (zoneCache.getZoneView().isUsingVision()) {
       if (visibleArea != null && !visibleArea.isEmpty()) {
         tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
         areaRenderer.setColor(tmpColor);
@@ -1003,6 +918,9 @@ public class GdxRenderer extends ApplicationAdapter {
         areaRenderer.fillArea(batch, softFog);
 
         areaRenderer.setColor(Color.CLEAR);
+
+        visibleArea.intersect(softFog);
+
         areaRenderer.fillArea(batch, visibleArea);
       } else {
         tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
@@ -1088,7 +1006,7 @@ public class GdxRenderer extends ApplicationAdapter {
             && !AppUtil.playerOwns(token)
             && visibleScreenArea == null
             && zoneCache.getZone().hasFog()
-            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
+            && zoneCache.getZoneView().isUsingVision()) {
           continue;
         }
 
@@ -1164,7 +1082,7 @@ public class GdxRenderer extends ApplicationAdapter {
           Grid grid = zoneCache.getZone().getGrid();
           boolean checkForFog =
               MapTool.getServerPolicy().isUseIndividualFOW()
-                  && zoneCache.getZoneRenderer().getZoneView().isUsingVision();
+                  && zoneCache.getZoneView().isUsingVision();
           boolean showLabels = isOwner;
           if (checkForFog) {
             Path<? extends AbstractPoint> path =
@@ -1278,7 +1196,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     // Setup
     timer.start("renderAuras:getAuras");
-    final var drawableAuras = zoneCache.getZoneRenderer().getZoneView().getDrawableAuras();
+    final var drawableAuras = zoneCache.getZoneView().getDrawableAuras();
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");
@@ -1289,7 +1207,7 @@ public class GdxRenderer extends ApplicationAdapter {
   private void renderLights(PlayerView view) {
     // Collect and organize lights
     timer.start("renderLights:getLights");
-    final var drawableLights = zoneCache.getZoneRenderer().getZoneView().getDrawableLights(view);
+    final var drawableLights = zoneCache.getZoneView().getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
     if (AppState.isShowLights()) {
@@ -1316,8 +1234,7 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   private void renderLumensOverlay(PlayerView view, float overlayAlpha) {
-    final var disjointLumensLevels =
-        zoneCache.getZoneRenderer().getZoneView().getDisjointObscuredLumensLevels(view);
+    final var disjointLumensLevels = zoneCache.getZoneView().getDisjointObscuredLumensLevels(view);
 
     timer.start("renderLumensOverlay:allocateBuffer");
     batch.flush();
@@ -1725,9 +1642,7 @@ public class GdxRenderer extends ApplicationAdapter {
       try {
 
         // Vision visibility
-        if (!isGMView
-            && token.isToken()
-            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
+        if (!isGMView && token.isToken() && zoneCache.getZoneView().isUsingVision()) {
           if (!GraphicsUtil.intersects(visibleScreenArea, tokenBounds)) {
             continue;
           }
@@ -1774,7 +1689,7 @@ public class GdxRenderer extends ApplicationAdapter {
       timer.start("tokenlist-7");
       image.setColor(1, 1, 1, opacity);
       if (!isGMView
-          && zoneCache.getZoneRenderer().getZoneView().isUsingVision()
+          && zoneCache.getZoneView().isUsingVision()
           && (token.getShape() == Token.TokenShape.FIGURE)) {
         if (zoneCache
             .getZone()
@@ -1786,9 +1701,7 @@ public class GdxRenderer extends ApplicationAdapter {
           // else draw the clipped token
           paintClipped(image, tokenCellArea, cellArea);
         }
-      } else if (!isGMView
-          && zoneCache.getZoneRenderer().getZoneView().isUsingVision()
-          && token.isAlwaysVisible()) {
+      } else if (!isGMView && zoneCache.getZoneView().isUsingVision() && token.isAlwaysVisible()) {
         // Jamz: Always Visible tokens will get rendered again here to place on top of FoW
         if (GraphicsUtil.intersects(visibleScreenArea, tokenCellArea)) {
           // if we can see a portion of the stamp/token, draw the whole thing, defaults to 2/9ths
@@ -1994,9 +1907,7 @@ public class GdxRenderer extends ApplicationAdapter {
         if (!AppUtil.playerOwns(token)) {
           selectedBorder = AppStyle.selectedUnownedBorder;
         }
-        if (useIF
-            && !token.isStamp()
-            && zoneCache.getZoneRenderer().getZoneView().isUsingVision()) {
+        if (useIF && !token.isStamp() && zoneCache.getZoneView().isUsingVision()) {
           Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
           if (tool
                   instanceof
@@ -2049,7 +1960,7 @@ public class GdxRenderer extends ApplicationAdapter {
       // if policy does not auto-reveal FoW, check if fog covers the token (slow)
       if (showCurrentTokenLabel
           && !isGMView
-          && (!zoneCache.getZoneRenderer().getZoneView().isUsingVision()
+          && (!zoneCache.getZoneView().isUsingVision()
               || !MapTool.getServerPolicy().isAutoRevealOnMovement())
           && !zoneCache.getZone().isTokenVisible(token)) {
         showCurrentTokenLabel = false;
@@ -3188,9 +3099,6 @@ public class GdxRenderer extends ApplicationAdapter {
         () -> {
           renderZone = false;
 
-          fogX = null;
-          fogY = null;
-
           var newZone = event.zone();
           zoneCache = new ZoneCache(newZone, atlas);
           lineTemplateDrawer.setZoneCache(zoneCache);
@@ -3217,9 +3125,6 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   public void flushFog() {
-    if (!initialized) return;
-
-    flushFog = true;
     visibleScreenArea = null;
   }
 }
