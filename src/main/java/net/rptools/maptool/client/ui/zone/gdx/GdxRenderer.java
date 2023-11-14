@@ -975,7 +975,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
       flushFog = false;
       batch.flush();
-      createScreenshot("fog");
+      // createScreenshot("fog");
 
       backBuffer.end();
     }
@@ -1374,7 +1374,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     timer.stop("renderLumensOverlay:drawLumens");
     batch.flush();
-    createScreenshot("lumens");
+    // createScreenshot("lumens");
     backBuffer.end();
 
     timer.start("renderLumensOverlay:drawBuffer");
