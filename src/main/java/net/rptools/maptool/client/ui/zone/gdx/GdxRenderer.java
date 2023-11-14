@@ -14,6 +14,7 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
+import box2dLight.ChainLight;
 import box2dLight.PointLight;
 import box2dLight.RayHandler;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -28,9 +29,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreetypeFontLoader;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.physics.box2d.Box2D;
-import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
-import com.badlogic.gdx.physics.box2d.World;
+import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -157,6 +156,9 @@ public class GdxRenderer extends ApplicationAdapter {
   private final TiledDrawable tmpTile = new TiledDrawable();
 
   private World world;
+
+  private ArrayList<Body> bodies = new ArrayList<Body>();
+  private Area vbl;
   private Box2DDebugRenderer debugRenderer;
   private RayHandler rayHandler;
 
@@ -184,22 +186,34 @@ public class GdxRenderer extends ApplicationAdapter {
       normalFont = null;
       boldFont = null;
     }
-    /*
-        world = new World(new Vector2(0, 0), true);
-        debugRenderer = new Box2DDebugRenderer();
-        RayHandler.setGammaCorrection(true);
-        RayHandler.useDiffuseLight(true);
 
-        rayHandler = new RayHandler(world);
-        rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
-        rayHandler.setBlurNum(3);
+    world = new World(new Vector2(0, 0), true);
+    debugRenderer = new Box2DDebugRenderer();
+    RayHandler.setGammaCorrection(true);
+    RayHandler.useDiffuseLight(true);
 
-        //light  =
-                new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
-        new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
-        new PointLight(rayHandler, 128, Color.BLUE, 600, 350, -350);
+    rayHandler = new RayHandler(world);
+    rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    rayHandler.setBlurNum(3);
 
-    */
+    // light  =
+    var red = new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
+    red.setSoft(false);
+    var green = new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
+    green.setSoft(false);
+    var blue = new PointLight(rayHandler, 128, Color.BLUE, 600, 350, -350);
+    blue.setSoft(false);
+
+    var chain =
+        new ChainLight(
+            rayHandler,
+            128,
+            Color.WHITE,
+            600,
+            1,
+            new float[] {700, -600, 1000, -600, 800, -800, 600, -600, 725, -600});
+    chain.setSoft(false);
+
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
 
@@ -318,14 +332,64 @@ public class GdxRenderer extends ApplicationAdapter {
 
     ensureTtfFont();
     ScreenUtils.clear(Color.BLACK);
-    //  boolean stepped = fixedStep(delta);
+    // boolean stepped = fixedStep(delta);
+
+    updateVbl();
 
     doRendering();
-    /*  rayHandler.setCombinedMatrix(cam);
+    rayHandler.setCombinedMatrix(cam);
 
-    if (stepped) rayHandler.update();
+    // if (stepped)
+    rayHandler.update();
     rayHandler.render();
-    debugRenderer.render(world, cam.combined);*/
+    debugRenderer.render(world, cam.combined);
+  }
+
+  private void updateVbl() {
+    var currentVbl = zoneCache.getZone().getTopology(Zone.TopologyType.WALL_VBL);
+    // if (currentVbl.equals(vbl)) return;
+
+    vbl = currentVbl;
+
+    for (Body body : bodies) {
+      world.destroyBody(body);
+    }
+    bodies.clear();
+
+    var polys = areaRenderer.triangulate(currentVbl);
+    for (var poly : polys) {
+      var vblDef = new BodyDef();
+      vblDef.type = BodyDef.BodyType.StaticBody;
+      var vblBody = world.createBody(vblDef);
+
+      var triangles = poly.indices();
+      var polygon = poly.vertices();
+
+      for (int i = 0; i < triangles.length; i += 3) {
+        PolygonShape vblShape = new PolygonShape();
+        FloatArray triangleOutlines = new FloatArray();
+
+        float ax = polygon[triangles[i] * 2];
+        float ay = polygon[triangles[i] * 2 + 1];
+        float bx = polygon[triangles[i + 1] * 2];
+        float by = polygon[triangles[i + 1] * 2 + 1];
+        float cx = polygon[triangles[i + 2] * 2];
+        float cy = polygon[triangles[i + 2] * 2 + 1];
+
+        triangleOutlines.add(ax);
+        triangleOutlines.add(ay);
+        triangleOutlines.add(bx);
+        triangleOutlines.add(by);
+        triangleOutlines.add(cx);
+        triangleOutlines.add(cy);
+
+        vblShape.set(triangleOutlines.toArray());
+        vblBody.createFixture(vblShape, 0f);
+
+        vblShape.dispose();
+      }
+      bodies.add(vblBody);
+    }
   }
 
   private float TIME_STEP = 1 / 60f;
