@@ -12,30 +12,32 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.zone.gdx;
+package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
+import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
-import net.rptools.maptool.model.drawing.BlastTemplate;
+import net.rptools.maptool.model.drawing.BurstTemplate;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.Pen;
 
-public class BlastTemplateDrawer extends AbstractDrawingDrawer {
+public class BurstTemplateDrawer extends AbstractDrawingDrawer {
 
-  public BlastTemplateDrawer(AreaRenderer renderer) {
+  public BurstTemplateDrawer(AreaRenderer renderer) {
     super(renderer);
   }
 
   @Override
   protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
-    var template = (BlastTemplate) element;
+    var template = (BurstTemplate) element;
     alpha = AbstractTemplate.DEFAULT_BG_ALPHA;
     fillArea(batch, template.getArea(), pen);
   }
 
   @Override
   protected void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen) {
-    var template = (BlastTemplate) element;
+    var template = (BurstTemplate) element;
     drawArea(batch, template.getArea(), pen);
+    drawArea(batch, template.getVertexRenderer().getArea(), pen);
   }
 }

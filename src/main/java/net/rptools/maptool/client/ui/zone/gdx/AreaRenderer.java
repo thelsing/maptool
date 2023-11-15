@@ -33,11 +33,6 @@ import space.earlygrey.shapedrawer.SideEstimator;
 public class AreaRenderer {
   public record TriangledPolygon(float[] vertices, short[] indices) {}
 
-  public AreaRenderer(TextureRegion whitePixelRegion, ShapeDrawer drawer) {
-    this.whitePixel = whitePixelRegion;
-    this.drawer = drawer;
-  }
-
   private ShapeDrawer drawer;
   private TextureRegion whitePixel;
 
@@ -46,6 +41,15 @@ public class AreaRenderer {
   private IntArray segmentIndicies = new IntArray();
 
   private Color color;
+
+  public AreaRenderer(ShapeDrawer drawer) {
+    this.drawer = drawer;
+    this.whitePixel = drawer.getRegion();
+  }
+
+  public ShapeDrawer getShapeDrawer() {
+    return drawer;
+  }
 
   public void setColor(Color value) {
     if (value == null) {
@@ -225,7 +229,7 @@ public class AreaRenderer {
     drawer.setColor(oldColor);
   }
 
-  protected void paintVertices(PolygonSpriteBatch batch, float[] vertices, short[] holeIndices) {
+  public void paintVertices(PolygonSpriteBatch batch, float[] vertices, short[] holeIndices) {
     var indices = Earcut.earcut(vertices, holeIndices, (short) 2).toArray();
     var polyReg = new PolygonRegion(textureRegion, vertices, indices);
 
@@ -342,7 +346,7 @@ public class AreaRenderer {
   private Vector2 BC = new Vector2();
   private Vector2 vec1 = new Vector2();
 
-  enum JoinType {
+  public enum JoinType {
     Pointy,
     Smooth,
     Round

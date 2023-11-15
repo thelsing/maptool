@@ -12,16 +12,16 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.zone.gdx;
+package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
+import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
+import net.rptools.maptool.client.ui.zone.gdx.ZoneCache;
 import net.rptools.maptool.model.drawing.*;
 
 public abstract class AbstractDrawingDrawer {
-  protected Color tmpColor = new Color();
 
   protected Float alpha = null;
   protected AreaRenderer areaRenderer;

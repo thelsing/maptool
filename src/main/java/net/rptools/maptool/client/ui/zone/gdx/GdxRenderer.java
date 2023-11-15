@@ -35,7 +35,6 @@ import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.google.common.eventbus.Subscribe;
 import java.awt.*;
-import java.awt.Shape;
 import java.awt.geom.*;
 import java.text.NumberFormat;
 import java.util.*;
@@ -58,8 +57,12 @@ import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.token.*;
 import net.rptools.maptool.client.ui.zone.DrawableLight;
 import net.rptools.maptool.client.ui.zone.PlayerView;
+import net.rptools.maptool.client.ui.zone.gdx.drawing.DrawnElementRenderer;
+import net.rptools.maptool.client.ui.zone.gdx.label.ItemRenderer;
+import net.rptools.maptool.client.ui.zone.gdx.label.LabelRenderer;
+import net.rptools.maptool.client.ui.zone.gdx.label.TextRenderer;
+import net.rptools.maptool.client.ui.zone.gdx.label.TokenLabelRenderer;
 import net.rptools.maptool.client.ui.zone.renderer.SelectionSet;
-import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.client.walker.ZoneWalker;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
@@ -67,7 +70,6 @@ import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Label;
 import net.rptools.maptool.model.Path;
 import net.rptools.maptool.model.drawing.*;
-import net.rptools.maptool.util.FunctionUtil;
 import net.rptools.maptool.util.GraphicsUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -102,7 +104,6 @@ public class GdxRenderer extends ApplicationAdapter {
 
   // zone specific resources
   private ZoneCache zoneCache;
-
   private int offsetX = 0;
   private int offsetY = 0;
   private float zoom = 1.0f;
@@ -126,21 +127,14 @@ public class GdxRenderer extends ApplicationAdapter {
   private com.badlogic.gdx.assets.AssetManager manager;
   private TextureAtlas atlas;
   private Texture onePixel;
-
   private ShapeDrawer drawer;
   private final GlyphLayout glyphLayout = new GlyphLayout();
-  private LineTemplateDrawer lineTemplateDrawer;
-  private LineCellTemplateDrawer lineCellTemplateDrawer;
-  private RadiusTemplateDrawer radiusTemplateDrawer;
-  private BurstTemplateDrawer burstTemplateDrawer;
-  private ConeTemplateDrawer coneTemplateDrawer;
-  private BlastTemplateDrawer blastTemplateDrawer;
-  private RadiusCellTemplateDrawer radiusCellTemplateDrawer;
-  private ShapeDrawableDrawer shapeDrawableDrawer;
   private TextRenderer textRenderer;
-
   private TextRenderer hudTextRenderer;
   private AreaRenderer areaRenderer;
+  private DrawnElementRenderer drawnElementRenderer;
+  private TokenOverlayRenderer tokenOverlayRenderer;
+  private GridRenderer gridRenderer;
 
   // temorary objects. Stored here to avoid garbage collection;
   private final Vector3 tmpWorldCoord = new Vector3();
@@ -154,15 +148,11 @@ public class GdxRenderer extends ApplicationAdapter {
   private final Matrix4 tmpMatrix = new Matrix4();
   private final Area tmpArea = new Area();
   private final TiledDrawable tmpTile = new TiledDrawable();
-
   private World world;
-
   private ArrayList<Body> bodies = new ArrayList<Body>();
   private Area vbl;
   private Box2DDebugRenderer debugRenderer;
   private RayHandler rayHandler;
-
-  private PointLight light;
 
   public GdxRenderer() {
     Box2D.init();
@@ -210,8 +200,8 @@ public class GdxRenderer extends ApplicationAdapter {
             128,
             Color.WHITE,
             600,
-            1,
-            new float[] {700, -600, 1000, -600, 800, -800, 600, -600, 725, -600});
+            -1,
+            new float[] {700, -600, 1000, -600, 1000, -800, 700, -800, 700, -600});
     chain.setSoft(false);
 
     manager = new com.badlogic.gdx.assets.AssetManager();
@@ -250,15 +240,10 @@ public class GdxRenderer extends ApplicationAdapter {
     TextureRegion region = new TextureRegion(onePixel, 0, 0, 1, 1);
     drawer = new ShapeDrawer(batch, region);
 
-    areaRenderer = new AreaRenderer(region, drawer);
-    lineTemplateDrawer = new LineTemplateDrawer(areaRenderer);
-    lineCellTemplateDrawer = new LineCellTemplateDrawer(areaRenderer);
-    radiusTemplateDrawer = new RadiusTemplateDrawer(areaRenderer);
-    burstTemplateDrawer = new BurstTemplateDrawer(areaRenderer);
-    coneTemplateDrawer = new ConeTemplateDrawer(areaRenderer);
-    blastTemplateDrawer = new BlastTemplateDrawer(areaRenderer);
-    radiusCellTemplateDrawer = new RadiusCellTemplateDrawer(areaRenderer);
-    shapeDrawableDrawer = new ShapeDrawableDrawer(areaRenderer);
+    areaRenderer = new AreaRenderer(drawer);
+    drawnElementRenderer = new DrawnElementRenderer(areaRenderer);
+    tokenOverlayRenderer = new TokenOverlayRenderer(areaRenderer);
+    gridRenderer = new GridRenderer(areaRenderer, hudCam);
 
     initialized = true;
   }
@@ -541,7 +526,7 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getBackgroundDrawnElements();
 
       timer.start("drawableBackground");
-      renderDrawableOverlay(view, drawables);
+      drawnElementRenderer.render(batch, drawables);
       timer.stop("drawableBackground");
 
       List<Token> background = zoneCache.getZone().getBackgroundStamps(false);
@@ -556,13 +541,14 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getObjectDrawnElements();
       // if (!drawables.isEmpty()) {
       timer.start("drawableObjects");
-      renderDrawableOverlay(view, drawables);
+      drawnElementRenderer.render(batch, drawables);
       timer.stop("drawableObjects");
       // }
     }
     timer.start("grid");
-
-    renderGrid(view);
+    setProjectionMatrix(hudCam.combined);
+    gridRenderer.render();
+    setProjectionMatrix(cam.combined);
 
     timer.stop("grid");
 
@@ -610,7 +596,7 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements();
       // if (!drawables.isEmpty()) {
       timer.start("drawableTokens");
-      renderDrawableOverlay(view, drawables);
+      drawnElementRenderer.render(batch, drawables);
       timer.stop("drawableTokens");
       // }
 
@@ -618,7 +604,7 @@ public class GdxRenderer extends ApplicationAdapter {
         drawables = zoneCache.getZone().getGMDrawnElements();
         // if (!drawables.isEmpty()) {
         timer.start("drawableGM");
-        renderDrawableOverlay(view, drawables);
+        drawnElementRenderer.render(batch, drawables);
         timer.stop("drawableGM");
         // }
         List<Token> stamps = zoneCache.getZone().getGMStamps(false);
@@ -1443,188 +1429,6 @@ public class GdxRenderer extends ApplicationAdapter {
     }
   }
 
-  private void renderGrid(PlayerView view) {
-    var grid = zoneCache.getZone().getGrid();
-    var scale = (float) zoneCache.getZoneRenderer().getScale();
-    int gridSize = (int) (grid.getSize() * scale);
-
-    if (!AppState.isShowGrid() || gridSize < ZoneRenderer.MIN_GRID_SIZE) {
-      return;
-    }
-
-    setProjectionMatrix(hudCam.combined);
-
-    if (grid instanceof GridlessGrid) {
-      // do nothing
-    } else if (grid instanceof HexGrid) {
-      renderGrid((HexGrid) grid);
-    } else if (grid instanceof SquareGrid) {
-      renderGrid((SquareGrid) grid);
-    } else if (grid instanceof IsometricGrid) {
-      renderGrid((IsometricGrid) grid);
-    }
-    setProjectionMatrix(cam.combined);
-  }
-
-  private void renderGrid(HexGrid grid) {
-
-    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
-
-    drawer.setColor(tmpColor);
-    var path = grid.createShape(zoneCache.getZoneRenderer().getScale());
-    var floats = areaRenderer.pathToFloatArray(path.getPathIterator(null));
-
-    int offU = grid.getOffU(zoneCache.getZoneRenderer());
-    int offV = grid.getOffV(zoneCache.getZoneRenderer());
-
-    int count = 0;
-
-    var lineWidth = AppState.getGridSize();
-
-    for (double v = offV % (grid.getScaledMinorRadius() * 2) - (grid.getScaledMinorRadius() * 2);
-        v < grid.getRendererSizeV(zoneCache.getZoneRenderer());
-        v += grid.getScaledMinorRadius()) {
-      double offsetU =
-          (int)
-              ((count & 1) == 0
-                  ? 0
-                  : -(grid.getScaledEdgeProjection() + grid.getScaledEdgeLength()));
-      count++;
-
-      double start =
-          offU % (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection())
-              - (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection());
-      double end =
-          grid.getRendererSizeU(zoneCache.getZoneRenderer())
-              + 2 * grid.getScaledEdgeLength()
-              + 2 * grid.getScaledEdgeProjection();
-      double incr = 2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection();
-      for (double u = start; u < end; u += incr) {
-        float transX = 0;
-        float transY = 0;
-        if (grid instanceof HexGridVertical) {
-          transX = (float) (u + offsetU);
-          transY = height - (float) v;
-        } else {
-          transX = (float) v;
-          transY = (float) (-u - offsetU) + height;
-        }
-
-        tmpMatrix.translate(transX, transY, 0);
-        batch.setTransformMatrix(tmpMatrix);
-        drawer.update();
-
-        drawer.path(floats, lineWidth, JoinType.SMOOTH, true);
-        tmpMatrix.idt();
-        batch.setTransformMatrix(tmpMatrix);
-        drawer.update();
-      }
-    }
-  }
-
-  private void renderGrid(IsometricGrid grid) {
-    var scale = (float) zoneCache.getZoneRenderer().getScale();
-    int gridSize = (int) (grid.getSize() * scale);
-
-    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
-
-    drawer.setColor(tmpColor);
-
-    var x = hudCam.position.x - hudCam.viewportWidth / 2;
-    var y = hudCam.position.y - hudCam.viewportHeight / 2;
-    var w = hudCam.viewportWidth;
-    var h = hudCam.viewportHeight;
-
-    double isoHeight = grid.getSize() * scale;
-    double isoWidth = grid.getSize() * 2 * scale;
-
-    int offX =
-        (int) (zoneCache.getZoneRenderer().getViewOffsetX() % isoWidth + grid.getOffsetX() * scale)
-            + 1;
-    int offY =
-        (int) (zoneCache.getZoneRenderer().getViewOffsetY() % gridSize + grid.getOffsetY() * scale)
-            + 1;
-
-    int startCol = (int) ((int) (x / isoWidth) * isoWidth);
-    int startRow = (int) ((int) (y / gridSize) * gridSize);
-
-    for (double row = startRow; row < y + h + gridSize; row += gridSize) {
-      for (double col = startCol; col < x + w + isoWidth; col += isoWidth) {
-        drawHatch(grid, (int) (col + offX), h - (int) (row + offY));
-      }
-    }
-
-    for (double row = startRow - (isoHeight / 2); row < y + h + gridSize; row += gridSize) {
-      for (double col = startCol - (isoWidth / 2); col < x + w + isoWidth; col += isoWidth) {
-        drawHatch(grid, (int) (col + offX), h - (int) (row + offY));
-      }
-    }
-  }
-
-  private void drawHatch(IsometricGrid grid, float x, float y) {
-    double isoWidth = grid.getSize() * zoneCache.getZoneRenderer().getScale();
-    int hatchSize = isoWidth > 10 ? (int) isoWidth / 8 : 2;
-
-    var lineWidth = AppState.getGridSize();
-
-    drawer.line(x - (hatchSize * 2), y - hatchSize, x + (hatchSize * 2), y + hatchSize, lineWidth);
-    drawer.line(x - (hatchSize * 2), y + hatchSize, x + (hatchSize * 2), y - hatchSize, lineWidth);
-  }
-
-  private void renderGrid(SquareGrid grid) {
-    var scale = (float) zoneCache.getZoneRenderer().getScale();
-    float gridSize = (grid.getSize() * scale);
-    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
-
-    drawer.setColor(tmpColor);
-
-    var x = hudCam.position.x - hudCam.viewportWidth / 2;
-    var y = hudCam.position.y - hudCam.viewportHeight / 2;
-    var w = hudCam.viewportWidth;
-    var h = hudCam.viewportHeight;
-
-    var offX =
-        Math.round(
-            zoneCache.getZoneRenderer().getViewOffsetX() % gridSize + grid.getOffsetX() * scale);
-    var offY =
-        Math.round(
-            zoneCache.getZoneRenderer().getViewOffsetY() % gridSize + grid.getOffsetY() * scale);
-
-    var startCol = ((int) (x / gridSize) * gridSize);
-    var startRow = ((int) (y / gridSize) * gridSize);
-
-    var lineWidth = AppState.getGridSize();
-
-    for (float row = startRow; row < y + h + gridSize; row += gridSize)
-      drawer.line(x, Math.round(h - (row + offY)), x + w, Math.round(h - (row + offY)), lineWidth);
-
-    for (float col = startCol; col < x + w + gridSize; col += gridSize)
-      drawer.line(Math.round(col + offX), y, Math.round(col + offX), y + h, lineWidth);
-  }
-
-  private void renderDrawableOverlay(PlayerView view, List<DrawnElement> drawables) {
-    for (var drawable : drawables.toArray()) renderDrawable((DrawnElement) drawable);
-  }
-
-  private void renderDrawable(DrawnElement element) {
-    var pen = element.getPen();
-    var drawable = element.getDrawable();
-
-    if (drawable instanceof ShapeDrawable) shapeDrawableDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof DrawablesGroup)
-      for (var groupElement : ((DrawablesGroup) drawable).getDrawableList())
-        renderDrawable(groupElement);
-    else if (drawable instanceof RadiusCellTemplate)
-      radiusCellTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof LineCellTemplate)
-      lineCellTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof BlastTemplate) blastTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof ConeTemplate) coneTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof BurstTemplate) burstTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof RadiusTemplate) radiusTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof LineTemplate) lineTemplateDrawer.draw(batch, drawable, pen);
-  }
-
   private void renderBoard() {
     if (!zoneCache.getZone().drawBoard()) return;
 
@@ -1923,7 +1727,7 @@ public class GdxRenderer extends ApplicationAdapter {
             || !overlay.showPlayer(token, MapTool.getPlayer())) {
           continue;
         }
-        renderTokenOverlay(overlay, token, stateValue);
+        tokenOverlayRenderer.render(stateTime, overlay, token, stateValue);
       }
       timer.stop("tokenlist-9");
 
@@ -1937,7 +1741,7 @@ public class GdxRenderer extends ApplicationAdapter {
             || !overlay.showPlayer(token, MapTool.getPlayer())) {
           continue;
         }
-        renderTokenOverlay(overlay, token, barValue);
+        tokenOverlayRenderer.render(stateTime, overlay, token, barValue);
       } // endfor
       timer.stop("tokenlist-10");
 
@@ -2212,602 +2016,6 @@ public class GdxRenderer extends ApplicationAdapter {
         y + topMargin,
         right.getRegionWidth(),
         height - topMargin - bottomMargin);
-  }
-
-  private void renderTokenOverlay(AbstractTokenOverlay overlay, Token token, Object value) {
-    if (overlay instanceof BarTokenOverlay)
-      renderTokenOverlay((BarTokenOverlay) overlay, token, value);
-    else if (overlay instanceof BooleanTokenOverlay)
-      renderTokenOverlay((BooleanTokenOverlay) overlay, token, value);
-  }
-
-  private void renderTokenOverlay(BarTokenOverlay overlay, Token token, Object value) {
-    if (value == null) return;
-    double val = 0;
-    if (value instanceof Number) {
-      val = ((Number) value).doubleValue();
-    } else {
-      try {
-        val = Double.parseDouble(value.toString());
-      } catch (NumberFormatException e) {
-        return; // Bad value so don't paint.
-      } // endtry
-    } // endif
-    if (val < 0) val = 0;
-    if (val > 1) val = 1;
-
-    if (overlay instanceof MultipleImageBarTokenOverlay)
-      renderTokenOverlay((MultipleImageBarTokenOverlay) overlay, token, val);
-    else if (overlay instanceof SingleImageBarTokenOverlay)
-      renderTokenOverlay((SingleImageBarTokenOverlay) overlay, token, val);
-    else if (overlay instanceof TwoToneBarTokenOverlay)
-      renderTokenOverlay((TwoToneBarTokenOverlay) overlay, token, val);
-    else if (overlay instanceof DrawnBarTokenOverlay)
-      renderTokenOverlay((DrawnBarTokenOverlay) overlay, token, val);
-    else if (overlay instanceof TwoImageBarTokenOverlay)
-      renderTokenOverlay((TwoImageBarTokenOverlay) overlay, token, val);
-  }
-
-  private void renderTokenOverlay(
-      MultipleImageBarTokenOverlay overlay, Token token, double barValue) {
-    int incr = overlay.findIncrement(barValue);
-
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-
-    // Get the images
-    var image = zoneCache.getSprite(overlay.getAssetIds()[incr], stateTime);
-
-    Dimension d = bounds.getSize();
-    Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
-    SwingUtil.constrainTo(size, d.width, d.height);
-
-    // Find the position of the image according to the size and side where they are placed
-    switch (overlay.getSide()) {
-      case LEFT:
-      case TOP:
-        y += d.height - size.height;
-        break;
-      case RIGHT:
-        x += d.width - size.width;
-        y += d.height - size.height;
-        break;
-    }
-
-    image.setPosition(x, y);
-    image.setSize(size.width, size.height);
-    image.draw(batch, overlay.getOpacity() / 100f);
-  }
-
-  private void renderTokenOverlay(
-      SingleImageBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-
-    // Get the images
-    var image = zoneCache.getSprite(overlay.getAssetId(), stateTime);
-
-    Dimension d = bounds.getSize();
-    Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
-    SwingUtil.constrainTo(size, d.width, d.height);
-
-    var side = overlay.getSide();
-    // Find the position of the images according to the size and side where they are placed
-    switch (side) {
-      case LEFT:
-      case TOP:
-        y += d.height - size.height;
-        break;
-      case RIGHT:
-        x += d.width - size.width;
-        y += d.height - size.height;
-        break;
-    }
-
-    int width =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM)
-            ? overlay.calcBarSize((int) image.getWidth(), barValue)
-            : (int) image.getWidth();
-    int height =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT)
-            ? overlay.calcBarSize((int) image.getHeight(), barValue)
-            : (int) image.getHeight();
-
-    int screenWidth =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM)
-            ? overlay.calcBarSize(size.width, barValue)
-            : size.width;
-    int screenHeight =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT)
-            ? overlay.calcBarSize(size.height, barValue)
-            : size.height;
-
-    image.setPosition(x + size.width - screenWidth, y + size.height - screenHeight);
-    image.setSize(screenWidth, screenHeight);
-
-    var u = image.getU();
-    var v = image.getV();
-    var u2 = image.getU2();
-    var v2 = image.getV2();
-
-    var wfactor = screenWidth * 1.0f / size.width;
-    var uDiff = (u2 - u) * wfactor;
-    image.setU(u2 - uDiff);
-
-    var vfactor = screenHeight * 1.0f / size.height;
-    var vDiff = (v2 - v) * vfactor;
-    image.setV(v2 - vDiff);
-
-    image.draw(batch, overlay.getOpacity() / 100f);
-
-    image.setU(u);
-    image.setV(v);
-  }
-
-  private void renderTokenOverlay(DrawnBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var side = overlay.getSide();
-    var thickness = overlay.getThickness();
-
-    int width =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM) ? w : thickness;
-    int height =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT) ? h : thickness;
-
-    switch (side) {
-      case LEFT:
-      case TOP:
-        y += h - height;
-        break;
-      case RIGHT:
-        x += w - width;
-        y += h - height;
-        break;
-    }
-
-    if (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM) {
-      width = overlay.calcBarSize(width, barValue);
-    } else {
-      height = overlay.calcBarSize(height, barValue);
-      y += bounds.height - height;
-    }
-
-    var barColor = overlay.getBarColor();
-    tmpColor.set(
-        barColor.getRed() / 255f,
-        barColor.getGreen() / 255f,
-        barColor.getBlue() / 255f,
-        barColor.getAlpha() / 255f);
-    drawer.filledRectangle(x, y, width, height, tmpColor);
-  }
-
-  private void renderTokenOverlay(TwoToneBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var side = overlay.getSide();
-    var thickness = overlay.getThickness();
-
-    int width =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM) ? w : thickness;
-    int height =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT) ? h : thickness;
-
-    switch (side) {
-      case LEFT:
-      case TOP:
-        y += h - height;
-        break;
-      case RIGHT:
-        x += w - width;
-        y += h - height;
-        break;
-    }
-
-    var color = overlay.getBgColor();
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        color.getAlpha() / 255f);
-    drawer.filledRectangle(x, y, width, height, tmpColor);
-
-    // Draw the bar
-    int borderSize = thickness > 5 ? 2 : 1;
-    x += borderSize;
-    y += borderSize;
-    width -= borderSize * 2;
-    height -= borderSize * 2;
-    if (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM) {
-      width = overlay.calcBarSize(width, barValue);
-    } else {
-      height = overlay.calcBarSize(height, barValue);
-    }
-
-    color = overlay.getBarColor();
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        color.getAlpha() / 255f);
-    drawer.filledRectangle(x, y, width, height, tmpColor);
-  }
-
-  private void renderTokenOverlay(TwoImageBarTokenOverlay overlay, Token token, double barValue) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-
-    // Get the images
-    var topImage = zoneCache.getSprite(overlay.getTopAssetId(), stateTime);
-    var bottomImage = zoneCache.getSprite(overlay.getBottomAssetId(), stateTime);
-
-    Dimension d = bounds.getSize();
-    Dimension size = new Dimension((int) topImage.getWidth(), (int) topImage.getHeight());
-    SwingUtil.constrainTo(size, d.width, d.height);
-
-    var side = overlay.getSide();
-    // Find the position of the images according to the size and side where they are placed
-    switch (side) {
-      case LEFT:
-      case TOP:
-        y += d.height - size.height;
-        break;
-      case RIGHT:
-        x += d.width - size.width;
-        y += d.height - size.height;
-        break;
-    }
-
-    var width =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM)
-            ? overlay.calcBarSize((int) topImage.getWidth(), barValue)
-            : topImage.getWidth();
-    var height =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT)
-            ? overlay.calcBarSize((int) topImage.getHeight(), barValue)
-            : topImage.getHeight();
-
-    var screenWidth =
-        (side == BarTokenOverlay.Side.TOP || side == BarTokenOverlay.Side.BOTTOM)
-            ? overlay.calcBarSize(size.width, barValue)
-            : size.width;
-    var screenHeight =
-        (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT)
-            ? overlay.calcBarSize(size.height, barValue)
-            : size.height;
-
-    bottomImage.setPosition(x, y);
-    bottomImage.setSize(size.width, size.height);
-    bottomImage.draw(batch, overlay.getOpacity() / 100f);
-
-    var u = topImage.getU();
-    var v = topImage.getV();
-    var u2 = topImage.getU2();
-    var v2 = topImage.getV2();
-
-    var wFactor = screenWidth * 1.0f / size.width;
-    var uDiff = (u2 - u) * wFactor;
-
-    var vFactor = screenHeight * 1.0f / size.height;
-    var vDiff = (v2 - v) * vFactor;
-
-    topImage.setPosition(x, y);
-    topImage.setSize(screenWidth, screenHeight);
-
-    if (side == BarTokenOverlay.Side.LEFT || side == BarTokenOverlay.Side.RIGHT) {
-      topImage.setU(u2 - uDiff);
-      topImage.setV(v2 - vDiff);
-    } else {
-
-      topImage.setU2(u + uDiff);
-      topImage.setV2(v + vDiff);
-    }
-    topImage.draw(batch, overlay.getOpacity() / 100f);
-
-    topImage.setU(u);
-    topImage.setV(v);
-    topImage.setU2(u2);
-    topImage.setV2(v2);
-  }
-
-  private void renderTokenOverlay(BooleanTokenOverlay overlay, Token token, Object value) {
-    if (!FunctionUtil.getBooleanValue(value)) return;
-
-    if (overlay instanceof ImageTokenOverlay)
-      renderTokenOverlay((ImageTokenOverlay) overlay, token);
-    else if (overlay instanceof FlowColorDotTokenOverlay)
-      renderTokenOverlay((FlowColorDotTokenOverlay) overlay, token);
-    else if (overlay instanceof YieldTokenOverlay)
-      renderTokenOverlay((YieldTokenOverlay) overlay, token);
-    else if (overlay instanceof OTokenOverlay) renderTokenOverlay((OTokenOverlay) overlay, token);
-    else if (overlay instanceof ColorDotTokenOverlay)
-      renderTokenOverlay((ColorDotTokenOverlay) overlay, token);
-    else if (overlay instanceof DiamondTokenOverlay)
-      renderTokenOverlay((DiamondTokenOverlay) overlay, token);
-    else if (overlay instanceof TriangleTokenOverlay)
-      renderTokenOverlay((TriangleTokenOverlay) overlay, token);
-    else if (overlay instanceof CrossTokenOverlay)
-      renderTokenOverlay((CrossTokenOverlay) overlay, token);
-    else if (overlay instanceof XTokenOverlay) renderTokenOverlay((XTokenOverlay) overlay, token);
-    else if (overlay instanceof ShadedTokenOverlay)
-      renderTokenOverlay((ShadedTokenOverlay) overlay, token);
-  }
-
-  private void renderTokenOverlay(ShadedTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    tmpColor.set(1, 1, 1, overlay.getOpacity() / 100);
-    // FIXME: this should change the transparency of the token. Test this when tokendrawing is moved
-    // to backbuffer
-    drawer.setColor(tmpColor);
-    drawer.filledRectangle(x, y, w, h);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(ImageTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y;
-
-    // Get the image
-    java.awt.Rectangle iBounds = overlay.getImageBounds(bounds, token);
-    Dimension d = iBounds.getSize();
-
-    var image = zoneCache.getSprite(overlay.getAssetId(), stateTime);
-
-    Dimension size = new Dimension((int) image.getWidth(), (int) image.getHeight());
-    SwingUtil.constrainTo(size, d.width, d.height);
-
-    // Paint it at the right location
-    int width = size.width;
-    int height = size.height;
-
-    if (overlay instanceof CornerImageTokenOverlay) {
-      x += iBounds.x + (d.width - width) / 2;
-      y -= iBounds.y + (d.height - height) / 2 + iBounds.height;
-    } else {
-      x = iBounds.x + (d.width - width) / 2;
-      y = -(iBounds.y + (d.height - height) / 2) - iBounds.height;
-    }
-
-    image.setPosition(x, y);
-    image.setSize(size.width, size.height);
-    image.draw(batch, overlay.getOpacity() / 100f);
-  }
-
-  private void renderTokenOverlay(XTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-
-    var stroke = overlay.getStroke();
-
-    drawer.setColor(tmpColor);
-    drawer.line(x, y, x + w, y + h, stroke.getLineWidth());
-    drawer.line(x, y + h, x + w, y, stroke.getLineWidth());
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(FlowColorDotTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-    drawer.setColor(tmpColor);
-    Shape s = overlay.getShape(bounds, token);
-    areaRenderer.fillArea(batch, new Area(s));
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(YieldTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-
-    var stroke = overlay.getStroke();
-    var hc = w / 2f;
-    var vc = h * (1 - 0.134f);
-
-    var floats =
-        new float[] {
-          x, y + vc, x + w, y + vc, x + hc, y,
-        };
-
-    drawer.setColor(tmpColor);
-    drawer.path(floats, stroke.getLineWidth(), JoinType.POINTY, false);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(OTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-
-    var stroke = overlay.getStroke();
-    var lineWidth = stroke.getLineWidth();
-
-    var centerX = x + w / 2f;
-    var centerY = y + h / 2f;
-    var radiusX = w / 2f - lineWidth / 2f;
-    var radiusY = h / 2f - lineWidth / 2f;
-
-    drawer.setColor(tmpColor);
-    drawer.ellipse(centerX, centerY, radiusX, radiusY, 0, lineWidth);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(ColorDotTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-
-    var size = w * 0.1f;
-    var offset = w * 0.8f;
-
-    var posX = x + size;
-    var posY = y + size;
-
-    switch (overlay.getCorner()) {
-      case SOUTH_EAST:
-        posX += offset;
-        break;
-      case SOUTH_WEST:
-        break;
-      case NORTH_EAST:
-        posX += offset;
-        posY += offset;
-        break;
-      case NORTH_WEST:
-        posY += offset;
-        break;
-    }
-
-    drawer.setColor(tmpColor);
-    drawer.filledEllipse(posX, posY, size, size);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(DiamondTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-    var stroke = overlay.getStroke();
-
-    var hc = w / 2f;
-    var vc = h / 2f;
-
-    var floats =
-        new float[] {
-          x, y + vc, x + hc, y, x + w, y + vc, x + hc, y + h,
-        };
-
-    drawer.setColor(tmpColor);
-    drawer.path(floats, stroke.getLineWidth(), JoinType.POINTY, false);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(TriangleTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-    var stroke = overlay.getStroke();
-
-    var hc = w / 2f;
-    var vc = h * (1 - 0.866f);
-
-    var floats =
-        new float[] {
-          x, y + vc, x + w, y + vc, x + hc, y + h,
-        };
-
-    drawer.setColor(tmpColor);
-    drawer.path(floats, stroke.getLineWidth(), JoinType.POINTY, false);
-    drawer.setColor(Color.WHITE);
-  }
-
-  private void renderTokenOverlay(CrossTokenOverlay overlay, Token token) {
-    var bounds = token.getBounds(zoneCache.getZone());
-    var x = bounds.x;
-    var y = -bounds.y - bounds.height;
-    var w = bounds.width;
-    var h = bounds.height;
-
-    var color = overlay.getColor();
-    Color.argb8888ToColor(tmpColor, color.getRGB());
-    tmpColor.set(
-        color.getRed() / 255f,
-        color.getGreen() / 255f,
-        color.getBlue() / 255f,
-        overlay.getOpacity() / 100);
-    var stroke = overlay.getStroke();
-
-    drawer.setColor(tmpColor);
-    drawer.line(x, y + h / 2f, x + w, y + h / 2f, stroke.getLineWidth());
-    drawer.line(x + w / 2f, y, x + w / 2f, y + h, stroke.getLineWidth());
-    drawer.setColor(Color.WHITE);
   }
 
   // FIXME: I don't like this hardwiring
@@ -3165,14 +2373,9 @@ public class GdxRenderer extends ApplicationAdapter {
 
           var newZone = event.zone();
           zoneCache = new ZoneCache(newZone, atlas);
-          lineTemplateDrawer.setZoneCache(zoneCache);
-          lineCellTemplateDrawer.setZoneCache(zoneCache);
-          radiusTemplateDrawer.setZoneCache(zoneCache);
-          burstTemplateDrawer.setZoneCache(zoneCache);
-          coneTemplateDrawer.setZoneCache(zoneCache);
-          blastTemplateDrawer.setZoneCache(zoneCache);
-          radiusCellTemplateDrawer.setZoneCache(zoneCache);
-          shapeDrawableDrawer.setZoneCache(zoneCache);
+          drawnElementRenderer.setZoneCache(zoneCache);
+          tokenOverlayRenderer.setZoneCache(zoneCache);
+          gridRenderer.setZoneCache(zoneCache);
           renderZone = true;
         });
   }

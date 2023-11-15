@@ -12,9 +12,10 @@
  * <http://www.gnu.org/licenses/> and specifically the Affero license
  * text at <http://www.gnu.org/licenses/agpl.html>.
  */
-package net.rptools.maptool.client.ui.zone.gdx;
+package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
+import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.Pen;
 import net.rptools.maptool.model.drawing.ShapeDrawable;
