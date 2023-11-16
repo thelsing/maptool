@@ -27,13 +27,30 @@ plugins {
 
 // Definitions
 defaultTasks 'clean', 'build'
-sourceCompatibility = 20
-targetCompatibility = 20
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_20
+    targetCompatibility = JavaVersion.VERSION_20
+}
+
+def javaArgs = [
+        "-Xss8M", "-Dsun.java2d.d3d=false", "-Dsentry.environment=Production", "-Dfile.encoding=UTF-8",
+        "-Dpolyglot.engine.WarnInterpreterOnly=false",
+        "-DMAPTOOL_DATADIR=.maptool-" + vendor.toLowerCase(), "-XX:+ShowCodeDetailsInExceptionMessages",
+        "--add-opens=java.desktop/java.awt=ALL-UNNAMED", "--add-opens=java.desktop/java.awt.geom=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt.geom=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED",
+        "--add-opens=javafx.web/javafx.scene.web=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED",
+        "--add-opens=java.desktop/javax.swing=ALL-UNNAMED","--add-opens=java.desktop/sun.awt.shell=ALL-UNNAMED",
+        "--add-opens=java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED"]
 
 // Used by gradle assemble & run tasks
-mainClassName = 'net.rptools.maptool.client.LaunchInstructions'
-applicationDefaultJvmArgs = ["-Xss8M"]
+application {
+    mainClass = 'net.rptools.maptool.client.LaunchInstructions'
+    applicationDefaultJvmArgs = javaArgs + ["-DRUN_FROM_IDE=true"]
+    if (osdetector.os.is('osx')) {
+        applicationDefaultJvmArgs += [ '-Xdock:name=' + project.name + developerRelease ]
+    }
+}
 def appSemVer = ""
 def winUpgradeUUID = UUID.randomUUID().toString();
 
@@ -140,22 +157,8 @@ sourceSets {
 
 run {
     args = ['-v=' + appSemVer]
-    applicationDefaultJvmArgs = ["-Xss8M", "-Dsun.java2d.d3d=false", "-Dsentry.environment=Development", "-Dfile.encoding=UTF-8",
-                                 "-Dpolyglot.engine.WarnInterpreterOnly=false","-DRUN_FROM_IDE=true",
-                                 "-DMAPTOOL_DATADIR=.maptool-" + vendor.toLowerCase(), "-XX:+ShowCodeDetailsInExceptionMessages",
-                                 "--add-opens=java.desktop/java.awt=ALL-UNNAMED", "--add-opens=java.desktop/java.awt.geom=ALL-UNNAMED",
-                                 "--add-opens=java.desktop/sun.awt.geom=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED",
-                                 "--add-opens=javafx.web/javafx.scene.web=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit=ALL-UNNAMED",
-                                 "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED", "--add-opens=java.desktop/javax.swing=ALL-UNNAMED",
-                                 "--add-opens=java.desktop/sun.awt.shell=ALL-UNNAMED", "--add-opens=java.base/java.lang=ALL-UNNAMED",
-                                 "--add-opens=java.desktop/sun.awt=ALL-UNNAMED", "--add-opens=java.desktop/sun.java2d=ALL-UNNAMED",
-                                 "--add-opens=java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED"]
     // Add -Dlog4j2.debug to see log4j2 details
     // Add  -Djavax.net.debug=all to debug networking issues
-
-    if (osdetector.os.is('osx')) {
-        applicationDefaultJvmArgs += [ '-Xdock:name=' + project.name + developerRelease ]
-    }
 
     if (System.getProperty("exec.args") != null) {
         args System.getProperty("exec.args").split()
@@ -165,7 +168,7 @@ run {
 compileJava.configure {
     // Keep the uninstrumented .class files out of the final destination directory. Otherwise we
     // might instrument the same file twice, resulting in duplicate methods.
-    destinationDirectory = file("$buildDir/classes/java/main-uninstrumented")
+    destinationDirectory = file("${layout.buildDirectory.get()}/classes/java/main-uninstrumented")
 }
 
 def instrumentForms = tasks.register('instrumentForms', Sync) {
@@ -228,15 +231,7 @@ runtime {
 
     jpackage {
         installerOutputDir = file("releases")
-        jvmArgs = ["-Xss8M", "-Dsun.java2d.d3d=false", "-Dsentry.environment=Production", "-Dfile.encoding=UTF-8",
-                   "-Dpolyglot.engine.WarnInterpreterOnly=false",
-                   "-DMAPTOOL_DATADIR=.maptool-" + vendor.toLowerCase(), "-XX:+ShowCodeDetailsInExceptionMessages",
-                   "--add-opens=java.desktop/java.awt=ALL-UNNAMED", "--add-opens=java.desktop/java.awt.geom=ALL-UNNAMED",
-                   "--add-opens=java.desktop/sun.awt.geom=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED",
-                   "--add-opens=javafx.web/javafx.scene.web=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED",
-                   "--add-opens=java.desktop/javax.swing=ALL-UNNAMED","--add-opens=java.desktop/sun.awt.shell=ALL-UNNAMED",
-                   "--add-opens=java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED"
-          ]
+        jvmArgs = javaArgs
 
         imageOptions = []
         imageName = project.name + developerRelease
@@ -455,6 +450,7 @@ dependencies {
     // testimplementation dependency to testimplementation 'org.testng:testng:6.8.1' and add
     // 'test.useTestNG()' to your build script.
     //testCompile 'junit:junit:4.12'
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.9.0'		// https://mvnrepository.com/artifact/com.google.code.gson/gson
 
@@ -533,18 +529,18 @@ dependencies {
     implementation 'com.badlogicgames.gdx:gdx-box2d:1.12.0'
     implementation "com.badlogicgames.gdx:gdx-box2d-platform:1.12.0:natives-desktop"}
 
-
-task configSentryRelease(type: Copy) {
-    from("build-resources/sentry.properties.template")
-    into("src/main/resources/")
-    rename("sentry.properties.template", "sentry.properties")
-    def tokens = [
-            AppVersion : "${tagVersion}",
-            Environment: "${environment}",
-            SentryDSN  : "${sentryDSN}"
-    ]
-    expand(tokens)
-    inputs.properties(tokens)
+processResources {
+    with copySpec {
+        from("build-resources/sentry.properties.template")
+        rename("sentry.properties.template", "sentry.properties")
+        def tokens = [
+                AppVersion : "${tagVersion}",
+                Environment: "${environment}",
+                SentryDSN  : "${sentryDSN}"
+        ]
+        expand(tokens)
+        inputs.properties(tokens)
+    }
 }
 
 shadowJar {
@@ -565,9 +561,9 @@ shadowJar {
                 'Built-By': System.getProperty('user.name'),
                 'Built-Date': new Date(),
                 'Built-JDK': System.getProperty('java.version'),
-                'Source-Compatibility': project.sourceCompatibility,
-                'Target-Compatibility': project.targetCompatibility,
-                'Main-Class': project.mainClassName,
+                'Source-Compatibility': project.java.sourceCompatibility,
+                'Target-Compatibility': project.java.targetCompatibility,
+                'Main-Class': project.application.mainClass,
                 'Multi-Release': true
     }
 
@@ -588,9 +584,9 @@ jar {
                 'Built-By': System.getProperty('user.name'),
                 'Built-Date': new Date(),
                 'Built-JDK': System.getProperty('java.version'),
-                'Source-Compatibility': project.sourceCompatibility,
-                'Target-Compatibility': project.targetCompatibility,
-                'Main-Class': project.mainClassName
+                'Source-Compatibility': project.java.sourceCompatibility,
+                'Target-Compatibility': project.java.targetCompatibility,
+                'Main-Class': project.application.mainClass
     }
 }
 
@@ -622,7 +618,3 @@ test {
 task createWrapper(type: Wrapper) {
     gradleVersion = '8.4'
 }
-
-// Configure current release tag in Sentry.io properties
-processResources.dependsOn configSentryRelease
-configSentryRelease.dependsOn 'spotlessCheck'
