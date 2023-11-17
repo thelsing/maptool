@@ -14,9 +14,7 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-import box2dLight.ChainLight;
-import box2dLight.PointLight;
-import box2dLight.RayHandler;
+import box2dLight.*;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
@@ -179,10 +177,13 @@ public class GdxRenderer extends ApplicationAdapter {
 
     world = new World(new Vector2(0, 0), true);
     debugRenderer = new Box2DDebugRenderer();
-    RayHandler.setGammaCorrection(true);
-    RayHandler.useDiffuseLight(true);
-
-    rayHandler = new RayHandler(world);
+    var options = new RayHandlerOptions();
+    options.setDiffuse(true);
+    options.setGammaCorrection(true);
+    rayHandler = new RayHandler(world, options);
+    // RayHandler.setGammaCorrection(true);
+    // RayHandler.useDiffuseLight(true);
+    // rayHandler = new RayHandler(world);
     rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
@@ -200,8 +201,16 @@ public class GdxRenderer extends ApplicationAdapter {
             128,
             Color.WHITE,
             600,
-            -1,
+            1,
             new float[] {700, -600, 1000, -600, 1000, -800, 700, -800, 700, -600});
+    /*
+            rayHandler,
+            128,
+            Color.WHITE,
+            600,
+            1,
+            new float[] {700, -600, 1000, -600, 1000, -800, 700, -800, 700, -600});
+    */
     chain.setSoft(false);
 
     manager = new com.badlogic.gdx.assets.AssetManager();
@@ -522,23 +531,23 @@ public class GdxRenderer extends ApplicationAdapter {
 
     renderBoard();
 
-    if (Zone.Layer.BACKGROUND.isEnabled()) {
-      List<DrawnElement> drawables = zoneCache.getZone().getBackgroundDrawnElements();
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.BACKGROUND, view)) {
+      List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.BACKGROUND);
 
       timer.start("drawableBackground");
       drawnElementRenderer.render(batch, drawables);
       timer.stop("drawableBackground");
 
-      List<Token> background = zoneCache.getZone().getBackgroundStamps(false);
+      List<Token> background = zoneCache.getZone().getTokensOnLayer(Zone.Layer.BACKGROUND, false);
       if (!background.isEmpty()) {
         timer.start("tokensBackground");
         renderTokens(background, view, false);
         timer.stop("tokensBackground");
       }
     }
-    if (Zone.Layer.OBJECT.isEnabled()) {
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.OBJECT, view)) {
       // Drawables on the object layer are always below the grid, and...
-      List<DrawnElement> drawables = zoneCache.getZone().getObjectDrawnElements();
+      List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.OBJECT);
       // if (!drawables.isEmpty()) {
       timer.start("drawableObjects");
       drawnElementRenderer.render(batch, drawables);
@@ -552,16 +561,16 @@ public class GdxRenderer extends ApplicationAdapter {
 
     timer.stop("grid");
 
-    if (Zone.Layer.OBJECT.isEnabled()) {
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.OBJECT, view)) {
       // ... Images on the object layer are always ABOVE the grid.
-      List<Token> stamps = zoneCache.getZone().getStampTokens(false);
+      List<Token> stamps = zoneCache.getZone().getTokensOnLayer(Zone.Layer.OBJECT, false);
       if (!stamps.isEmpty()) {
         timer.start("tokensStamp");
         renderTokens(stamps, view, false);
         timer.stop("tokensStamp");
       }
     }
-    if (Zone.Layer.TOKEN.isEnabled()) {
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.TOKEN, view)) {
       timer.start("lights");
       renderLights(view);
       timer.stop("lights");
@@ -592,29 +601,29 @@ public class GdxRenderer extends ApplicationAdapter {
      *   <li>Render Token-layer tokens
      * </ol>
      */
-    if (Zone.Layer.TOKEN.isEnabled()) {
-      List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements();
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.TOKEN, view)) {
+      List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.TOKEN);
       // if (!drawables.isEmpty()) {
       timer.start("drawableTokens");
       drawnElementRenderer.render(batch, drawables);
       timer.stop("drawableTokens");
       // }
 
-      if (view.isGMView() && Zone.Layer.GM.isEnabled()) {
-        drawables = zoneCache.getZone().getGMDrawnElements();
+      if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.GM, view)) {
+        drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.GM);
         // if (!drawables.isEmpty()) {
         timer.start("drawableGM");
         drawnElementRenderer.render(batch, drawables);
         timer.stop("drawableGM");
         // }
-        List<Token> stamps = zoneCache.getZone().getGMStamps(false);
+        List<Token> stamps = zoneCache.getZone().getTokensOnLayer(Zone.Layer.GM, false);
         if (!stamps.isEmpty()) {
           timer.start("tokensGM");
           renderTokens(stamps, view, false);
           timer.stop("tokensGM");
         }
       }
-      List<Token> tokens = zoneCache.getZone().getTokens(false);
+      List<Token> tokens = zoneCache.getZone().getTokensOnLayer(Zone.Layer.TOKEN, false);
       if (!tokens.isEmpty()) {
         timer.start("tokens");
         renderTokens(tokens, view, false);
@@ -643,7 +652,7 @@ public class GdxRenderer extends ApplicationAdapter {
       renderFog(view);
     }
 
-    if (Zone.Layer.TOKEN.isEnabled()) {
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.TOKEN, view)) {
       // Jamz: If there is fog or vision we may need to re-render vision-blocking type tokens
       // For example. this allows a "door" stamp to block vision but still allow you to see the
       // door.
@@ -699,7 +708,9 @@ public class GdxRenderer extends ApplicationAdapter {
     timer.stop("renderCoordinates");
 
     timer.start("lightSourceIconOverlay.paintOverlay");
-    if (Zone.Layer.TOKEN.isEnabled() && view.isGMView() && AppState.isShowLightSources()) {
+    if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.TOKEN, view)
+        && view.isGMView()
+        && AppState.isShowLightSources()) {
       paintlightSourceIconOverlay();
     }
     timer.stop("lightSourceIconOverlay.paintOverlay");
@@ -1093,7 +1104,7 @@ public class GdxRenderer extends ApplicationAdapter {
         }
         // Show path only on the key token on token layer that are visible to the owner or gm while
         // fow and vision is on
-        if (token == keyToken && !token.isStamp()) {
+        if (token == keyToken && token.getLayer().supportsWalker()) {
           renderPath(
               walker != null ? walker.getPath() : set.getGridlessPath(),
               token.getFootprint(zoneCache.getZone().getGrid()));
@@ -1187,7 +1198,7 @@ public class GdxRenderer extends ApplicationAdapter {
             y += 10 + h;
             x += w / 2;
 
-            if (!token.isStamp() && AppState.getShowMovementMeasurements()) {
+            if (token.getLayer().supportsWalker() && AppState.getShowMovementMeasurements()) {
               String distance = "";
               if (walker != null) { // This wouldn't be true unless token.isSnapToGrid() &&
                 // grid.isPathingSupported()
@@ -1473,14 +1484,14 @@ public class GdxRenderer extends ApplicationAdapter {
 
       timer.start("tokenlist-1");
       try {
-        if (token.isStamp() && zoneCache.getZoneRenderer().isTokenMoving(token)) {
+        if (token.getLayer().isStampLayer() && zoneCache.getZoneRenderer().isTokenMoving(token)) {
           continue;
         }
         // Don't bother if it's not visible
         // NOTE: Not going to use zoneCache.getZone().isTokenVisible as it is very slow. In fact,
         // it's faster
         // to just draw the tokens and let them be clipped
-        if ((!token.isVisible() || token.isGMStamp()) && !isGMView) {
+        if ((!token.isVisible() || !token.getLayer().isVisibleToPlayers()) && !isGMView) {
           continue;
         }
         if (token.isVisibleOnlyToOwner() && !AppUtil.playerOwns(token)) {
@@ -1510,7 +1521,9 @@ public class GdxRenderer extends ApplicationAdapter {
       try {
 
         // Vision visibility
-        if (!isGMView && token.isToken() && zoneCache.getZoneView().isUsingVision()) {
+        if (!isGMView
+            && token.getLayer().supportsVision()
+            && zoneCache.getZoneView().isUsingVision()) {
           if (!GraphicsUtil.intersects(visibleScreenArea, tokenBounds)) {
             continue;
           }
@@ -1768,14 +1781,16 @@ public class GdxRenderer extends ApplicationAdapter {
           zoneCache.getZoneRenderer().getSelectedTokenSet().contains(token.getId());
       if (isSelected) {
         ImageBorder selectedBorder =
-            token.isStamp() ? AppStyle.selectedStampBorder : AppStyle.selectedBorder;
+            token.getLayer().isStampLayer()
+                ? AppStyle.selectedStampBorder
+                : AppStyle.selectedBorder;
         if (zoneCache.getZoneRenderer().getHighlightCommonMacros().contains(token)) {
           selectedBorder = AppStyle.commonMacroBorder;
         }
         if (!AppUtil.playerOwns(token)) {
           selectedBorder = AppStyle.selectedUnownedBorder;
         }
-        if (useIF && !token.isStamp() && zoneCache.getZoneView().isUsingVision()) {
+        if (useIF && token.getLayer().supportsVision() && zoneCache.getZoneView().isUsingVision()) {
           Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
           if (tool
                   instanceof
@@ -1798,7 +1813,7 @@ public class GdxRenderer extends ApplicationAdapter {
             gdxTokenRectangle.height / zoom);
 
         if (token.hasFacing()
-            && (token.getShape() == Token.TokenShape.TOP_DOWN || token.isStamp())) {
+            && (token.getShape() == Token.TokenShape.TOP_DOWN || token.getLayer().isStampLayer())) {
 
           var transX = gdxTokenRectangle.width / 2f - token.getAnchor().x / zoom;
           var transY = gdxTokenRectangle.height / 2f + token.getAnchor().y / zoom;
@@ -1845,9 +1860,11 @@ public class GdxRenderer extends ApplicationAdapter {
     var tokenStackMap = zoneCache.getZoneRenderer().getTokenStackMap();
 
     // Stacks
-    if (!tokenList.isEmpty()
-        && !tokenList.get(0).isStamp()) { // TODO: find a cleaner way to indicate token layer
-      if (tokenStackMap != null) { // FIXME Needed to prevent NPE but how can it be null?
+    // TODO: find a cleaner way to indicate token layer
+    if (!tokenList.isEmpty() && tokenList.get(0).getLayer().isTokenLayer()) {
+      boolean hideTSI = AppPreferences.getHideTokenStackIndicator();
+      if (tokenStackMap != null
+          && !hideTSI) { // FIXME Needed to prevent NPE but how can it be null?
         for (Token token : tokenStackMap.keySet()) {
           var tokenRectangle = token.getBounds(zoneCache.getZone());
           var stackImage = zoneCache.fetch("stack");

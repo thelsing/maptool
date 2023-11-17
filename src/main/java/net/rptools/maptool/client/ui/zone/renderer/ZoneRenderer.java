@@ -1066,7 +1066,7 @@ public class ZoneRenderer extends JComponent
     disabledLayers.add(layer);
   }
 
-  private boolean shouldRenderLayer(Layer layer, PlayerView view) {
+  public boolean shouldRenderLayer(Layer layer, PlayerView view) {
     return !disabledLayers.contains(layer) && (layer.isVisibleToPlayers() || view.isGMView());
   }
 

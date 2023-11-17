@@ -14,12 +14,7 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-import box2dLight.ChainLight;
-import box2dLight.ConeLight;
-import box2dLight.DirectionalLight;
-import box2dLight.Light;
-import box2dLight.PointLight;
-import box2dLight.RayHandler;
+import box2dLight.*;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -114,10 +109,13 @@ public class Box2DLightsTest extends InputAdapter implements ApplicationListener
     normalProjection.setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
     /** BOX2D LIGHT STUFF BEGIN */
-    RayHandler.setGammaCorrection(true);
-    RayHandler.useDiffuseLight(true);
-
-    rayHandler = new RayHandler(world);
+    var options = new RayHandlerOptions();
+    options.setDiffuse(true);
+    options.setGammaCorrection(true);
+    rayHandler = new RayHandler(world, options);
+    // RayHandler.setGammaCorrection(true);
+    // RayHandler.useDiffuseLight(true);
+    // rayHandler = new RayHandler(world);
     rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
