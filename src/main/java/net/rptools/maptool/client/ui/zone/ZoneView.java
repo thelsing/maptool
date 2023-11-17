@@ -165,7 +165,7 @@ public class ZoneView {
         // have sight (so weren't included in the PlayerView), but could still have previously
         // exposed areas.
         exposed = new Area();
-        for (Token tok : zone.getTokens()) {
+        for (Token tok : zone.getTokensForLayers(Zone.Layer::supportsVision)) {
           if (!AppUtil.playerOwns(tok)) {
             continue;
           }
@@ -417,7 +417,10 @@ public class ZoneView {
         view.isUsingTokenView()
             ? view.getTokens()
             : zone.getTokensFiltered(
-                t -> t.isToken() && t.getHasSight() && (isGMview || t.isVisible()));
+                t ->
+                    t.getLayer().supportsVision()
+                        && t.getHasSight()
+                        && (isGMview || t.isVisible()));
 
     return tokenList.stream()
         .filter(
@@ -650,6 +653,14 @@ public class ZoneView {
         if (token == null) {
           continue;
         }
+        if (!token.isVisible() && !MapTool.getPlayer().isEffectiveGM()) {
+          continue;
+        }
+        if (token.isVisibleOnlyToOwner() && !AppUtil.playerOwns(token)) {
+          continue;
+        }
+        boolean isOwner = token.isOwner(MapTool.getPlayer().getName());
+
         Point p = FogUtil.calculateVisionCenter(token, zone);
 
         for (AttachedLightSource als : token.getLightSources()) {
@@ -680,14 +691,7 @@ public class ZoneView {
             if (light.getPaint() == null) {
               continue;
             }
-            boolean isOwner = token.getOwners().contains(MapTool.getPlayer().getName());
             if ((light.isGM() && !MapTool.getPlayer().isEffectiveGM())) {
-              continue;
-            }
-            if ((!token.isVisible()) && !MapTool.getPlayer().isEffectiveGM()) {
-              continue;
-            }
-            if (token.isVisibleOnlyToOwner() && !AppUtil.playerOwns(token)) {
               continue;
             }
             if (light.isOwnerOnly() && !isOwner && !MapTool.getPlayer().isEffectiveGM()) {
