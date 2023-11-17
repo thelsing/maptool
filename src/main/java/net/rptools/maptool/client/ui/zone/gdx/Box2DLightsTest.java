@@ -109,14 +109,15 @@ public class Box2DLightsTest extends InputAdapter implements ApplicationListener
     normalProjection.setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
     /** BOX2D LIGHT STUFF BEGIN */
-    var options = new RayHandlerOptions();
+    /*var options = new RayHandlerOptions();
     options.setDiffuse(true);
     options.setGammaCorrection(true);
     rayHandler = new RayHandler(world, options);
-    // RayHandler.setGammaCorrection(true);
-    // RayHandler.useDiffuseLight(true);
-    // rayHandler = new RayHandler(world);
-    rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    */
+    RayHandler.setGammaCorrection(true);
+    RayHandler.useDiffuseLight(true);
+    rayHandler = new RayHandler(world);
+   // rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
     initPointLights();

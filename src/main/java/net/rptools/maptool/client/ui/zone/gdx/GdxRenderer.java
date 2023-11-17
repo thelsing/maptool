@@ -177,13 +177,15 @@ public class GdxRenderer extends ApplicationAdapter {
 
     world = new World(new Vector2(0, 0), true);
     debugRenderer = new Box2DDebugRenderer();
+    /*
     var options = new RayHandlerOptions();
     options.setDiffuse(true);
     options.setGammaCorrection(true);
     rayHandler = new RayHandler(world, options);
-    // RayHandler.setGammaCorrection(true);
-    // RayHandler.useDiffuseLight(true);
-    // rayHandler = new RayHandler(world);
+    */
+    RayHandler.setGammaCorrection(true);
+    RayHandler.useDiffuseLight(true);
+    rayHandler = new RayHandler(world);
     rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
@@ -331,11 +333,7 @@ public class GdxRenderer extends ApplicationAdapter {
     updateVbl();
 
     doRendering();
-    rayHandler.setCombinedMatrix(cam);
 
-    // if (stepped)
-    rayHandler.update();
-    rayHandler.render();
     debugRenderer.render(world, cam.combined);
   }
 
@@ -647,6 +645,16 @@ public class GdxRenderer extends ApplicationAdapter {
       renderLabels(view);
     }
 
+    if(zoneCache.getZone().getLightingStyle() == Zone.LightingStyle.ENVIRONMENTAL && AppState.isShowLights()) {
+      if(view.isGMView()) {
+        rayHandler.setAmbientLight(0.6f);
+      } else {
+        rayHandler.setAmbientLight(1.0f);
+      }
+      rayHandler.setCombinedMatrix(cam);
+      rayHandler.updateAndRender();
+    }
+
     // (This method has it's own 'timer' calls)
     if (zoneCache.getZone().hasFog()) {
       renderFog(view);
@@ -947,7 +955,7 @@ public class GdxRenderer extends ApplicationAdapter {
     timer.start("renderFogArea");
     areaRenderer.setColor(Color.CLEAR);
     areaRenderer.fillArea(batch, combined);
-    renderFogArea(combined, visibleArea);
+    //renderFogArea(combined, visibleArea);
     renderFogOutline();
     timer.stop("renderFogArea");
 
@@ -1271,12 +1279,11 @@ public class GdxRenderer extends ApplicationAdapter {
     final var drawableLights = zoneCache.getZoneView().getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
-    if (AppState.isShowLights()) {
+    if (AppState.isShowLights() && zoneCache.getZone().getLightingStyle() != Zone.LightingStyle.ENVIRONMENTAL) {
       // Lighting enabled.
       timer.start("renderLights:renderLightOverlay");
       // zoneCache.getZone().getLightingStyle() is not supported currently as you would probably
-      // need a custom
-      // shader
+      // need a custom shader, reusing it for box2dlights
 
       renderLightOverlay(
           drawableLights,
