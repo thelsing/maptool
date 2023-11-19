@@ -367,7 +367,7 @@ public class ZoneView {
 
       litAreas.add(
           new ContributedLight(
-              new LitArea(light.getLumens(), lightArea), new LightInfo(lightSource, light)));
+              new LitArea(light.getLumens(), lightArea), new LightInfo(lightSource, light, lightSourceToken)));
 
       cummulativeNotTransformedArea.add(notScaledLightArea);
     }

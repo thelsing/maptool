@@ -14,31 +14,25 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-import box2dLight.*;
+import box2dLight.PointLight;
+import box2dLight.RayHandler;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
-import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGeneratorLoader;
 import com.badlogic.gdx.graphics.g2d.freetype.FreetypeFontLoader;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
-import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.google.common.eventbus.Subscribe;
-import java.awt.*;
-import java.awt.geom.*;
-import java.text.NumberFormat;
-import java.util.*;
-import java.util.List;
-import java.util.zip.Deflater;
-import javax.swing.*;
 import net.rptools.lib.CodeTimer;
 import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.events.ZoneActivated;
@@ -52,7 +46,8 @@ import net.rptools.maptool.client.tool.drawing.RectangleExposeTool;
 import net.rptools.maptool.client.ui.Scale;
 import net.rptools.maptool.client.ui.theme.Borders;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
-import net.rptools.maptool.client.ui.token.*;
+import net.rptools.maptool.client.ui.token.AbstractTokenOverlay;
+import net.rptools.maptool.client.ui.token.BarTokenOverlay;
 import net.rptools.maptool.client.ui.zone.DrawableLight;
 import net.rptools.maptool.client.ui.zone.PlayerView;
 import net.rptools.maptool.client.ui.zone.gdx.drawing.DrawnElementRenderer;
@@ -64,15 +59,26 @@ import net.rptools.maptool.client.ui.zone.renderer.SelectionSet;
 import net.rptools.maptool.client.walker.ZoneWalker;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
-import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Label;
 import net.rptools.maptool.model.Path;
-import net.rptools.maptool.model.drawing.*;
+import net.rptools.maptool.model.*;
+import net.rptools.maptool.model.drawing.DrawableColorPaint;
+import net.rptools.maptool.model.drawing.DrawnElement;
 import net.rptools.maptool.util.GraphicsUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+import java.awt.geom.GeneralPath;
+import java.text.NumberFormat;
+import java.util.List;
+import java.util.*;
+import java.util.zip.Deflater;
 
 /**
  * The coordinates in the model are y-down, x-left. The world coordinates are y-up, x-left. I moved
@@ -186,7 +192,7 @@ public class GdxRenderer extends ApplicationAdapter {
     RayHandler.setGammaCorrection(true);
     RayHandler.useDiffuseLight(true);
     rayHandler = new RayHandler(world);
-    rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    //rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
     // light  =
@@ -194,26 +200,8 @@ public class GdxRenderer extends ApplicationAdapter {
     red.setSoft(false);
     var green = new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
     green.setSoft(false);
-    var blue = new PointLight(rayHandler, 128, Color.BLUE, 600, 350, -350);
+    var blue = new PointLight(rayHandler, 128, Color.CORAL, 600, 350, -350);
     blue.setSoft(false);
-
-    var chain =
-        new ChainLight(
-            rayHandler,
-            128,
-            Color.WHITE,
-            600,
-            1,
-            new float[] {700, -600, 1000, -600, 1000, -800, 700, -800, 700, -600});
-    /*
-            rayHandler,
-            128,
-            Color.WHITE,
-            600,
-            1,
-            new float[] {700, -600, 1000, -600, 1000, -800, 700, -800, 700, -600});
-    */
-    chain.setSoft(false);
 
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
@@ -455,6 +443,10 @@ public class GdxRenderer extends ApplicationAdapter {
 
     renderZone(playerView);
 
+    // this is here because otherwise drawing the fps counter create strange boxes becase of the rayhandler.
+    batch.end();
+    batch.begin();
+
     setProjectionMatrix(hudCam.combined);
 
     if (zoneCache.getZoneRenderer().isLoading())
@@ -645,15 +637,15 @@ public class GdxRenderer extends ApplicationAdapter {
       renderLabels(view);
     }
 
-    if(zoneCache.getZone().getLightingStyle() == Zone.LightingStyle.ENVIRONMENTAL && AppState.isShowLights()) {
+ //   if(zoneCache.getZone().getLightingStyle() == Zone.LightingStyle.ENVIRONMENTAL && AppState.isShowLights()) {
       if(view.isGMView()) {
-        rayHandler.setAmbientLight(0.6f);
+      //  rayHandler.setAmbientLight(0.6f);
       } else {
-        rayHandler.setAmbientLight(1.0f);
+       // rayHandler.setAmbientLight(1.0f);
       }
       rayHandler.setCombinedMatrix(cam);
       rayHandler.updateAndRender();
-    }
+  //  }
 
     // (This method has it's own 'timer' calls)
     if (zoneCache.getZone().hasFog()) {
