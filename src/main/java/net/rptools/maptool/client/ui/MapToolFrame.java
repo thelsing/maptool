@@ -141,8 +141,10 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   // Components
   private final AssetPanel assetPanel;
   private final ClientConnectionPanel connectionPanel;
+
   /** The panel showing the initiative order. */
   private final InitiativePanel initiativePanel;
+
   /** The HTML pane showing the map overlay. */
   private HTMLOverlayPanel overlayPanel;
 
@@ -153,12 +155,14 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private final Toolbox toolbox;
   private final ToolbarPanel toolbarPanel;
   private final ZoneMiniMapPanel zoneMiniMapPanel;
+
   /** Contains the zoneRenderer, as well as all overlays. */
   private final JPanel zoneRendererPanel;
 
   private GLJPanel gdxPanel;
 
   private JPanel currentRenderPanel;
+
   /** Contains the overlays that should be displayed in front of everything else. */
   private final PointerToolOverlay pointerToolOverlay;
 
@@ -191,6 +195,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
   private GUID PreRemoveRenderGUID = null;
 
   private final GlassPane glassPane;
+
   /** Model for the token tree panel of the map explorer. */
   private TokenPanelTreeModel tokenPanelTreeModel;
 
