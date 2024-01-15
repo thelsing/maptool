@@ -19,20 +19,29 @@ import box2dLight.RayHandler;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGeneratorLoader;
 import com.badlogic.gdx.graphics.g2d.freetype.FreetypeFontLoader;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
-import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.*;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.google.common.eventbus.Subscribe;
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+import java.awt.geom.GeneralPath;
+import java.text.NumberFormat;
+import java.util.*;
+import java.util.List;
+import java.util.zip.Deflater;
+import javax.swing.*;
 import net.rptools.lib.CodeTimer;
 import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.events.ZoneActivated;
@@ -59,9 +68,9 @@ import net.rptools.maptool.client.ui.zone.renderer.SelectionSet;
 import net.rptools.maptool.client.walker.ZoneWalker;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
+import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Label;
 import net.rptools.maptool.model.Path;
-import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
 import net.rptools.maptool.model.drawing.DrawnElement;
 import net.rptools.maptool.util.GraphicsUtil;
@@ -69,16 +78,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
-
-import javax.swing.*;
-import java.awt.*;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Area;
-import java.awt.geom.GeneralPath;
-import java.text.NumberFormat;
-import java.util.List;
-import java.util.*;
-import java.util.zip.Deflater;
 
 /**
  * The coordinates in the model are y-down, x-left. The world coordinates are y-up, x-left. I moved
@@ -192,7 +191,7 @@ public class GdxRenderer extends ApplicationAdapter {
     RayHandler.setGammaCorrection(true);
     RayHandler.useDiffuseLight(true);
     rayHandler = new RayHandler(world);
-    //rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    // rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
     // light  =
@@ -443,7 +442,8 @@ public class GdxRenderer extends ApplicationAdapter {
 
     renderZone(playerView);
 
-    // this is here because otherwise drawing the fps counter create strange boxes becase of the rayhandler.
+    // this is here because otherwise drawing the fps counter create strange boxes becase of the
+    // rayhandler.
     batch.end();
     batch.begin();
 
@@ -637,15 +637,16 @@ public class GdxRenderer extends ApplicationAdapter {
       renderLabels(view);
     }
 
- //   if(zoneCache.getZone().getLightingStyle() == Zone.LightingStyle.ENVIRONMENTAL && AppState.isShowLights()) {
-      if(view.isGMView()) {
+    //   if(zoneCache.getZone().getLightingStyle() == Zone.LightingStyle.ENVIRONMENTAL &&
+    // AppState.isShowLights()) {
+    if (view.isGMView()) {
       //  rayHandler.setAmbientLight(0.6f);
-      } else {
-       // rayHandler.setAmbientLight(1.0f);
-      }
-      rayHandler.setCombinedMatrix(cam);
-      rayHandler.updateAndRender();
-  //  }
+    } else {
+      // rayHandler.setAmbientLight(1.0f);
+    }
+    rayHandler.setCombinedMatrix(cam);
+    rayHandler.updateAndRender();
+    //  }
 
     // (This method has it's own 'timer' calls)
     if (zoneCache.getZone().hasFog()) {
@@ -947,7 +948,7 @@ public class GdxRenderer extends ApplicationAdapter {
     timer.start("renderFogArea");
     areaRenderer.setColor(Color.CLEAR);
     areaRenderer.fillArea(batch, combined);
-    //renderFogArea(combined, visibleArea);
+    // renderFogArea(combined, visibleArea);
     renderFogOutline();
     timer.stop("renderFogArea");
 
@@ -1271,7 +1272,8 @@ public class GdxRenderer extends ApplicationAdapter {
     final var drawableLights = zoneCache.getZoneView().getDrawableLights(view);
     timer.stop("renderLights:getLights");
 
-    if (AppState.isShowLights() && zoneCache.getZone().getLightingStyle() != Zone.LightingStyle.ENVIRONMENTAL) {
+    if (AppState.isShowLights()
+        && zoneCache.getZone().getLightingStyle() != Zone.LightingStyle.ENVIRONMENTAL) {
       // Lighting enabled.
       timer.start("renderLights:renderLightOverlay");
       // zoneCache.getZone().getLightingStyle() is not supported currently as you would probably

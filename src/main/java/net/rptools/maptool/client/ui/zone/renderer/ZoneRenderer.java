@@ -850,7 +850,7 @@ public class ZoneRenderer extends JComponent
             // we still need to render the different overlays
             var g2dForRendering = bufferG2d;
             if (skipDrawing) {
-                g2dForRendering = g2d;
+              g2dForRendering = g2d;
             }
             renderZone(g2dForRendering, pl);
 
@@ -859,12 +859,14 @@ public class ZoneRenderer extends JComponent
             if (MapTool.getFrame().areFullScreenToolsShown()) {
               noteVPos += 40;
             }
-            if (!AppPreferences.getMapVisibilityWarning() && (!zone.isVisible() && pl.isGMView())&& !skipDrawing) {
+            if (!AppPreferences.getMapVisibilityWarning()
+                && (!zone.isVisible() && pl.isGMView())
+                && !skipDrawing) {
               GraphicsUtil.drawBoxedString(
                   bufferG2d, I18N.getText("zone.map_not_visible"), getSize().width / 2, noteVPos);
               noteVPos += 20;
             }
-            if (AppState.isShowAsPlayer()&& !skipDrawing) {
+            if (AppState.isShowAsPlayer() && !skipDrawing) {
               GraphicsUtil.drawBoxedString(
                   bufferG2d, I18N.getText("zone.player_view"), getSize().width / 2, noteVPos);
             }

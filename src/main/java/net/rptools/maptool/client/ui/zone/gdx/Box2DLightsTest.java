@@ -117,7 +117,7 @@ public class Box2DLightsTest extends InputAdapter implements ApplicationListener
     RayHandler.setGammaCorrection(true);
     RayHandler.useDiffuseLight(true);
     rayHandler = new RayHandler(world);
-   // rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
+    // rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
     rayHandler.setBlurNum(3);
 
     initPointLights();
