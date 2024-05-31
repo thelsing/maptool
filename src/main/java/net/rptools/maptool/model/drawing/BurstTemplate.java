@@ -60,7 +60,7 @@ public class BurstTemplate extends RadiusTemplate {
     return new Rectangle(getVertex().x, getVertex().y, gridSize, gridSize);
   }
 
-  private Rectangle makeShape(Zone zone) {
+  public Rectangle makeShape(Zone zone) {
     int gridSize = zone.getGrid().getSize();
     return new Rectangle(
         getVertex().x - getRadius() * gridSize,
@@ -119,10 +119,6 @@ public class BurstTemplate extends RadiusTemplate {
   @Override
   public @Nonnull Area getArea(Zone zone) {
     return new Area(makeShape(zone));
-  }
-
-  public ShapeDrawable getVertexRenderer() {
-    return vertexRenderer;
   }
 
   @Override

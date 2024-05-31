@@ -1391,7 +1391,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
     g.drawImage(backbuffer, 0, 0, this);
   }
 
-  private Set<SelectionSet> getOwnedMovementSet(PlayerView view) {
+  public Set<SelectionSet> getOwnedMovementSet(PlayerView view) {
     Set<SelectionSet> movementSet = new HashSet<SelectionSet>();
     for (SelectionSet selection : selectionSetMap.values()) {
       if (selection.getPlayerId().equals(MapTool.getPlayer().getName())) {

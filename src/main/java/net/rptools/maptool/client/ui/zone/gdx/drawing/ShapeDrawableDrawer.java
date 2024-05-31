@@ -16,6 +16,7 @@ package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
+import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.Pen;
 import net.rptools.maptool.model.drawing.ShapeDrawable;
@@ -27,14 +28,14 @@ public class ShapeDrawableDrawer extends AbstractDrawingDrawer {
   }
 
   @Override
-  protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+  protected void drawBackground(PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen) {
     var shape = (ShapeDrawable) element;
-    fillArea(batch, shape.getArea(), pen);
+    fillArea(batch, shape.getArea(zone), pen);
   }
 
   @Override
-  protected void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+  protected void drawBorder(PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen) {
     var shape = (ShapeDrawable) element;
-    drawArea(batch, shape.getArea(), pen);
+    drawArea(batch, shape.getArea(zone), pen);
   }
 }

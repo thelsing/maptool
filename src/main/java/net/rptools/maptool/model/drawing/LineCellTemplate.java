@@ -313,7 +313,7 @@ public class LineCellTemplate extends AbstractTemplate {
    *
    * @return Returns the current value of quadrant.
    */
-  private @Nonnull Quadrant getQuadrant() {
+  public @Nonnull Quadrant getQuadrant() {
     if (quadrant == null) {
       final var vertex = getVertex();
       if (vertex == null || pathVertex == null || pathVertex.equals(vertex)) {
@@ -335,7 +335,7 @@ public class LineCellTemplate extends AbstractTemplate {
   /**
    * @return Getter for path
    */
-  private @Nullable List<CellPoint> getPath() {
+  public @Nullable List<CellPoint> getPath() {
     if (path == null) {
       path = calcPath();
     }

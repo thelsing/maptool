@@ -18,6 +18,7 @@ import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import java.util.List;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.client.ui.zone.gdx.ZoneCache;
+import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.*;
 
 public class DrawnElementRenderer {
@@ -41,27 +42,30 @@ public class DrawnElementRenderer {
     shapeDrawableDrawer = new ShapeDrawableDrawer(areaRenderer);
   }
 
-  public void render(PolygonSpriteBatch batch, List<DrawnElement> drawables) {
-    for (var drawable : drawables) renderDrawable(batch, drawable);
+  public void render(PolygonSpriteBatch batch, Zone zone, List<DrawnElement> drawables) {
+    for (var drawable : drawables) renderDrawable(batch, zone, drawable);
   }
 
-  private void renderDrawable(PolygonSpriteBatch batch, DrawnElement element) {
+  private void renderDrawable(PolygonSpriteBatch batch, Zone zone, DrawnElement element) {
     var pen = element.getPen();
     var drawable = element.getDrawable();
 
-    if (drawable instanceof ShapeDrawable) shapeDrawableDrawer.draw(batch, drawable, pen);
+    if (drawable instanceof ShapeDrawable) shapeDrawableDrawer.draw(batch, zone, drawable, pen);
     else if (drawable instanceof DrawablesGroup)
       for (var groupElement : ((DrawablesGroup) drawable).getDrawableList())
-        renderDrawable(batch, groupElement);
+        renderDrawable(batch, zone, groupElement);
     else if (drawable instanceof RadiusCellTemplate)
-      radiusCellTemplateDrawer.draw(batch, drawable, pen);
+      radiusCellTemplateDrawer.draw(batch, zone, drawable, pen);
     else if (drawable instanceof LineCellTemplate)
-      lineCellTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof BlastTemplate) blastTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof ConeTemplate) coneTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof BurstTemplate) burstTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof RadiusTemplate) radiusTemplateDrawer.draw(batch, drawable, pen);
-    else if (drawable instanceof LineTemplate) lineTemplateDrawer.draw(batch, drawable, pen);
+      lineCellTemplateDrawer.draw(batch, zone, drawable, pen);
+    else if (drawable instanceof BlastTemplate)
+      blastTemplateDrawer.draw(batch, zone, drawable, pen);
+    else if (drawable instanceof ConeTemplate) coneTemplateDrawer.draw(batch, zone, drawable, pen);
+    else if (drawable instanceof BurstTemplate)
+      burstTemplateDrawer.draw(batch, zone, drawable, pen);
+    else if (drawable instanceof RadiusTemplate)
+      radiusTemplateDrawer.draw(batch, zone, drawable, pen);
+    else if (drawable instanceof LineTemplate) lineTemplateDrawer.draw(batch, zone, drawable, pen);
   }
 
   public void setZoneCache(ZoneCache zoneCache) {

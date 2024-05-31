@@ -15,7 +15,6 @@
 package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
-import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
@@ -29,22 +28,27 @@ public abstract class AbstractTemplateDrawer extends AbstractDrawingDrawer {
   }
 
   @Override
-  protected void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+  protected void drawBackground(PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen) {
     alpha = AbstractTemplate.DEFAULT_BG_ALPHA;
-    paint(batch, pen, (AbstractTemplate) element, false, true);
+    paint(batch, pen, zone, (AbstractTemplate) element, false, true);
   }
 
   @Override
-  protected void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen) {
-    paint(batch, pen, (AbstractTemplate) element, true, false);
+  protected void drawBorder(PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen) {
+    paint(batch, pen, zone, (AbstractTemplate) element, true, false);
   }
 
   protected void paint(
-      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
+      PolygonSpriteBatch batch,
+      Pen pen,
+      Zone zone,
+      AbstractTemplate template,
+      boolean border,
+      boolean area) {
     var radius = template.getRadius();
 
     if (radius == 0) return;
-    Zone zone = MapTool.getCampaign().getZone(template.getZoneId());
+
     if (zone == null) return;
 
     // Find the proper distance

@@ -15,9 +15,7 @@
 package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
-import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
-import net.rptools.maptool.model.GUID;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
@@ -202,12 +200,15 @@ public class RadiusCellTemplateDrawer extends AbstractTemplateDrawer {
 
   @Override
   protected void paint(
-      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
+      PolygonSpriteBatch batch,
+      Pen pen,
+      Zone zone,
+      AbstractTemplate template,
+      boolean border,
+      boolean area) {
     int radius = template.getRadius();
-    GUID zoneId = template.getZoneId();
 
     if (radius == 0) return;
-    Zone zone = MapTool.getCampaign().getZone(zoneId);
     if (zone == null) return;
 
     // Find the proper distance

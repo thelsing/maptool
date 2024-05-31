@@ -19,6 +19,7 @@ import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.client.ui.zone.gdx.ZoneCache;
+import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.*;
 
 public abstract class AbstractDrawingDrawer {
@@ -36,12 +37,12 @@ public abstract class AbstractDrawingDrawer {
     this.areaRenderer = areaRenderer;
   }
 
-  public void draw(PolygonSpriteBatch batch, Drawable element, Pen pen) {
+  public void draw(PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen) {
     applyColor(pen.getBackgroundPaint(), true);
-    drawBackground(batch, element, pen);
+    drawBackground(batch, zone, element, pen);
 
     applyColor(pen.getPaint(), false);
-    drawBorder(batch, element, pen);
+    drawBorder(batch, zone, element, pen);
   }
 
   protected void applyColor(DrawablePaint paint, boolean applyAlpha) {
@@ -78,7 +79,9 @@ public abstract class AbstractDrawingDrawer {
     areaRenderer.drawArea(batch, area, !pen.getSquareCap(), pen.getThickness());
   }
 
-  protected abstract void drawBackground(PolygonSpriteBatch batch, Drawable element, Pen pen);
+  protected abstract void drawBackground(
+      PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen);
 
-  protected abstract void drawBorder(PolygonSpriteBatch batch, Drawable element, Pen pen);
+  protected abstract void drawBorder(
+      PolygonSpriteBatch batch, Zone zone, Drawable element, Pen pen);
 }

@@ -20,7 +20,7 @@ import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Pools;
 import net.rptools.maptool.client.AppState;
-import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRendererConstants;
 import net.rptools.maptool.model.*;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
@@ -48,7 +48,7 @@ public class GridRenderer {
     var scale = (float) zoneCache.getZoneRenderer().getScale();
     int gridSize = (int) (grid.getSize() * scale);
 
-    if (!AppState.isShowGrid() || gridSize < ZoneRenderer.MIN_GRID_SIZE) {
+    if (!AppState.isShowGrid() || gridSize < ZoneRendererConstants.MIN_GRID_SIZE) {
       return;
     }
 

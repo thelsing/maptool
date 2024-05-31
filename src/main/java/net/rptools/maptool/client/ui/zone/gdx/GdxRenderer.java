@@ -525,7 +525,7 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.BACKGROUND);
 
       timer.start("drawableBackground");
-      drawnElementRenderer.render(batch, drawables);
+      drawnElementRenderer.render(batch, zoneCache.getZone(), drawables);
       timer.stop("drawableBackground");
 
       List<Token> background = zoneCache.getZone().getTokensOnLayer(Zone.Layer.BACKGROUND, false);
@@ -540,7 +540,7 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.OBJECT);
       // if (!drawables.isEmpty()) {
       timer.start("drawableObjects");
-      drawnElementRenderer.render(batch, drawables);
+      drawnElementRenderer.render(batch, zoneCache.getZone(), drawables);
       timer.stop("drawableObjects");
       // }
     }
@@ -595,7 +595,7 @@ public class GdxRenderer extends ApplicationAdapter {
       List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.TOKEN);
       // if (!drawables.isEmpty()) {
       timer.start("drawableTokens");
-      drawnElementRenderer.render(batch, drawables);
+      drawnElementRenderer.render(batch, zoneCache.getZone(), drawables);
       timer.stop("drawableTokens");
       // }
 
@@ -603,7 +603,7 @@ public class GdxRenderer extends ApplicationAdapter {
         drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.GM);
         // if (!drawables.isEmpty()) {
         timer.start("drawableGM");
-        drawnElementRenderer.render(batch, drawables);
+        drawnElementRenderer.render(batch, zoneCache.getZone(), drawables);
         timer.stop("drawableGM");
         // }
         List<Token> stamps = zoneCache.getZone().getTokensOnLayer(Zone.Layer.GM, false);
@@ -780,7 +780,7 @@ public class GdxRenderer extends ApplicationAdapter {
       if (token.hasLightSources()) {
         boolean foundNormalLight = false;
         for (AttachedLightSource attachedLightSource : token.getLightSources()) {
-          LightSource lightSource = attachedLightSource.resolve(token, MapTool.getCampaign());
+          LightSource lightSource = attachedLightSource.resolve(MapTool.getCampaign());
           if (lightSource != null && lightSource.getType() == LightSource.Type.NORMAL) {
             foundNormalLight = true;
             break;
@@ -1258,7 +1258,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     // Setup
     timer.start("renderAuras:getAuras");
-    final var drawableAuras = zoneCache.getZoneView().getDrawableAuras();
+    final var drawableAuras = zoneCache.getZoneView().getDrawableAuras(view);
     timer.stop("renderAuras:getAuras");
 
     timer.start("renderAuras:renderAuraOverlay");

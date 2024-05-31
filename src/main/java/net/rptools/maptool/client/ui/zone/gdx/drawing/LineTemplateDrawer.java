@@ -16,9 +16,9 @@ package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import java.util.ListIterator;
-import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.gdx.AreaRenderer;
 import net.rptools.maptool.model.CellPoint;
+import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.LineTemplate;
 import net.rptools.maptool.model.drawing.Pen;
@@ -30,8 +30,13 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
 
   @Override
   protected void paint(
-      PolygonSpriteBatch batch, Pen pen, AbstractTemplate template, boolean border, boolean area) {
-    if (MapTool.getCampaign().getZone(template.getZoneId()) == null) {
+      PolygonSpriteBatch batch,
+      Pen pen,
+      Zone zone,
+      AbstractTemplate template,
+      boolean border,
+      boolean area) {
+    if (zone == null) {
       return;
     }
     var lineTemplate = (LineTemplate) template;
@@ -42,7 +47,7 @@ public class LineTemplateDrawer extends AbstractTemplateDrawer {
     if (lineTemplate.getPath() == null && lineTemplate.calcPath() == null) return;
 
     // Paint each element in the path
-    int gridSize = MapTool.getCampaign().getZone(template.getZoneId()).getGrid().getSize();
+    int gridSize = zone.getGrid().getSize();
     ListIterator<CellPoint> i = lineTemplate.getPath().listIterator();
     while (i.hasNext()) {
       CellPoint p = i.next();
