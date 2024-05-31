@@ -18,7 +18,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Area;
 import java.util.Set;
 import net.rptools.maptool.client.MapTool;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.GUID;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.Drawable;
@@ -63,15 +63,15 @@ public class DiamondExposeTool extends DiamondTool {
   }
 
   @Override
-  protected void completeDrawable(GUID zoneId, Pen pen, Drawable drawable) {
+  protected void completeDrawable(Pen pen, Drawable drawable) {
     if (!MapTool.getPlayer().isGM()) {
       MapTool.showError("msg.error.fogexpose");
       MapTool.getFrame().refresh();
       return;
     }
-    Zone zone = MapTool.getCampaign().getZone(zoneId);
-    Area area = new Area(drawable.getArea());
-    Set<GUID> selectedToks = MapTool.getFrame().getCurrentZoneRenderer().getSelectedTokenSet();
+    Zone zone = getZone();
+    Area area = new Area(drawable.getArea(zone));
+    Set<GUID> selectedToks = renderer.getSelectedTokenSet();
     if (pen.isEraser()) {
       zone.hideArea(area, selectedToks);
       MapTool.serverCommand().hideFoW(zone.getId(), area, selectedToks);
@@ -83,6 +83,6 @@ public class DiamondExposeTool extends DiamondTool {
 
   @Override
   public String getTooltip() {
-    return "tool.diamondexpose.tooltip";
+    return "tool.isorectangleexpose.tooltip";
   }
 }

@@ -14,6 +14,8 @@
  */
 package net.rptools.maptool.model;
 
+import static org.apache.tika.metadata.TikaCoreProperties.RESOURCE_NAME_KEY;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.protobuf.ByteString;
@@ -25,6 +27,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
@@ -190,10 +196,13 @@ public final class Asset {
   /** The MD5 Sum of this {@code Asset}. */
   @XStreamAlias("id") // Maintain comparability...
   private final MD5Key md5Key;
+
   /** The name of the {@code Asset}. */
   private final String name;
+
   /** The file extension for the {@code Asset}. */
   private final String extension;
+
   /** The type of the {@code Asset}. */
   private final Type type;
 
@@ -386,6 +395,7 @@ public final class Asset {
     var factory = Type.fromMediaType(mediaType).getFactory();
     return factory.apply(name, data);
   }
+
   /**
    * Creates an Asset detecting the type.
    *
@@ -465,7 +475,23 @@ public final class Asset {
     }
 
     if (type.isStringType()) {
-      dataAsString = new String(data);
+      CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
+      decoder
+          .onMalformedInput(CodingErrorAction.REPORT)
+          .onUnmappableCharacter(CodingErrorAction.REPORT);
+      String decodedString;
+      try {
+        decodedString = decoder.decode(ByteBuffer.wrap(data)).toString();
+      } catch (Exception eOne) {
+        try {
+          decoder = StandardCharsets.UTF_16.newDecoder();
+          decodedString = decoder.decode(ByteBuffer.wrap(data)).toString();
+        } catch (Exception eTwo) {
+          decodedString = null;
+        }
+      }
+
+      dataAsString = decodedString;
     } else {
       dataAsString = null;
     }
@@ -729,7 +755,7 @@ public final class Asset {
 
   private static MediaType getMediaType(String filename, TikaInputStream tis) throws IOException {
     Metadata metadata = new Metadata();
-    metadata.set(Metadata.RESOURCE_NAME_KEY, filename);
+    metadata.set(RESOURCE_NAME_KEY, filename);
     try {
       TikaConfig tika = new TikaConfig();
       MediaType mediaType = tika.getDetector().detect(tis, metadata);

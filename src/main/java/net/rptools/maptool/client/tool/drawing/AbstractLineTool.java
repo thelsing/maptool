@@ -26,7 +26,7 @@ import net.rptools.maptool.client.AppPreferences.RenderQuality;
 import net.rptools.maptool.client.ScreenPoint;
 import net.rptools.maptool.client.tool.Tool;
 import net.rptools.maptool.client.tool.ToolHelper;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
@@ -95,7 +95,7 @@ public abstract class AbstractLineTool extends AbstractDrawingTool {
     if (isBackgroundFill(e) && line.getPoints().size() > 2) {
       drawable = new ShapeDrawable(getPolygon(trimLine));
     }
-    completeDrawable(renderer.getZone().getId(), getPen(), drawable);
+    completeDrawable(getPen(), drawable);
 
     line = null;
     currentX = -1;

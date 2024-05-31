@@ -29,7 +29,7 @@ import net.rptools.maptool.client.MapToolVariableResolver;
 import net.rptools.maptool.client.functions.FindTokenFunctions;
 import net.rptools.maptool.client.functions.StringFunctions;
 import net.rptools.maptool.client.functions.json.JSONMacroFunctions;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.GUID;
 import net.rptools.maptool.model.InvalidGUIDException;
@@ -463,6 +463,7 @@ public class FunctionUtil {
       return json.getAsJsonArray();
     }
   }
+
   /**
    * Convert an object into a boolean value. Never returns an error.
    *
@@ -518,16 +519,31 @@ public class FunctionUtil {
   /**
    * Parses a string as an asset URL.
    *
-   * @param assetUrlOrId String containing the asset ID or asset URL.
+   * @param assetUrlOrId String containing the asset ID (ID), asset URL (asset://ID), or addon
+   *     URL(lib://PATH).
    * @return The MD5 key present in {@code assetUrlOrId}, or null.
    */
   public static @Nullable MD5Key getAssetKeyFromString(String assetUrlOrId) {
-    final String id;
+    String id = null;
     if (assetUrlOrId.toLowerCase().startsWith("asset://")) {
       id = assetUrlOrId.substring("asset://".length());
+    } else if (assetUrlOrId.toLowerCase().startsWith("lib://")) {
+      var assetKey = new AssetResolver().getAssetKey(assetUrlOrId);
+      if (assetKey.isPresent()) {
+        id = assetKey.get().toString();
+      }
+    } else if (assetUrlOrId.toLowerCase().startsWith("image:")) {
+      for (ZoneRenderer z : MapTool.getFrame().getZoneRenderers()) {
+        Token t = z.getZone().getTokenByName(assetUrlOrId);
+        if (t != null) {
+          id = t.getImageAssetId().toString();
+        }
+      }
     } else if (assetUrlOrId.length() == 32) {
       id = assetUrlOrId;
-    } else {
+    }
+
+    if (id == null) {
       return null;
     }
 

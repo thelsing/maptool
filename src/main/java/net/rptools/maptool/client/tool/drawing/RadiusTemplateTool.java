@@ -26,7 +26,7 @@ import net.rptools.maptool.client.ScreenPoint;
 import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.tool.Tool;
 import net.rptools.maptool.client.tool.ToolHelper;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.CellPoint;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
@@ -220,7 +220,6 @@ public class RadiusTemplateTool extends AbstractDrawingTool implements MouseMoti
     } // endif
     template = createBaseTemplate();
     template.setVertex(vertex);
-    template.setZoneId(renderer.getZone().getId());
     controlOffset = null;
     renderer.repaint();
   }
@@ -305,8 +304,7 @@ public class RadiusTemplateTool extends AbstractDrawingTool implements MouseMoti
    *-------------------------------------------------------------------------------------------*/
 
   /**
-   * @see
-   *     net.rptools.maptool.client.ui.zone.ZoneOverlay#paintOverlay(net.rptools.maptool.client.ui.zone.ZoneRenderer,
+   * @see net.rptools.maptool.client.ui.zone.ZoneOverlay#paintOverlay(ZoneRenderer,
    *     java.awt.Graphics2D)
    */
   @Override
@@ -317,7 +315,7 @@ public class RadiusTemplateTool extends AbstractDrawingTool implements MouseMoti
       AffineTransform newTransform = g.getTransform();
       newTransform.concatenate(getPaintTransform(renderer));
       g.setTransform(newTransform);
-      template.draw(g, pen);
+      template.draw(renderer.getZone(), g, pen);
       Paint paint = pen.getPaint() != null ? pen.getPaint().getPaint() : null;
       paintCursor(g, paint, pen.getThickness(), template.getVertex());
       g.setTransform(old);
@@ -353,21 +351,19 @@ public class RadiusTemplateTool extends AbstractDrawingTool implements MouseMoti
   }
 
   /**
-   * @see Tool#detachFrom(net.rptools.maptool.client.ui.zone.ZoneRenderer)
+   * @see Tool#detachFrom(ZoneRenderer)
    */
   @Override
   protected void detachFrom(ZoneRenderer renderer) {
     super.detachFrom(renderer);
-    template.setZoneId(null);
     renderer.repaint();
   }
 
   /**
-   * @see Tool#attachTo(net.rptools.maptool.client.ui.zone.ZoneRenderer)
+   * @see Tool#attachTo(ZoneRenderer)
    */
   @Override
   protected void attachTo(ZoneRenderer renderer) {
-    template.setZoneId(renderer.getZone().getId());
     renderer.repaint();
     super.attachTo(renderer);
   }
@@ -416,7 +412,7 @@ public class RadiusTemplateTool extends AbstractDrawingTool implements MouseMoti
       template.setRadius(getRadiusAtMouse(e));
       ZonePoint vertex = template.getVertex();
       ZonePoint newPoint = new ZonePoint(vertex.x, vertex.y);
-      completeDrawable(renderer.getZone().getId(), getPen(), template);
+      completeDrawable(getPen(), template);
       setIsEraser(false);
       resetTool(newPoint);
     }

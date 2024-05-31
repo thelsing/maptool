@@ -47,11 +47,10 @@ import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.client.ui.zone.PlayerView;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Pointer.Type;
-import net.rptools.maptool.model.Zone.Layer;
 import net.rptools.maptool.model.Zone.VisionType;
 import net.rptools.maptool.model.player.Player;
 import net.rptools.maptool.model.player.Player.Role;
@@ -127,7 +126,7 @@ public class PointerTool extends DefaultTool {
   @Override
   protected void selectedLayerChanged(Zone.Layer layer) {
     super.selectedLayerChanged(layer);
-    if (layer != Layer.TOKEN) {
+    if (layer.isStampLayer()) {
       MapTool.getFrame().getToolbox().setSelectedTool(StampTool.class);
     }
   }
@@ -141,7 +140,7 @@ public class PointerTool extends DefaultTool {
     }
     htmlRenderer.attach(renderer);
 
-    if (getSelectedLayer() != Zone.Layer.TOKEN) {
+    if (getSelectedLayer().isStampLayer()) {
       MapTool.getFrame().getToolbox().setSelectedTool(StampTool.class);
     }
   }
@@ -640,7 +639,7 @@ public class PointerTool extends DefaultTool {
       }
       final var selectedTokens = renderer.getSelectedTokenSet();
       if (tokenUnderMouse != null && !selectedTokens.isEmpty()) {
-        if (tokenUnderMouse.isStamp()) {
+        if (tokenUnderMouse.getLayer().isStampLayer()) {
           new StampPopupMenu(selectedTokens, e.getX(), e.getY(), renderer, tokenUnderMouse)
               .showPopup(renderer);
         } else if (AppUtil.playerOwns(tokenUnderMouse)) {
@@ -664,13 +663,12 @@ public class PointerTool extends DefaultTool {
   // MouseMotion
   @Override
   public void mouseMoved(MouseEvent e) {
+    super.mouseMoved(e);
+
     if (renderer == null) {
       return;
     }
-    super.mouseMoved(e);
 
-    // mouseX = e.getX(); // done by super.mouseMoved()
-    // mouseY = e.getY();
     if (isShowingPointer) {
       ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
       Pointer pointer =
@@ -1773,39 +1771,38 @@ public class PointerTool extends DefaultTool {
         LinkedList<TextLayout> lineLayouts = new LinkedList<TextLayout>();
         if (AppPreferences.getShowStatSheet()
             && new StatSheetManager().isLegacyStatSheet(tokenUnderMouse.getStatSheet())) {
-          CodeTimer timer = new CodeTimer("statSheet");
-          timer.setEnabled(AppState.isCollectProfilingData());
-          timer.setThreshold(5);
-          timer.start("allProps");
-          for (TokenProperty property :
-              MapTool.getCampaign().getTokenPropertyList(tokenUnderMouse.getPropertyType())) {
-            if (property.isShowOnStatSheet()) {
-              if (property.isGMOnly() && !MapTool.getPlayer().isGM()) {
-                continue;
-              }
-              if (property.isOwnerOnly() && !AppUtil.playerOwns(tokenUnderMouse)) {
-                continue;
-              }
-              timer.start(property.getName());
-              MapToolVariableResolver resolver = new MapToolVariableResolver(tokenUnderMouse);
-              resolver.initialize();
-              resolver.setAutoPrompt(false);
-              Object propertyValue =
-                  tokenUnderMouse.getEvaluatedProperty(resolver, property.getName());
-              resolver.flush();
-              if (propertyValue != null && propertyValue.toString().length() > 0) {
-                String propName = property.getShortName();
-                if (StringUtils.isEmpty(propName)) propName = property.getName();
-                propertyMap.put(propName, propertyValue.toString());
-              }
-              timer.stop(property.getName());
-            }
-          }
-          timer.stop("allProps");
-          if (timer.isEnabled()) {
-            String results = timer.toString();
-            MapTool.getProfilingNoteFrame().addText(results);
-          }
+          CodeTimer.using(
+              "statSheet",
+              timer -> {
+                timer.setThreshold(5);
+
+                timer.start("allProps");
+                for (TokenProperty property :
+                    MapTool.getCampaign().getTokenPropertyList(tokenUnderMouse.getPropertyType())) {
+                  if (property.isShowOnStatSheet()) {
+                    if (property.isGMOnly() && !MapTool.getPlayer().isGM()) {
+                      continue;
+                    }
+                    if (property.isOwnerOnly() && !AppUtil.playerOwns(tokenUnderMouse)) {
+                      continue;
+                    }
+                    timer.start(property.getName());
+                    MapToolVariableResolver resolver = new MapToolVariableResolver(tokenUnderMouse);
+                    resolver.initialize();
+                    resolver.setAutoPrompt(false);
+                    Object propertyValue =
+                        tokenUnderMouse.getEvaluatedProperty(resolver, property.getName());
+                    resolver.flush();
+                    if (propertyValue != null && propertyValue.toString().length() > 0) {
+                      String propName = property.getShortName();
+                      if (StringUtils.isEmpty(propName)) propName = property.getName();
+                      propertyMap.put(propName, propertyValue.toString());
+                    }
+                    timer.stop(property.getName());
+                  }
+                }
+                timer.stop("allProps");
+              });
         }
         if (tokenUnderMouse.getPortraitImage() != null || !propertyMap.isEmpty()) {
           Font font = AppStyle.labelFont;

@@ -28,7 +28,7 @@ import javafx.scene.web.WebView;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.functions.MacroLinkFunction;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import netscape.javascript.JSObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -257,6 +257,7 @@ public class HTMLOverlayManager extends HTMLWebViewManager implements HTMLPanelC
     jobj.addProperty("visible", isVisible() ? BigDecimal.ONE : BigDecimal.ZERO);
     return jobj;
   }
+
   /**
    * Act when an action is performed.
    *

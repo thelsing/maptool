@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macOS-latest]
-        java: [ '20' ]
+        java: [ '21' ]
         distribution: ['temurin']
       fail-fast: false
     steps:
@@ -58,7 +58,7 @@ jobs:
         pkgname: 'package/archlinux/maptool'
     - name: Build uberJar on Windows
       if: matrix.os == 'windows-latest'
-      run: ./gradlew uberJar
+      run: ./gradlew shadowJar
       # For debugging purposes...
     - name: List releases
       run: ls releases

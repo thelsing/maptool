@@ -201,10 +201,11 @@ public class DrawingFunctions extends AbstractFunction {
    * @return Layer
    */
   protected Layer getLayer(String layer) {
-    if ("GM".equalsIgnoreCase(layer)) return Layer.GM;
-    else if ("OBJECT".equalsIgnoreCase(layer)) return Layer.OBJECT;
-    else if ("BACKGROUND".equalsIgnoreCase(layer)) return Layer.BACKGROUND;
-    return Layer.TOKEN;
+    try {
+      return Layer.valueOf(layer.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return Layer.getDefaultPlayerLayer();
+    }
   }
 
   /**
@@ -250,7 +251,7 @@ public class DrawingFunctions extends AbstractFunction {
     dinfo.addProperty("name", d.getName());
     dinfo.addProperty("layer", el.getDrawable().getLayer().name());
     dinfo.addProperty("type", getDrawbleType(d));
-    dinfo.add("bounds", boundsToJSON(d));
+    dinfo.add("bounds", boundsToJSON(map, d));
     dinfo.addProperty("penColor", paintToString(el.getPen().getPaint()));
     dinfo.addProperty("fillColor", paintToString(el.getPen().getBackgroundPaint()));
     dinfo.addProperty("opacity", el.getPen().getOpacity());
@@ -261,12 +262,12 @@ public class DrawingFunctions extends AbstractFunction {
     return dinfo;
   }
 
-  private JsonObject boundsToJSON(AbstractDrawing d) {
+  private JsonObject boundsToJSON(Zone map, AbstractDrawing d) {
     JsonObject binfo = new JsonObject();
-    binfo.addProperty("x", d.getBounds().x);
-    binfo.addProperty("y", d.getBounds().y);
-    binfo.addProperty("width", d.getBounds().width);
-    binfo.addProperty("height", d.getBounds().height);
+    binfo.addProperty("x", d.getBounds(map).x);
+    binfo.addProperty("y", d.getBounds(map).y);
+    binfo.addProperty("width", d.getBounds(map).width);
+    binfo.addProperty("height", d.getBounds(map).height);
     return binfo;
   }
 

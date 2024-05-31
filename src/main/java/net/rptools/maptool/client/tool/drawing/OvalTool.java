@@ -24,7 +24,7 @@ import javax.swing.SwingUtilities;
 import net.rptools.maptool.client.ScreenPoint;
 import net.rptools.maptool.client.tool.Tool;
 import net.rptools.maptool.client.tool.ToolHelper;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
 import net.rptools.maptool.model.drawing.Pen;
@@ -100,7 +100,6 @@ public class OvalTool extends AbstractDrawingTool implements MouseMotionListener
         }
 
         completeDrawable(
-            renderer.getZone().getId(),
             getPen(),
             new ShapeDrawable(new Ellipse2D.Float(oval.x, oval.y, oval.width, oval.height), true));
         oval = null;
@@ -127,6 +126,8 @@ public class OvalTool extends AbstractDrawingTool implements MouseMotionListener
    */
   @Override
   public void mouseMoved(MouseEvent e) {
+    super.mouseMoved(e);
+
     if (oval != null) {
 
       ZonePoint sp = getPoint(e);

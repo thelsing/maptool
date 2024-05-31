@@ -28,11 +28,12 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import javax.swing.*;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.MapTool;
+import net.rptools.maptool.client.MapToolExpressionParser;
 import net.rptools.maptool.client.ui.htmlframe.HTMLDialog;
 import net.rptools.maptool.client.ui.htmlframe.HTMLFrame;
 import net.rptools.maptool.client.ui.htmlframe.HTMLOverlayManager;
 import net.rptools.maptool.client.ui.token.*;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Campaign;
 import net.rptools.maptool.model.CampaignProperties;
@@ -41,6 +42,7 @@ import net.rptools.maptool.model.GridFactory;
 import net.rptools.maptool.model.Light;
 import net.rptools.maptool.model.LightSource;
 import net.rptools.maptool.model.LookupTable;
+import net.rptools.maptool.model.ShapeType;
 import net.rptools.maptool.model.SightType;
 import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
@@ -75,6 +77,7 @@ public class getInfoFunction extends AbstractFunction {
   protected void resetSysInfoProvider() {
     sysInfoProvider = new MapToolSysInfoProvider();
   }
+
   // endregion
 
   /**
@@ -104,10 +107,28 @@ public class getInfoFunction extends AbstractFunction {
       return getThemeInfo();
     } else if (infoType.equalsIgnoreCase("debug")) {
       return getDebugInfo();
+    } else if (infoType.equalsIgnoreCase("functions")) {
+      return getFunctionLists();
     } else {
       throw new ParserException(
           I18N.getText("macro.function.getInfo.invalidArg", param.get(0).toString()));
     }
+  }
+
+  private JsonObject getFunctionLists() {
+    UserDefinedMacroFunctions UDF = UserDefinedMacroFunctions.getInstance();
+    JsonObject udfList = new JsonObject();
+    for (String name : UDF.getAliases()) {
+      udfList.addProperty(name, UDF.getFunctionLocation(name));
+    }
+    JsonArray fList = new JsonArray();
+    MapToolExpressionParser.getMacroFunctions()
+        .forEach(function -> Arrays.stream(function.getAliases()).forEach(fList::add));
+
+    JsonObject fInfo = new JsonObject();
+    fInfo.add("functions", fList);
+    fInfo.add("user defined functions", udfList);
+    return fInfo;
   }
 
   /**
@@ -273,7 +294,7 @@ public class getInfoFunction extends AbstractFunction {
     JsonObject libInfo = new JsonObject();
     for (ZoneRenderer zr : MapTool.getFrame().getZoneRenderers()) {
       Zone zone = zr.getZone();
-      for (Token token : zone.getTokens()) {
+      for (Token token : zone.getAllTokens()) {
         if (token.getName().toLowerCase().startsWith(prefix)) {
           if (token.getProperty(versionProperty) != null) {
             libInfo.addProperty(token.getName(), token.getProperty(versionProperty).toString());
@@ -350,6 +371,10 @@ public class getInfoFunction extends AbstractFunction {
     }
     cinfo.add("tables", tinfo);
 
+    JsonArray ttinfo = new JsonArray();
+    c.getTokenTypes().forEach(ttinfo::add);
+    cinfo.add("token types", ttinfo);
+
     JsonObject llinfo = new JsonObject();
     for (String ltype : c.getLightSourcesMap().keySet()) {
       JsonArray ltinfo = new JsonArray();
@@ -357,8 +382,9 @@ public class getInfoFunction extends AbstractFunction {
         JsonObject linfo = new JsonObject();
         linfo.addProperty("name", ls.getName());
         linfo.addProperty("max range", ls.getMaxRange());
-        linfo.addProperty("type", ls.getType().toString());
+        linfo.addProperty("type", ls.getType().name());
         linfo.addProperty("scale", ls.isScaleWithToken());
+        linfo.addProperty("ignores-vbl", ls.isIgnoresVBL());
         // List<Light> lights = new ArrayList<Light>();
         // for (Light light : ls.getLightList()) {
         // lights.add(light);
@@ -419,11 +445,28 @@ public class getInfoFunction extends AbstractFunction {
     JsonObject sightInfo = new JsonObject();
     for (SightType sightType : c.getSightTypeMap().values()) {
       JsonObject si = new JsonObject();
-      si.addProperty("arc", sightType.getArc());
-      si.addProperty("distance", sightType.getArc());
+      if (sightType.getShape() == ShapeType.BEAM) {
+        si.addProperty("width", sightType.getWidth());
+        si.addProperty("offset", sightType.getOffset());
+      }
+      if (sightType.getShape() == ShapeType.CONE) {
+        si.addProperty("arc", sightType.getArc());
+        si.addProperty("offset", sightType.getOffset());
+      }
+      si.addProperty("distance", sightType.getDistance());
       si.addProperty("multiplier", sightType.getMultiplier());
-      si.addProperty("shape", sightType.getShape().toString());
-      si.addProperty("type", sightType.getOffset());
+      si.addProperty("shape", sightType.getShape().name());
+      si.addProperty("scale", sightType.isScaleWithToken());
+
+      JsonArray lightList = null;
+      if (sightType.getPersonalLightSource() != null) {
+        lightList = new JsonArray();
+        for (Light light : sightType.getPersonalLightSource().getLightList()) {
+          lightList.add(gson.toJsonTree(light));
+        }
+      }
+      si.add("personal lights", lightList);
+
       sightInfo.add(sightType.getName(), si);
     }
     cinfo.add("sight", sightInfo);
@@ -475,6 +518,7 @@ public class getInfoFunction extends AbstractFunction {
     }
     return theme;
   }
+
   /**
    * Retrieves debug information
    *

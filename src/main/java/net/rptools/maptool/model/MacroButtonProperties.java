@@ -27,7 +27,7 @@ import net.rptools.maptool.client.MapToolMacroContext;
 import net.rptools.maptool.client.MapToolUtil;
 import net.rptools.maptool.client.ui.macrobuttons.MacroButtonHotKeyManager;
 import net.rptools.maptool.client.ui.macrobuttons.buttons.MacroButtonPrefs;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.server.proto.MacroButtonPropertiesDto;
 import net.rptools.maptool.util.StringUtil;
@@ -59,8 +59,10 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
   private @Nonnull String group = "";
   private @Nonnull String sortby = "";
   private boolean autoExecute;
+
   /** If {@code true}, include the macro lable when printing output. */
   private boolean includeLabel;
+
   /**
    * If {@code true}, when the button is clicked it will impersonate every selected token when
    * executing the macro.

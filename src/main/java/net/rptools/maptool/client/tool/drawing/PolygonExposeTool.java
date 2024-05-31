@@ -20,7 +20,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.geom.Area;
 import java.util.Set;
 import net.rptools.maptool.client.MapTool;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.GUID;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.Drawable;
@@ -77,22 +77,22 @@ public class PolygonExposeTool extends PolygonTool implements MouseMotionListene
 
     if (line == null) return; // Escape has been pressed
     addPoint(e);
-    completeDrawable(renderer.getZone().getId(), getPen(), line);
+    completeDrawable(getPen(), line);
     resetTool();
   }
 
   @Override
-  protected void completeDrawable(GUID zoneId, Pen pen, Drawable drawable) {
+  protected void completeDrawable(Pen pen, Drawable drawable) {
     if (!MapTool.getPlayer().isGM()) {
       MapTool.showError("msg.error.fogexpose");
       MapTool.getFrame().refresh();
       return;
     }
-    Zone zone = MapTool.getCampaign().getZone(zoneId);
+    Zone zone = getZone();
 
     Polygon polygon = getPolygon((LineSegment) drawable);
     Area area = new Area(polygon);
-    Set<GUID> selectedToks = MapTool.getFrame().getCurrentZoneRenderer().getSelectedTokenSet();
+    Set<GUID> selectedToks = renderer.getSelectedTokenSet();
     if (pen.isEraser()) {
       zone.hideArea(area, selectedToks);
       MapTool.serverCommand().hideFoW(zone.getId(), area, selectedToks);

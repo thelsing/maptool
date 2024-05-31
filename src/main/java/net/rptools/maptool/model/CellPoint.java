@@ -15,7 +15,7 @@
 package net.rptools.maptool.model;
 
 import net.rptools.maptool.client.ScreenPoint;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 
 /**
  * This class represents a location based on the grid coordinates of a zone.
@@ -41,6 +41,10 @@ public class CellPoint extends AbstractPoint {
     super(x, y);
     this.distanceTraveled = distanceTraveled;
     this.distanceTraveledWithoutTerrain = distanceTraveledWithoutTerrain;
+  }
+
+  public CellPoint(CellPoint other) {
+    this(other.x, other.y);
   }
 
   @Override

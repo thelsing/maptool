@@ -633,6 +633,7 @@ public class JSONMacroFunctions extends AbstractFunction {
 
     return arrays;
   }
+
   /**
    * Returns the parameter list as a list of {@link JsonArray}s. If the parameter is not a json
    * object/array and is an empty string it will result in a 0 sized JsonArray, otherwise the value
@@ -652,6 +653,7 @@ public class JSONMacroFunctions extends AbstractFunction {
 
     return arrays;
   }
+
   /**
    * Returns the parameter list as a list of {@link JsonObject}s.
    *
@@ -872,7 +874,12 @@ public class JSONMacroFunctions extends AbstractFunction {
    * @return The resulting json data.
    */
   private JsonElement jsonPathDelete(JsonElement json, String path) {
-    return JsonPath.using(jaywayConfig).parse(shallowCopy(json)).delete(path).json();
+    try {
+      return JsonPath.using(jaywayConfig).parse(shallowCopy(json)).delete(path).json();
+    } catch (PathNotFoundException ex) {
+      // Return original json, this is to preserve backwards compatability pre library update
+      return json;
+    }
   }
 
   /**
@@ -906,7 +913,12 @@ public class JSONMacroFunctions extends AbstractFunction {
   private JsonElement jsonPathSet(JsonElement json, String path, Object info) {
     Object value = asJsonElement(info);
 
-    return JsonPath.using(jaywayConfig).parse(shallowCopy(json)).set(path, value).json();
+    try {
+      return JsonPath.using(jaywayConfig).parse(shallowCopy(json)).set(path, value).json();
+    } catch (PathNotFoundException ex) {
+      // Return original json, this is to preserve backwards compatability pre library update
+      return json;
+    }
   }
 
   /**
@@ -954,6 +966,7 @@ public class JSONMacroFunctions extends AbstractFunction {
   public JsonObjectFunctions getJsonObjectFunctions() {
     return jsonObjectFunctions;
   }
+
   /**
    * This method returns the object passed in as the appropriate json type.
    *

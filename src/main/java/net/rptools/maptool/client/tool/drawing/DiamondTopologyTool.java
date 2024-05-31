@@ -21,7 +21,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.geom.Area;
 import javax.swing.SwingUtilities;
 import net.rptools.maptool.client.MapTool;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.ShapeDrawable;
 
@@ -78,7 +78,7 @@ public class DiamondTopologyTool extends AbstractDrawingTool implements MouseMot
           renderer.repaint();
           return;
         }
-        Area area = new ShapeDrawable(diamond, false).getArea();
+        Area area = new ShapeDrawable(diamond, false).getArea(getZone());
         if (isEraser(e)) {
           getZone().removeTopology(area);
           MapTool.serverCommand()
@@ -107,6 +107,8 @@ public class DiamondTopologyTool extends AbstractDrawingTool implements MouseMot
 
   @Override
   public void mouseMoved(MouseEvent e) {
+    super.mouseMoved(e);
+
     setIsEraser(isEraser(e));
 
     ZonePoint zp = getPoint(e);

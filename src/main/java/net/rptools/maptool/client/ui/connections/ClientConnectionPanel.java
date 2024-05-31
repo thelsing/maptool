@@ -33,7 +33,7 @@ import net.rptools.maptool.client.AppActions;
 import net.rptools.maptool.client.events.PlayerConnected;
 import net.rptools.maptool.client.events.PlayerDisconnected;
 import net.rptools.maptool.client.events.PlayerStatusChanged;
-import net.rptools.maptool.client.events.ServerStopped;
+import net.rptools.maptool.client.events.ServerDisconnected;
 import net.rptools.maptool.client.swing.PopupListener;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
@@ -59,8 +59,10 @@ public class ClientConnectionPanel extends JPanel {
   private final JList<Player> list = new JList<>();
 
   private final DefaultListModel<Player> listModel;
+
   /** List of players awaiting approval. */
   private final List<PlayerAwaitingApproval> awaitingApprovalList;
+
   /**
    * JTable for players awaiting approval, a table with a single column is used rather than a list
    * as a swing list doesn't allow interactive components.
@@ -126,7 +128,7 @@ public class ClientConnectionPanel extends JPanel {
   }
 
   @Subscribe
-  private void onServerStopped(ServerStopped event) {
+  private void onServerDisconnected(ServerDisconnected event) {
     listModel.clear();
   }
 

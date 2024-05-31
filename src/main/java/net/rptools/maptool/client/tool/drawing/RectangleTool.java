@@ -22,7 +22,7 @@ import java.awt.event.MouseMotionListener;
 import javax.swing.SwingUtilities;
 import net.rptools.maptool.client.ScreenPoint;
 import net.rptools.maptool.client.tool.ToolHelper;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
 import net.rptools.maptool.model.drawing.Pen;
@@ -94,7 +94,7 @@ public class RectangleTool extends AbstractDrawingTool implements MouseMotionLis
           rectangle.height *= 2;
         }
         // System.out.println("Adding Rectangle to zone: " + rectangle);
-        completeDrawable(renderer.getZone().getId(), getPen(), new ShapeDrawable(rectangle, false));
+        completeDrawable(getPen(), new ShapeDrawable(rectangle, false));
         rectangle = null;
       }
       setIsEraser(isEraser(e));

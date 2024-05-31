@@ -39,7 +39,7 @@ import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ScreenPoint;
 import net.rptools.maptool.client.swing.AbeillePanel;
 import net.rptools.maptool.client.tool.DefaultTool;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.model.Grid;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
@@ -278,12 +278,6 @@ public class BoardTool extends DefaultTool {
     } else {
       super.mouseDragged(e);
     }
-  }
-
-  @Override
-  public void mouseMoved(java.awt.event.MouseEvent e) {
-    mouseX = e.getX();
-    mouseY = e.getY();
   }
 
   /** A simple enum for correlating keys with directions */

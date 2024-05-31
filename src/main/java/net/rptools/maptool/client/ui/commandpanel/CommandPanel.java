@@ -36,6 +36,7 @@ import net.rptools.maptool.client.ui.chat.SmileyChatTranslationRuleGroup;
 import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
+import net.rptools.maptool.client.ui.theme.ThemeSupport;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.*;
@@ -72,6 +73,7 @@ public class CommandPanel extends JPanel {
 
   /** The impersonated identity as displayed in the Impersonate panel. */
   private TokenIdentity globalIdentity = new TokenIdentity();
+
   /** The stack of impersonated identities. The most current is at the top of the stack. */
   private final Stack<TokenIdentity> identityStack = new Stack<>();
 
@@ -81,7 +83,6 @@ public class CommandPanel extends JPanel {
   public CommandPanel() {
     setLayout(new BorderLayout());
     setBorder(BorderFactory.createLineBorder(Color.gray));
-
     add(BorderLayout.SOUTH, createSouthPanel());
     add(BorderLayout.CENTER, getMessagePanel());
     initializeSmilies();
@@ -317,8 +318,10 @@ public class CommandPanel extends JPanel {
   public static class TokenIdentity {
     /** The name of the identity. If null, nothing is impersonated. */
     private final String identityName;
+
     /** The GUID of the identity. */
     private final GUID identityGUID;
+
     /** Whether the player is allowed to set the token in the Impersonate panel. */
     private final boolean canImpersonate;
 
@@ -604,6 +607,10 @@ public class CommandPanel extends JPanel {
       commandTextArea.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
       commandTextArea.setPreferredSize(new Dimension(50, 40)); // XXX should be resizable
       commandTextArea.setFont(new Font("sans-serif", 0, AppPreferences.getFontSize()));
+      if (!ThemeSupport.shouldUseThemeColorsForChat()) {
+        commandTextArea.setBackground(Color.WHITE);
+        commandTextArea.setForeground(Color.BLACK);
+      }
       commandTextArea.addKeyListener(new ChatTypingListener());
       SwingUtil.useAntiAliasing(commandTextArea);
 

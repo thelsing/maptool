@@ -29,7 +29,7 @@ import net.rptools.maptool.client.tool.gridtool.GridTool;
 import net.rptools.maptool.client.tool.texttool.TextTool;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
-import net.rptools.maptool.client.ui.zone.ZoneRenderer;
+import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Campaign;
 import net.rptools.maptool.model.Zone.TokenSelection;
@@ -48,6 +48,7 @@ public class ToolbarPanel extends JToolBar {
   private final JToggleButton templateButton;
   private final JToggleButton fogButton;
   private final JToggleButton topologyButton;
+
   /**
    * The last component prior to the option panel. This is used to find the index at which to
    * reinsert the option panel when the fullscreen tools are hidden.

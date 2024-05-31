@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.MapTool;
+import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -348,5 +349,17 @@ public class StringUtil {
       case SyntaxConstants.SYNTAX_STYLE_MARKDOWN -> markDownToHtml(input);
       default -> input;
     };
+  }
+
+  /**
+   * Splits a string using a literal delimiter.
+   *
+   * <p>Unlike {@link String#split(String)}, {@code delim} is not a regular expression.
+   *
+   * @return
+   */
+  public static String[] split(String string, String delim) {
+    var pattern = Pattern.quote(delim);
+    return string.split(pattern);
   }
 }
