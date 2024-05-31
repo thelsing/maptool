@@ -1072,7 +1072,7 @@ public class MacroFunctions extends AbstractFunction {
    * @return MacroButtonProperties
    * @throws ParserException If missing label or permission failure;
    */
-  private MacroButtonProperties macroButtonPropertiesFromJSON(
+  private static MacroButtonProperties macroButtonPropertiesFromJSON(
       MacroButtonProperties mbp, String propString, JsonElement json) throws ParserException {
     if (json == null) json = JSONMacroFunctions.getInstance().asJsonElement(propString);
     JsonObject jobj = json.getAsJsonObject();
@@ -1226,7 +1226,7 @@ public class MacroFunctions extends AbstractFunction {
    * @param val The input string.
    * @return the boolean value of the input string.
    */
-  private boolean boolVal(String val) {
+  private static boolean boolVal(String val) {
     if ("true".equalsIgnoreCase(val)) {
       return true;
     }

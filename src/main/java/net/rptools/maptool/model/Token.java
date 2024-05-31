@@ -622,7 +622,10 @@ public class Token implements Cloneable {
 
   public boolean isMarker() {
     return getLayer().isMarkerLayer()
-        && (!StringUtil.isEmpty(notes) || !StringUtil.isEmpty(gmNotes) || portraitImage != null ||  hasMacros(true));
+        && (!StringUtil.isEmpty(notes)
+            || !StringUtil.isEmpty(gmNotes)
+            || portraitImage != null
+            || hasMacros(true));
   }
 
   public String getPropertyType() {

@@ -301,6 +301,7 @@ public class PreferencesDialog extends JDialog {
 
   /** Text field for the frame rate cap for rendering. */
   private final JTextField frameRateCapTextField;
+
   private final JTextField deepLApiKeyTextField;
 
   /** ComboBox for the render performance optimization level. */

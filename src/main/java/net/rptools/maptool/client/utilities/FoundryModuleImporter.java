@@ -17,7 +17,6 @@ package net.rptools.maptool.client.utilities;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.rometools.utils.Strings;
 import java.awt.*;
 import java.awt.geom.Area;
 import java.awt.geom.GeneralPath;
@@ -39,6 +38,7 @@ import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.Layer;
 import net.rptools.parser.ParserException;
+import org.apache.logging.log4j.util.Strings;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 
@@ -52,6 +52,7 @@ public class FoundryModuleImporter {
 
   /** Width of the Light source icon. */
   private static final int LIGHT_WIDTH = 20;
+
   /** Height of the Light source icon. */
   private static final int LIGHT_HEIGHT = 20;
 

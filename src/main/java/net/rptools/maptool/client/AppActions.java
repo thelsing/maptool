@@ -2955,8 +2955,7 @@ public class AppActions {
           chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
           chooser.setFileFilter(MapTool.getFrame().getFoundryModuleFilter());
 
-          if (chooser.showOpenDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION)
-          {
+          if (chooser.showOpenDialog(MapTool.getFrame()) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
             try {
               new FoundryModuleImporter(file).importVTT();
