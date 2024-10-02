@@ -846,6 +846,9 @@ public class GdxRenderer extends ApplicationAdapter {
 
   private void renderVisionOverlay(PlayerView view) {
     var tokenUnderMouse = zoneCache.getZoneRenderer().getTokenUnderMouse();
+    if (tokenUnderMouse == null)
+      return;
+
     Area currentTokenVisionArea = zoneCache.getZoneView().getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
       return;
