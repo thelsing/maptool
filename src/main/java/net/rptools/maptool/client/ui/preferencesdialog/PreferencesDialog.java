@@ -29,7 +29,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -55,7 +54,6 @@ import net.rptools.maptool.client.ui.theme.ThemeSupport.ThemeDetails;
 import net.rptools.maptool.client.walker.WalkerMetric;
 import net.rptools.maptool.events.MapToolEventBus;
 import net.rptools.maptool.language.I18N;
-import net.rptools.maptool.model.Grid;
 import net.rptools.maptool.model.GridFactory;
 import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
@@ -442,6 +440,9 @@ public class PreferencesDialog extends JDialog {
   /** Checkbox for showing the token label border. */
   private final JCheckBox showLabelBorderCheckBox;
 
+  // ** Checkbox for loading the most recently used campaign on startup */
+  private final JCheckBox loadMRUcheckbox;
+
   /**
    * Array of LocalizedComboItems representing the default grid types for the preferences dialog.
    * Each item in the array consists of a grid type and its corresponding localized display name.
@@ -664,7 +665,7 @@ public class PreferencesDialog extends JDialog {
     allowExternalMacroAccessCheckBox = panel.getCheckBox("allowExternalMacroAccessCheckBox");
     fileSyncPath = panel.getTextField("fileSyncPath");
     fileSyncPathButton = (JButton) panel.getButton("fileSyncPathButton");
-
+    loadMRUcheckbox = (JCheckBox) panel.getCheckBox("loadMRUcheckbox");
     final var installDirTextField = (JTextField) panel.getComponent("InstallDirTextField");
     installDirTextField.setText(AppUtil.getInstallDirectory().toString());
 
@@ -821,12 +822,10 @@ public class PreferencesDialog extends JDialog {
     facingFaceEdges.addActionListener(
         e -> {
           AppPreferences.setFaceEdge(facingFaceEdges.isSelected());
-          updateFacings();
         });
     facingFaceVertices.addActionListener(
         e -> {
           AppPreferences.setFaceVertex(facingFaceVertices.isSelected());
-          updateFacings();
         });
 
     toolTipInlineRolls.addActionListener(
@@ -976,6 +975,8 @@ public class PreferencesDialog extends JDialog {
           }
         });
 
+    loadMRUcheckbox.addActionListener(
+        e -> AppPreferences.setLoadMRUCampaignAtStart(loadMRUcheckbox.isSelected()));
     allowExternalMacroAccessCheckBox.addActionListener(
         e ->
             AppPreferences.setAllowExternalMacroAccess(
@@ -1522,24 +1523,6 @@ public class PreferencesDialog extends JDialog {
   }
 
   /**
-   * Used by the ActionListeners of the facing checkboxes to update the facings for all of the
-   * current zones. Redundant to go through all zones because all zones using the same grid type
-   * share facings but it doesn't hurt anything and avoids having to track what grid types are being
-   * used.
-   */
-  private void updateFacings() {
-    // List<Zone> zlist = MapTool.getServer().getCampaign().getZones(); // generated NPE
-    // http://forums.rptools.net/viewtopic.php?f=3&t=17334
-    List<Zone> zlist = MapTool.getCampaign().getZones();
-    boolean faceEdges = AppPreferences.getFaceEdge();
-    boolean faceVertices = AppPreferences.getFaceVertex();
-    for (Zone z : zlist) {
-      Grid g = z.getGrid();
-      g.setFacings(faceEdges, faceVertices);
-    }
-  }
-
-  /**
    * Initializes and sets the initial state of various user preferences in the application. This
    * method is called during the initialization process.
    */
@@ -1551,6 +1534,7 @@ public class PreferencesDialog extends JDialog {
     defaultUsername.setText(AppPreferences.getDefaultUserName());
     // initEnableServerSyncCheckBox.setSelected(AppPreferences.getInitEnableServerSync());
     autoSaveSpinner.setValue(AppPreferences.getAutoSaveIncrement());
+    loadMRUcheckbox.setSelected(AppPreferences.getLoadMRUCampaignAtStart());
     newMapsHaveFOWCheckBox.setSelected(AppPreferences.getNewMapsHaveFOW());
     tokensPopupWarningWhenDeletedCheckBox.setSelected(AppPreferences.getTokensWarnWhenDeleted());
     tokensStartSnapToGridCheckBox.setSelected(AppPreferences.getTokensStartSnapToGrid());

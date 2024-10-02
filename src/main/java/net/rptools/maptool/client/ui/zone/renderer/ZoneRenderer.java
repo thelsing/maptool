@@ -33,6 +33,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
@@ -349,25 +350,29 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
     repaintDebouncer.dispatch(); // Jamz: Seems to have no affect?
   }
 
-  public boolean hasMoveSelectionSetMoved(GUID keyToken, ZonePoint point) {
+  public @Nullable ZonePoint getKeyTokenDragAnchorPosition(GUID keyToken) {
+    SelectionSet set = selectionSetMap.get(keyToken);
+    if (set == null) {
+      return null;
+    }
+    return set.getKeyTokenDragAnchorPosition();
+  }
+
+  public boolean hasMoveSelectionSetMoved(GUID keyToken, ZonePoint dragAnchorPosition) {
     SelectionSet set = selectionSetMap.get(keyToken);
     if (set == null) {
       return false;
     }
-    Token token = zone.getToken(keyToken);
-    int x = point.x - token.getX();
-    int y = point.y - token.getY();
 
-    return set.offsetX != x || set.offsetY != y;
+    return !set.getKeyTokenDragAnchorPosition().equals(dragAnchorPosition);
   }
 
-  public void updateMoveSelectionSet(GUID keyToken, ZonePoint offset) {
+  public void updateMoveSelectionSet(GUID keyToken, ZonePoint latestPoint) {
     SelectionSet set = selectionSetMap.get(keyToken);
     if (set == null) {
       return;
     }
-    Token token = zone.getToken(keyToken);
-    set.setOffset(offset.x - token.getX(), offset.y - token.getY());
+    set.update(latestPoint);
     repaintDebouncer.dispatch(); // Jamz: may cause flicker when using AI
   }
 
@@ -418,7 +423,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
 
     removeMoveSelectionSet(keyTokenId);
     MapTool.serverCommand().stopTokenMove(getZone().getId(), keyTokenId);
-    Token keyToken = zone.getToken(keyTokenId);
+    Token keyToken = new Token(zone.getToken(keyTokenId), true);
 
     /*
      * Lee: if the lead token is snapped-to-grid and has not moved, every follower should return to where they were. Flag set at PointerTool and StampTool's stopTokenDrag() Handling the rest here.
@@ -445,23 +450,12 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
 
             boolean topologyTokenMoved = false; // If any token has topology we need to reset FoW
 
-            // Lee: the 1st of evils. changing it to handle proper computation
-            // for a key token's snapped state
-            AbstractPoint originPoint, tokenCell;
-            if (keyToken.isSnapToGrid()) {
-              originPoint = zone.getGrid().convert(new ZonePoint(keyToken.getX(), keyToken.getY()));
-            } else {
-              originPoint = new ZonePoint(keyToken.getX(), keyToken.getY());
-            }
-
             Path<? extends AbstractPoint> path =
-                set.getWalker() != null ? set.getWalker().getPath() : set.gridlessPath;
+                set.getWalker() != null ? set.getWalker().getPath() : set.getGridlessPath();
             // Jamz: add final path render here?
 
             List<GUID> filteredTokens = new ArrayList<GUID>();
             moveTimer.stop("setup");
-
-            int offsetX, offsetY;
 
             moveTimer.start("eachtoken");
             for (GUID tokenGUID : selectionSet) {
@@ -472,53 +466,21 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
                 continue;
               }
 
-              // Lee: get offsets based on key token's snapped state
-              if (token.isSnapToGrid()) {
-                tokenCell = zone.getGrid().convert(new ZonePoint(token.getX(), token.getY()));
-              } else {
-                tokenCell = new ZonePoint(token.getX(), token.getY());
-              }
+              var tokenPath = path.derive(zone.getGrid(), keyToken, token);
+              token.setLastPath(tokenPath);
 
-              int cellOffX, cellOffY;
-              if (token.isSnapToGrid() == keyToken.isSnapToGrid()) {
-                cellOffX = originPoint.x - tokenCell.x;
-                cellOffY = originPoint.y - tokenCell.y;
-              } else {
-                cellOffX = cellOffY = 0; // not used unless both are of same SnapToGrid
-              }
-
-              if (token.isSnapToGrid()
-                  && (!AppPreferences.getTokensSnapWhileDragging() || !keyToken.isSnapToGrid())) {
-                // convert to Cellpoint and back to ensure token ends up at correct X and Y
-                CellPoint cellEnd =
-                    zone.getGrid()
-                        .convert(
-                            new ZonePoint(
-                                token.getX() + set.getOffsetX(), token.getY() + set.getOffsetY()));
-                ZonePoint pointEnd = cellEnd.convertToZonePoint(zone.getGrid());
-                offsetX = pointEnd.x - token.getX();
-                offsetY = pointEnd.y - token.getY();
-              } else {
-                offsetX = set.getOffsetX();
-                offsetY = set.getOffsetY();
-              }
-
-              /*
-               * Lee: the problem now is to keep the precise coordinate computations for unsnapped tokens following a snapped key token. The derived path in the following section contains rounded
-               * down values because the integer cell values were passed. If these were double in nature, the precision would be kept, but that would be too difficult to change at this stage...
-               */
-
-              token.applyMove(set, path, offsetX, offsetY, keyToken, cellOffX, cellOffY);
-
-              // Lee: setting originPoint to landing point
-              token.setOriginPoint(new ZonePoint(token.getX(), token.getY()));
+              // This is the last *anchor* point.
+              var lastPoint = tokenPath.getWayPointList().getLast();
+              var endPoint =
+                  switch (lastPoint) {
+                    case CellPoint cp -> token.getDragAnchorAsIfLocatedInCell(zone, cp);
+                    case ZonePoint zp -> zp;
+                  };
+              token.moveDragAnchorTo(zone, endPoint);
+              log.info("Token end pos: {}, {}", token.getX(), token.getY());
 
               flush(token);
               MapTool.serverCommand().putToken(zone.getId(), token);
-
-              // No longer need this version
-              // Lee: redundant flush() already did this above
-              // replacementImageMap.remove(token);
 
               // Only add certain tokens to the list to process in the move
               // Macro function(s).
@@ -1231,7 +1193,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
     }
     timer.stop("lightSourceIconOverlay.paintOverlay");
 
-    debugRenderer.renderShapes(g2d, Arrays.asList(shape, shape2));
+    debugRenderer.renderShapes(g2d, Arrays.asList(shape, shape2, shape3, shape4));
   }
 
   private void delayRendering(ItemRenderer renderer) {
@@ -1377,8 +1339,8 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
             mapImage,
             getViewOffsetX() + (int) (zone.getBoardX() * scaleFactor),
             getViewOffsetY() + (int) (zone.getBoardY() * scaleFactor),
-            (int) (mapImage.getWidth() * scaleFactor),
-            (int) (mapImage.getHeight() * scaleFactor),
+            (int) (mapImage.getWidth() * scaleFactor * zone.getImageScaleX()),
+            (int) (mapImage.getHeight() * scaleFactor * zone.getImageScaleY()),
             null);
       }
       bbg.dispose();
@@ -1499,7 +1461,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
         if (token == keyToken && token.getLayer().supportsWalker()) {
           renderPath(
               g,
-              walker != null ? walker.getPath() : set.gridlessPath,
+              walker != null ? walker.getPath() : set.getGridlessPath(),
               token.getFootprint(zone.getGrid()));
         }
 
@@ -1583,7 +1545,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
 
         if (token.hasFacing() && token.getShape() == Token.TokenShape.TOP_DOWN) {
           at.rotate(
-              Math.toRadians(-token.getFacing() - 90),
+              Math.toRadians(token.getFacingInDegrees()),
               scaledWidth / 2 - token.getAnchor().x * scale - offsetx,
               scaledHeight / 2
                   - token.getAnchor().y * scale
@@ -1643,7 +1605,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
       final var grid = zone.getGrid();
       tokenRectangle = token.getFootprint(grid).getBounds(grid, lastPoint);
     } else {
-      final var path = set.gridlessPath;
+      final var path = set.getGridlessPath();
       if (path.getCellPath().isEmpty()) {
         return false;
       }
@@ -1666,7 +1628,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
 
     double distanceTraveled = 0;
     ZonePoint lastPoint = null;
-    for (ZonePoint zp : set.gridlessPath.getCellPath()) {
+    for (ZonePoint zp : set.getGridlessPath().getCellPath()) {
       if (lastPoint == null) {
         lastPoint = zp;
         continue;
@@ -1921,6 +1883,8 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
 
   private Shape shape;
   private Shape shape2;
+  private Shape shape3;
+  private Shape shape4;
 
   public void setShape(Shape shape) {
     if (shape == null) {
@@ -1928,6 +1892,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
     }
 
     this.shape = shape;
+    this.repaintDebouncer.dispatch();
   }
 
   public void setShape2(Shape shape) {
@@ -1936,6 +1901,25 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
     }
 
     this.shape2 = shape;
+    this.repaintDebouncer.dispatch();
+  }
+
+  public void setShape3(Shape shape) {
+    if (shape == null) {
+      return;
+    }
+
+    this.shape3 = shape;
+    this.repaintDebouncer.dispatch();
+  }
+
+  public void setShape4(Shape shape) {
+    if (shape == null) {
+      return;
+    }
+
+    this.shape4 = shape;
+    this.repaintDebouncer.dispatch();
   }
 
   public void showBlockedMoves(
@@ -2256,7 +2240,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
         double sy = scaledHeight / 2 + y - (token.getAnchor().y * scale);
         tokenBounds.transform(
             AffineTransform.getRotateInstance(
-                Math.toRadians(-token.getFacing() - 90), sx, sy)); // facing
+                Math.toRadians(token.getFacingInDegrees()), sx, sy)); // facing
         // defaults
         // to
         // down,
@@ -2461,7 +2445,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
         // (token.getAnchor().y * scale) - offsety);
 
         at.rotate(
-            Math.toRadians(-token.getFacing() - 90),
+            Math.toRadians(token.getFacingInDegrees()),
             location.scaledWidth / 2 - (token.getAnchor().x * scale) - offsetx,
             location.scaledHeight / 2 - (token.getAnchor().y * scale) - offsety);
         // facing defaults to down, or -90 degrees
@@ -2569,9 +2553,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
         Token.TokenShape tokenType = token.getShape();
         switch (tokenType) {
           case FIGURE:
-            if (token.getHasImageTable()
-                && token.hasFacing()
-                && AppPreferences.getForceFacingArrow() == false) {
+            if (token.getHasImageTable() && AppPreferences.getForceFacingArrow() == false) {
               break;
             }
             Shape arrow = getFigureFacingArrow(token.getFacing(), footprintBounds.width / 2);
@@ -2786,7 +2768,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
           // Rotated
           clippedG.translate(sp.x, sp.y);
           clippedG.rotate(
-              Math.toRadians(-token.getFacing() - 90),
+              Math.toRadians(token.getFacingInDegrees()),
               width / 2 - (token.getAnchor().x * scale),
               height / 2 - (token.getAnchor().y * scale)); // facing defaults to down, or -90
           // degrees
@@ -3443,7 +3425,7 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
           MapTool.getCampaign().getLookupTableMap().get(token.getImageTableName());
       if (lookupTable != null) {
         try {
-          LookupEntry result = lookupTable.getLookup(token.getFacing().toString());
+          LookupEntry result = lookupTable.getLookup(Integer.toString(token.getFacing()));
           if (result != null) {
             image = ImageManager.getImage(result.getImageId(), this);
           }

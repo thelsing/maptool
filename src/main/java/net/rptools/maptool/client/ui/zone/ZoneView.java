@@ -39,6 +39,7 @@ import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensChanged;
 import net.rptools.maptool.model.zones.TokensRemoved;
 import net.rptools.maptool.model.zones.TopologyChanged;
+import net.rptools.maptool.model.zones.ZoneLightingChanged;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -725,6 +726,8 @@ public class ZoneView {
         drawableLights.computeIfAbsent(
             view,
             view2 -> {
+              final var lightingStyle = zone.getLightingStyle();
+
               final var illuminationKey = illuminationKeyFromView(view2);
               final var illuminationModel = getIlluminationModel(illuminationKey);
 
@@ -756,9 +759,16 @@ public class ZoneView {
                         // Make sure each drawable light is restricted to the area it covers,
                         // accounting for darkness effects.
                         final var obscuredArea = new Area(laud.litArea().area());
+
+                        final var lumensStrength = Math.abs(laud.litArea().lumens());
                         final var lumensLevel =
-                            illumination.getObscuredLumensLevel(Math.abs(laud.litArea().lumens()));
-                        // Should always be present based on construction, but just in case.
+                            switch (lightingStyle) {
+                              case ENVIRONMENTAL -> illumination.getObscuredLumensLevel(
+                                  lumensStrength);
+                              case OVERTOP -> illumination.getDisjointObscuredLumensLevel(
+                                  lumensStrength);
+                            };
+                        // Should always be present based on construction, but just in case...
                         if (lumensLevel.isEmpty()) {
                           return null;
                         }
@@ -795,12 +805,16 @@ public class ZoneView {
     exposedAreaMap.clear();
     visibleAreaMap.clear();
 
-    drawableLights.clear();
-    drawableAuras.clear();
+    flushLights();
   }
 
   public void flushFog() {
     exposedAreaMap.clear();
+  }
+
+  private void flushLights() {
+    drawableLights.clear();
+    drawableAuras.clear();
   }
 
   /**
@@ -861,6 +875,15 @@ public class ZoneView {
     topologyTrees.clear();
   }
 
+  @Subscribe
+  private void onZoneLightingChanged(ZoneLightingChanged event) {
+    if (event.zone() != this.zone) {
+      return;
+    }
+
+    flushLights();
+  }
+
   private boolean flushExistingTokens(List<Token> tokens) {
     boolean tokenChangedTopology = false;
     for (Token token : tokens) {
@@ -897,8 +920,7 @@ public class ZoneView {
     }
 
     if (anyLightingChanges) {
-      drawableLights.clear();
-      drawableAuras.clear();
+      flushLights();
     }
 
     if (event.tokens().stream().anyMatch(Token::hasAnyTopology)) {
@@ -964,8 +986,7 @@ public class ZoneView {
     }
 
     if (anyLightingChanges) {
-      drawableLights.clear();
-      drawableAuras.clear();
+      flushLights();
     }
   }
 }

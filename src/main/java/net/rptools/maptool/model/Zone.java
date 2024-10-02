@@ -61,6 +61,7 @@ import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensChanged;
 import net.rptools.maptool.model.zones.TokensRemoved;
 import net.rptools.maptool.model.zones.TopologyChanged;
+import net.rptools.maptool.model.zones.ZoneLightingChanged;
 import net.rptools.maptool.server.Mapper;
 import net.rptools.maptool.server.proto.DrawnElementListDto;
 import net.rptools.maptool.server.proto.TopologyTypeDto;
@@ -515,6 +516,7 @@ public class Zone {
 
   public void setLightingStyle(LightingStyle lightingStyle) {
     this.lightingStyle = lightingStyle;
+    new MapToolEventBus().getMainEventBus().post(new ZoneLightingChanged(this));
   }
 
   public TokenSelection getTokenSelection() {
@@ -2104,6 +2106,8 @@ public class Zone {
       // no player alias is set.
       playerAlias = null;
     }
+
+    grid.setZone(this);
 
     // 1.3b76 -> 1.3b77
     // adding the exposed area for Individual FOW
