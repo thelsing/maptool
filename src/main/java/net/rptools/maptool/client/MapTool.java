@@ -29,6 +29,7 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.SecondaryLoop;
 import java.awt.Toolkit;
 import java.awt.Transparency;
 import java.awt.event.WindowAdapter;
@@ -42,6 +43,7 @@ import java.net.URL;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
+import javafx.application.Platform;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
@@ -105,9 +107,7 @@ import net.rptools.maptool.server.ServerCommand;
 import net.rptools.maptool.server.ServerConfig;
 import net.rptools.maptool.server.ServerPolicy;
 import net.rptools.maptool.transfer.AssetTransferManager;
-import net.rptools.maptool.util.MessageUtil;
-import net.rptools.maptool.util.StringUtil;
-import net.rptools.maptool.util.UserJvmOptions;
+import net.rptools.maptool.util.*;
 import net.rptools.parser.ParserException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -143,7 +143,7 @@ public class MapTool {
   // Set it to 500 (from 100) for now to support larger asset window previews
   // TODO: Add preferences option as well as add auto-purge after x days preferences
   private static final Dimension THUMBNAIL_SIZE =
-      new Dimension(AppPreferences.getThumbnailSize(), AppPreferences.getThumbnailSize());
+      new Dimension(AppPreferences.thumbnailSize.get(), AppPreferences.thumbnailSize.get());
 
   private static ThumbnailManager thumbnailManager;
   private static String version = "DEVELOPMENT";
@@ -166,6 +166,7 @@ public class MapTool {
   private static TaskBarFlasher taskbarFlasher;
   private static MapToolLineParser parser = new MapToolLineParser();
   private static String lastWhisperer;
+  private static ChatAutoSave chatAutoSave;
 
   // Jamz: To support new command line parameters for multi-monitor support & enhanced PrintStream
   private static boolean debug = false;
@@ -392,7 +393,7 @@ public class MapTool {
    * @return true if the token should be deleted.
    */
   public static boolean confirmTokenDelete() {
-    if (!AppPreferences.getTokensWarnWhenDeleted()) {
+    if (!AppPreferences.tokensWarnWhenDeleted.get()) {
       return true;
     }
 
@@ -402,7 +403,7 @@ public class MapTool {
     // "Yes, don't show again" Button
     if (val == 2) {
       showInformation("msg.confirm.deleteToken.removed");
-      AppPreferences.setTokensWarnWhenDeleted(false);
+      AppPreferences.tokensWarnWhenDeleted.set(false);
     }
     // Any version of 'Yes' returns true, false otherwise
     return val == JOptionPane.YES_OPTION || val == 2;
@@ -416,7 +417,7 @@ public class MapTool {
    * @return <code>true</code> if the user clicks either Yes button, <code>falsee</code> otherwise.
    */
   public static boolean confirmDrawDelete() {
-    if (!AppPreferences.getDrawWarnWhenDeleted()) {
+    if (!AppPreferences.drawingsWarnWhenDeleted.get()) {
       return true;
     }
 
@@ -426,7 +427,7 @@ public class MapTool {
     // "Yes, don't show again" Button
     if (val == JOptionPane.CANCEL_OPTION) {
       showInformation("msg.confirm.deleteDraw.removed");
-      AppPreferences.setDrawWarnWhenDeleted(false);
+      AppPreferences.drawingsWarnWhenDeleted.set(false);
     }
     // Any version of 'Yes' returns true, otherwise false
     return val == JOptionPane.YES_OPTION || val == JOptionPane.CANCEL_OPTION;
@@ -528,8 +529,8 @@ public class MapTool {
    * @param eventId the eventId of the sound.
    */
   public static void playSound(String eventId) {
-    if (AppPreferences.getPlaySystemSounds()) {
-      if (AppPreferences.getPlaySystemSoundsOnlyWhenNotFocused() && isInFocus()) {
+    if (AppPreferences.playSystemSounds.get()) {
+      if (AppPreferences.playSystemSoundsOnlyWhenNotFocused.get() && isInFocus()) {
         return;
       }
       SoundManager.playSoundEvent(eventId);
@@ -663,16 +664,13 @@ public class MapTool {
 
     // Make sure the user sees something right away so that they aren't staring at a black screen.
     // Technically this call does too much, but since it is a blank campaign it's okay.
-    setCampaign(client.getCampaign());
+    setCampaign(client.getCampaign(), null);
 
     try {
       playerZoneListener = new PlayerZoneListener();
       zoneLoadedListener = new ZoneLoadedListener();
 
       Campaign cmpgn = CampaignFactory.createBasicCampaign();
-      // Set the Topology drawing mode to the last mode used for convenience
-      // Should only be one zone, but let's cover our bases.
-      cmpgn.getZones().forEach(zone -> zone.setTopologyTypes(AppPreferences.getTopologyTypes()));
 
       // Stop the pre-init client/server.
       disconnect();
@@ -684,9 +682,12 @@ public class MapTool {
     }
     AppActions.updateActions();
 
-    ToolTipManager.sharedInstance().setInitialDelay(AppPreferences.getToolTipInitialDelay());
-    ToolTipManager.sharedInstance().setDismissDelay(AppPreferences.getToolTipDismissDelay());
-    ChatAutoSave.changeTimeout(AppPreferences.getChatAutosaveTime());
+    ToolTipManager.sharedInstance().setInitialDelay(AppPreferences.toolTipInitialDelay.get());
+    ToolTipManager.sharedInstance().setDismissDelay(AppPreferences.toolTipDismissDelay.get());
+
+    chatAutoSave = new ChatAutoSave();
+    chatAutoSave.setTimeout(AppPreferences.chatAutoSaveTimeInMinutes.get());
+    AppPreferences.chatAutoSaveTimeInMinutes.onChange(chatAutoSave::setTimeout);
 
     // TODO: make this more formal when we switch to mina
     new ServerHeartBeatThread().start();
@@ -882,33 +883,60 @@ public class MapTool {
     return parser;
   }
 
-  public static void setCampaign(Campaign campaign) {
-    setCampaign(campaign, null);
-  }
-
-  public static void setCampaign(Campaign campaign, GUID defaultRendererId) {
+  public static void setCampaign(Campaign campaign, @Nullable GUID defaultZoneId) {
     campaign = Objects.requireNonNullElseGet(campaign, Campaign::new);
 
     // Load up the new
     client.setCampaign(campaign);
-    ZoneRenderer currRenderer = null;
 
     clientFrame.clearZoneRendererList();
     clientFrame.getInitiativePanel().setZone(null);
     clientFrame.clearTokenTree();
 
+    // Find the map to place the player on first. If `defaultZoneId` was provided and is a
+    // visible map, use it. Otherwise fall back to the campaign's configured landing map. If that is
+    // not set or not visible, find the first visible map if there is one.
+    var defaultZone = defaultZoneId == null ? null : campaign.getZone(defaultZoneId);
+    if (defaultZone != null && !defaultZone.isVisible() && !getPlayer().isGM()) {
+      // Disallow maps not visible to the player.
+      defaultZone = null;
+    }
+    if (defaultZone == null) {
+      var landingMapId = campaign.getLandingMapId();
+      if (landingMapId != null) {
+        defaultZone = campaign.getZone(landingMapId);
+      }
+    }
+    if (defaultZone != null && !defaultZone.isVisible() && !getPlayer().isGM()) {
+      // Disallow maps not visible to the player.
+      defaultZone = null;
+    }
+    if (defaultZone == null) {
+      // Just use the first map that is acceptable.
+      for (Zone zone : campaign.getZones()) {
+        if (!zone.isVisible() && !getPlayer().isGM()) {
+          // Disallow maps not visible to the player.
+          continue;
+        }
+
+        defaultZone = zone;
+        break;
+      }
+    }
+
     // Install new campaign
+    ZoneRenderer currRenderer = null;
     for (Zone zone : campaign.getZones()) {
       ZoneRenderer renderer = ZoneRendererFactory.newRenderer(zone);
       clientFrame.addZoneRenderer(renderer);
-      if ((currRenderer == null || zone.getId().equals(defaultRendererId))
-          && (getPlayer().isGM() || zone.isVisible())) {
+      if (defaultZone != null && defaultZone.getId().equals(zone.getId())) {
         currRenderer = renderer;
       }
       new MapToolEventBus().getMainEventBus().post(new ZoneAdded(zone));
       // Now we have fire off adding the tokens in the zone
       new MapToolEventBus().getMainEventBus().post(new TokensAdded(zone, zone.getAllTokens()));
     }
+
     clientFrame.setCurrentZoneRenderer(currRenderer);
     clientFrame.getInitiativePanel().setOwnerPermissions(campaign.isInitiativeOwnerPermissions());
     clientFrame.getInitiativePanel().setMovementLock(campaign.isInitiativeMovementLock());
@@ -1262,12 +1290,27 @@ public class MapTool {
 
   private static void postInitialize() {
     // Check to see if there is an autosave file from MT crashing
-    getAutoSaveManager().check();
+    boolean recover = getAutoSaveManager().check();
 
-    if (!loadCampaignOnStartPath.isEmpty()) {
-      File campaignFile = new File(loadCampaignOnStartPath);
-      if (campaignFile.exists()) {
-        AppActions.loadCampaign(campaignFile);
+    if (!recover) {
+      File campaignFile;
+      // if not loading auto-save, load campaign from command-line arguments
+      if (!loadCampaignOnStartPath.isEmpty()) {
+        campaignFile = new File(loadCampaignOnStartPath);
+        if (campaignFile.exists()) {
+          AppActions.loadCampaign(campaignFile);
+        }
+      }
+      // alternately load MRU campaign if preference set
+      else if (AppPreferences.loadMruCampaignAtStart.get()) {
+        try {
+          campaignFile = AppStatePersisted.getMruCampaigns().getFirst();
+          if (campaignFile.exists()) {
+            AppActions.loadCampaign(campaignFile);
+          }
+        } catch (NoSuchElementException nse) {
+          log.info("MRU Campaign not loaded. List is empty.");
+        }
       }
     }
 
@@ -1337,7 +1380,7 @@ public class MapTool {
 
   public static boolean useToolTipsForUnformatedRolls() {
     if (isPersonalServer() || getServerPolicy() == null) {
-      return AppPreferences.getUseToolTipForInlineRoll();
+      return AppPreferences.useToolTipForInlineRoll.get();
     } else {
       return getServerPolicy().getUseToolTipsForDefaultRollFormat();
     }
@@ -1470,6 +1513,15 @@ public class MapTool {
     }
 
     return "NOT_CONFIGURED";
+  }
+
+  private static void initJavaFX() {
+    var eventQueue = Toolkit.getDefaultToolkit().getSystemEventQueue();
+    SecondaryLoop secondaryLoop = eventQueue.createSecondaryLoop();
+    Platform.startup(secondaryLoop::exit);
+    secondaryLoop.enter();
+
+    Platform.setImplicitExit(false); // necessary to use JavaFX later
   }
 
   public static void main(String[] args) {
@@ -1609,7 +1661,10 @@ public class MapTool {
     // System properties
     System.setProperty("swing.aatext", "true");
 
-    final SplashScreen splash = new SplashScreen((isDevelopment()) ? getVersion() : getVersion());
+    initJavaFX();
+
+    final SplashScreen splash = new SplashScreen(getVersion());
+    splash.setVisible(true);
 
     try {
       ThemeSupport.loadTheme();
@@ -1624,7 +1679,7 @@ public class MapTool {
     factory.registerProtocol("lib", new LibraryURLStreamHandler());
 
     // Syrinscape Protocols
-    if (AppPreferences.getSyrinscapeActive()) {
+    if (AppPreferences.syrinscapeActive.get()) {
       factory.registerProtocol("syrinscape-fantasy", new SyrinscapeURLStreamHandler());
       factory.registerProtocol("syrinscape-sci-fi", new SyrinscapeURLStreamHandler());
       factory.registerProtocol("syrinscape-boardgame", new SyrinscapeURLStreamHandler());
@@ -1721,7 +1776,8 @@ public class MapTool {
           EventQueue.invokeLater(
               () -> {
                 clientFrame.setVisible(true);
-                splash.hideSplashScreen();
+                splash.setVisible(false);
+                splash.dispose();
                 EventQueue.invokeLater(MapTool::postInitialize);
               });
         });

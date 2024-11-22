@@ -1196,7 +1196,7 @@ public class AppActions {
             MapTool.showError("msg.error.mustSelectRootGroup");
             return;
           }
-          AppPreferences.removeAssetRoot(dir.getPath());
+          AppStatePersisted.removeAssetRoot(dir.getPath());
           assetPanel.removeAssetRoot(dir);
         }
       };
@@ -1899,6 +1899,46 @@ public class AppActions {
         }
       };
 
+  public static final Action TOGGLE_LANDING_MAP =
+      new ZoneAdminClientAction() {
+
+        {
+          init("action.toggleLandingMap");
+        }
+
+        @Override
+        public boolean isSelected() {
+          ZoneRenderer renderer = MapTool.getFrame().getCurrentZoneRenderer();
+          if (renderer == null) {
+            return false;
+          }
+
+          var landingMapId = MapTool.getCampaign().getLandingMapId();
+          if (landingMapId == null) {
+            return false;
+          }
+
+          return landingMapId.equals(renderer.getZone().getId());
+        }
+
+        @Override
+        protected void executeAction() {
+          ZoneRenderer renderer = MapTool.getFrame().getCurrentZoneRenderer();
+          if (renderer == null) {
+            return;
+          }
+
+          var landingMapId = MapTool.getCampaign().getLandingMapId();
+
+          var newLandingMapId = renderer.getZone().getId();
+          if (newLandingMapId.equals(landingMapId)) {
+            // Already set. Unset it instead.
+            newLandingMapId = null;
+          }
+          MapTool.serverCommand().setLandingMap(newLandingMapId);
+        }
+      };
+
   public static final Action TOGGLE_CURRENT_ZONE_VISIBILITY =
       new ZoneAdminClientAction() {
 
@@ -1978,7 +2018,7 @@ public class AppActions {
 
           Campaign campaign = CampaignFactory.createBasicCampaign();
           AppState.setCampaignFile(null);
-          MapTool.setCampaign(campaign);
+          MapTool.setCampaign(campaign, null);
           MapTool.serverCommand().setCampaign(campaign);
 
           ImageManager.flush();
@@ -2339,7 +2379,7 @@ public class AppActions {
           // Install a temporary gimped campaign until we get the one from the
           // server
           final Campaign oldCampaign = MapTool.getCampaign();
-          MapTool.setCampaign(new Campaign());
+          MapTool.setCampaign(new Campaign(), null);
 
           // connecting
           MapTool.getFrame()
@@ -2601,7 +2641,7 @@ public class AppActions {
         ImageManager.flush(); // Clear out the old campaign's images
 
         AppState.setCampaignFile(campaignFile);
-        AppPreferences.setLoadDir(campaignFile.getParentFile());
+        AppPreferences.loadDirectory.set(campaignFile.getParentFile());
         AppMenuBar.getMruManager().addMRUCampaign(campaignFile);
         campaign.campaign.setName(AppState.getCampaignName()); // Update campaign name
 
@@ -2793,7 +2833,7 @@ public class AppActions {
     }
     doSaveCampaign(campaignFile, onSuccess);
     AppState.setCampaignFile(campaignFile);
-    AppPreferences.setSaveDir(campaignFile.getParentFile());
+    AppPreferences.saveDirectory.set(campaignFile.getParentFile());
     AppMenuBar.getMruManager().addMRUCampaign(AppState.getCampaignFile());
     if (MapTool.isHostingServer() || MapTool.isPersonalServer()) {
       MapTool.serverCommand().setCampaignName(AppState.getCampaignName());
@@ -2847,7 +2887,7 @@ public class AppActions {
                   }
                 }
                 PersistenceUtil.saveMap(zr.getZone(), mapFile);
-                AppPreferences.setSaveMapDir(mapFile.getParentFile());
+                AppPreferences.mapSaveDirectory.set(mapFile.getParentFile());
                 MapTool.showInformation("msg.info.mapSaved");
               } catch (IOException ioe) {
                 MapTool.showError("msg.error.failedSaveMap", ioe);
@@ -3003,7 +3043,7 @@ public class AppActions {
 
       try {
         PersistedMap map = get();
-        AppPreferences.setLoadDir(mapFile.getParentFile());
+        AppPreferences.loadDirectory.set(mapFile.getParentFile());
         if ((map.zone.getExposedArea() != null && !map.zone.getExposedArea().isEmpty())
             || (map.zone.getExposedAreaMetaData() != null
                 && !map.zone.getExposedAreaMetaData().isEmpty())) {

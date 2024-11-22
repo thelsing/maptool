@@ -73,8 +73,9 @@ public class PlayerFunctions extends AbstractFunction {
           FunctionUtil.blockUntrustedMacro(functionName);
           yield players.getDatabasePlayers().thenApply(this::playersAsJson).get();
         }
-        default -> throw new ParserException(
-            I18N.getText("macro.function.general.unknownFunction", functionName));
+        default ->
+            throw new ParserException(
+                I18N.getText("macro.function.general.unknownFunction", functionName));
       };
     } catch (InterruptedException | ExecutionException e) {
       throw new ParserException(e);

@@ -21,7 +21,7 @@ spotless {
         licenseHeaderFile rootProject.file('spotless.license.java')
         toggleOffOn()
         // Now using the Google Java style guide
-        googleJavaFormat("1.17.0")
+        googleJavaFormat("1.24.0")
     }
 
     format 'misc', {

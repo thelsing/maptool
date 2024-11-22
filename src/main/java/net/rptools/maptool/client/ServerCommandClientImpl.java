@@ -21,7 +21,9 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.functions.ExecFunction;
 import net.rptools.maptool.client.functions.MacroLinkFunction;
@@ -57,7 +59,18 @@ public class ServerCommandClientImpl implements ServerCommand {
 
   public ServerCommandClientImpl(MapToolClient client) {
     this.client = client;
-    movementUpdateQueue.start();
+  }
+
+  public void start() {
+    try {
+      movementUpdateQueue.start();
+    } catch (IllegalThreadStateException e) {
+      log.error("ServerCommand was already started", e);
+    }
+  }
+
+  public void stop() {
+    movementUpdateQueue.stopRunning();
   }
 
   public void heartbeat(String data) {
@@ -91,6 +104,15 @@ public class ServerCommandClientImpl implements ServerCommand {
     MapTool.getFrame().setTitle();
     var msg = SetCampaignNameMsg.newBuilder().setName(name);
     makeServerCall(Message.newBuilder().setSetCampaignNameMsg(msg).build());
+  }
+
+  public void setLandingMap(@Nullable GUID landingMapId) {
+    client.getCampaign().setLandingMapId(landingMapId);
+    var msg = SetCampaignLandingMapMsg.newBuilder();
+    if (landingMapId != null) {
+      msg.setLandingMapId(landingMapId.toString());
+    }
+    makeServerCall(Message.newBuilder().setSetCampaignLandingMapMsg(msg).build());
   }
 
   public void setVisionType(GUID zoneGUID, VisionType visionType) {
@@ -392,23 +414,18 @@ public class ServerCommandClientImpl implements ServerCommand {
     makeServerCall(Message.newBuilder().setToggleTokenMoveWaypointMsg(msg).build());
   }
 
-  public void addTopology(GUID zoneGUID, Area area, Zone.TopologyType topologyType) {
+  @Override
+  public void updateTopology(Zone zone, Area area, boolean erase, Zone.TopologyType topologyType) {
     var msg =
-        AddTopologyMsg.newBuilder()
-            .setZoneGuid(zoneGUID.toString())
-            .setType(TopologyTypeDto.valueOf(topologyType.name()))
-            .setArea(Mapper.map(area));
-
-    makeServerCall(Message.newBuilder().setAddTopologyMsg(msg).build());
-  }
-
-  public void removeTopology(GUID zoneGUID, Area area, Zone.TopologyType topologyType) {
-    var msg =
-        RemoveTopologyMsg.newBuilder()
-            .setZoneGuid(zoneGUID.toString())
+        UpdateTopologyMsg.newBuilder()
+            .setZoneGuid(zone.getId().toString())
             .setArea(Mapper.map(area))
+            .setErase(erase)
             .setType(TopologyTypeDto.valueOf(topologyType.name()));
-    makeServerCall(Message.newBuilder().setRemoveTopologyMsg(msg).build());
+
+    // Update locally as well.
+    zone.updateTopology(area, erase, topologyType);
+    makeServerCall(Message.newBuilder().setUpdateTopologyMsg(msg).build());
   }
 
   public void exposePCArea(GUID zoneGUID) {
@@ -624,6 +641,20 @@ public class ServerCommandClientImpl implements ServerCommand {
   }
 
   @Override
+  public void setTokenTopology(Token token, @Nullable Area area, Zone.TopologyType topologyType) {
+    if (area == null) {
+      // Will be converted back to null on the other end.
+      area = new Area();
+    }
+
+    updateTokenProperty(
+        token,
+        Token.Update.setTopology,
+        TokenPropertyValueDto.newBuilder().setTopologyType(topologyType.name()).build(),
+        TokenPropertyValueDto.newBuilder().setArea(Mapper.map(area)).build());
+  }
+
+  @Override
   public void updateTokenProperty(Token token, Token.Update update, int value) {
     updateTokenProperty(
         token, update, TokenPropertyValueDto.newBuilder().setIntValue(value).build());
@@ -758,16 +789,6 @@ public class ServerCommandClientImpl implements ServerCommand {
   }
 
   @Override
-  public void updateTokenProperty(
-      Token token, Token.Update update, Zone.TopologyType topologyType, Area area) {
-    updateTokenProperty(
-        token,
-        update,
-        TokenPropertyValueDto.newBuilder().setTopologyType(topologyType.name()).build(),
-        TokenPropertyValueDto.newBuilder().setArea(Mapper.map(area)).build());
-  }
-
-  @Override
   public void updateTokenProperty(Token token, Token.Update update, String value1, boolean value2) {
     updateTokenProperty(
         token,
@@ -803,15 +824,23 @@ public class ServerCommandClientImpl implements ServerCommand {
    * this way, only the most current version of the event is released.
    */
   private class TimedEventQueue extends Thread {
-
-    Message msg;
-    long delay;
-
-    final Object sleepSemaphore = new Object();
+    private final AtomicBoolean done = new AtomicBoolean(false);
+    private final long delay;
+    private Message msg;
 
     public TimedEventQueue(long millidelay) {
       setName("ServerCommandClientImpl.TimedEventQueue");
       delay = millidelay;
+    }
+
+    public void stopRunning() {
+      done.set(true);
+      try {
+        interrupt();
+        join();
+      } catch (InterruptedException e) {
+        log.error("Interrupted thread join. Thread may not be done running.", e);
+      }
     }
 
     public void enqueue(Message message) {
@@ -819,7 +848,6 @@ public class ServerCommandClientImpl implements ServerCommand {
     }
 
     public synchronized void flush() {
-
       if (msg != null) {
         makeServerCall(msg);
         msg = null;
@@ -828,16 +856,12 @@ public class ServerCommandClientImpl implements ServerCommand {
 
     @Override
     public void run() {
-
-      while (true) {
-
+      while (!done.get()) {
         flush();
-        synchronized (sleepSemaphore) {
-          try {
-            Thread.sleep(delay);
-          } catch (InterruptedException ie) {
-            // nothing to do
-          }
+        try {
+          Thread.sleep(delay);
+        } catch (InterruptedException ie) {
+          // nothing to do
         }
       }
     }

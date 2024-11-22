@@ -550,7 +550,7 @@ public class MacroLinkFunction extends AbstractFunction {
         break;
       case SELF_AND_GM:
         MapTool.addLocalMessage(MessageUtil.getFormattedToGmSender(line));
-        // Intentionally falls through
+      // Intentionally falls through
       case GM:
         MapTool.addMessage(
             TextMessage.gm(

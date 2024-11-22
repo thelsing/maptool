@@ -68,7 +68,7 @@ public class MapToolClient {
   private final MapToolConnection conn;
   private Campaign campaign;
   private ServerPolicy serverPolicy;
-  private final ServerCommand serverCommand;
+  private final ServerCommandClientImpl serverCommand;
   private State currentState = State.New;
 
   private MapToolClient(
@@ -101,6 +101,7 @@ public class MapToolClient {
           }
 
           if (transitionToState(State.Started, State.Connected)) {
+            serverCommand.start();
             this.conn.addMessageHandler(new ClientMessageHandler(this));
           }
         });
@@ -181,6 +182,9 @@ public class MapToolClient {
         // Make sure we're in a reasonable state before propagating.
         log.error("Failed to start client", e);
         transitionToState(State.Closed);
+        // Just in case the exception was somehow late in the handshake and we already started the
+        // server command.
+        serverCommand.stop();
         throw e;
       }
     }
@@ -188,6 +192,7 @@ public class MapToolClient {
 
   public void close() {
     if (transitionToState(State.Closed)) {
+      serverCommand.stop();
       if (conn.isAlive()) {
         conn.close();
       }
@@ -211,7 +216,9 @@ public class MapToolClient {
   public void addPlayer(Player player) {
     if (!playerList.contains(player)) {
       playerList.add(player);
-      new MapToolEventBus().getMainEventBus().post(new PlayerConnected(player));
+      new MapToolEventBus()
+          .getMainEventBus()
+          .post(new PlayerConnected(player, this.player.equals(player)));
       playerDatabase.playerSignedIn(player);
 
       playerList.sort((arg0, arg1) -> arg0.getName().compareToIgnoreCase(arg1.getName()));

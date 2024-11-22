@@ -78,8 +78,8 @@ public class ServerMessageHandler implements MessageHandler {
       }
 
       switch (msgType) {
-        case ADD_TOPOLOGY_MSG -> {
-          handle(msg.getAddTopologyMsg());
+        case UPDATE_TOPOLOGY_MSG -> {
+          handle(msg.getUpdateTopologyMsg());
           sendToClients(id, msg);
         }
         case BRING_TOKENS_TO_FRONT_MSG -> handle(msg.getBringTokensToFrontMsg());
@@ -105,28 +105,29 @@ public class ServerMessageHandler implements MessageHandler {
           sendToClients(id, msg);
         }
         case ENFORCE_NOTIFICATION_MSG,
-            ENFORCE_ZONE_MSG,
-            ENFORCE_ZONE_VIEW_MSG,
-            EXEC_LINK_MSG,
-            EXEC_FUNCTION_MSG,
-            MESSAGE_MSG,
-            SET_BOARD_MSG,
-            RESTORE_ZONE_VIEW_MSG,
-            SET_LIVE_TYPING_LABEL_MSG,
-            SET_TOKEN_LOCATION_MSG,
-            START_TOKEN_MOVE_MSG,
-            STOP_TOKEN_MOVE_MSG,
-            TOGGLE_TOKEN_MOVE_WAYPOINT_MSG,
-            UPDATE_TOKEN_MOVE_MSG,
-            ADD_ADD_ON_LIBRARY_MSG,
-            REMOVE_ADD_ON_LIBRARY_MSG,
-            REMOVE_ALL_ADD_ON_LIBRARIES_MSG,
-            UPDATE_DATA_STORE_MSG,
-            UPDATE_DATA_NAMESPACE_MSG,
-            UPDATE_DATA_MSG,
-            REMOVE_DATA_MSG,
-            REMOVE_DATA_NAMESPACE_MSG,
-            REMOVE_DATA_STORE_MSG -> sendToClients(id, msg);
+                ENFORCE_ZONE_MSG,
+                ENFORCE_ZONE_VIEW_MSG,
+                EXEC_LINK_MSG,
+                EXEC_FUNCTION_MSG,
+                MESSAGE_MSG,
+                SET_BOARD_MSG,
+                RESTORE_ZONE_VIEW_MSG,
+                SET_LIVE_TYPING_LABEL_MSG,
+                SET_TOKEN_LOCATION_MSG,
+                START_TOKEN_MOVE_MSG,
+                STOP_TOKEN_MOVE_MSG,
+                TOGGLE_TOKEN_MOVE_WAYPOINT_MSG,
+                UPDATE_TOKEN_MOVE_MSG,
+                ADD_ADD_ON_LIBRARY_MSG,
+                REMOVE_ADD_ON_LIBRARY_MSG,
+                REMOVE_ALL_ADD_ON_LIBRARIES_MSG,
+                UPDATE_DATA_STORE_MSG,
+                UPDATE_DATA_NAMESPACE_MSG,
+                UPDATE_DATA_MSG,
+                REMOVE_DATA_MSG,
+                REMOVE_DATA_NAMESPACE_MSG,
+                REMOVE_DATA_STORE_MSG ->
+            sendToClients(id, msg);
         case EXPOSE_FOW_MSG -> {
           handle(msg.getExposeFowMsg());
           sendToClients(id, msg);
@@ -171,10 +172,6 @@ public class ServerMessageHandler implements MessageHandler {
           handle(msg.getRemoveTokensMsg());
           sendToClients(id, msg);
         }
-        case REMOVE_TOPOLOGY_MSG -> {
-          handle(msg.getRemoveTopologyMsg());
-          sendToClients(id, msg);
-        }
         case REMOVE_ZONE_MSG -> {
           handle(msg.getRemoveZoneMsg());
           sendToClients(id, msg);
@@ -190,6 +187,10 @@ public class ServerMessageHandler implements MessageHandler {
         }
         case SET_CAMPAIGN_NAME_MSG -> {
           handle(msg.getSetCampaignNameMsg());
+          sendToClients(id, msg);
+        }
+        case SET_CAMPAIGN_LANDING_MAP_MSG -> {
+          handle(msg.getSetCampaignLandingMapMsg());
           sendToClients(id, msg);
         }
         case SET_FOW_MSG -> {
@@ -449,6 +450,17 @@ public class ServerMessageHandler implements MessageHandler {
         });
   }
 
+  private void handle(SetCampaignLandingMapMsg msg) {
+    EventQueue.invokeLater(
+        () -> {
+          if (msg.hasLandingMapId()) {
+            server.getCampaign().setLandingMapId(GUID.valueOf(msg.getLandingMapId()));
+          } else {
+            server.getCampaign().setLandingMapId(null);
+          }
+        });
+  }
+
   private void handle(SetCampaignMsg msg) {
     EventQueue.invokeLater(
         () -> {
@@ -490,17 +502,6 @@ public class ServerMessageHandler implements MessageHandler {
               .getMainEventBus()
               .post(new TokensRemoved(zone, zone.getAllTokens()));
           new MapToolEventBus().getMainEventBus().post(new ZoneRemoved(zone));
-        });
-  }
-
-  private void handle(RemoveTopologyMsg msg) {
-    EventQueue.invokeLater(
-        () -> {
-          var zoneGUID = GUID.valueOf(msg.getZoneGuid());
-          var area = Mapper.map(msg.getArea());
-          var topologyType = Zone.TopologyType.valueOf(msg.getType().name());
-          Zone zone = server.getCampaign().getZone(zoneGUID);
-          zone.removeTopology(area, topologyType);
         });
   }
 
@@ -677,14 +678,15 @@ public class ServerMessageHandler implements MessageHandler {
         });
   }
 
-  private void handle(AddTopologyMsg addTopologyMsg) {
+  private void handle(UpdateTopologyMsg updateTopologyMsg) {
     EventQueue.invokeLater(
         () -> {
-          var zoneGUID = GUID.valueOf(addTopologyMsg.getZoneGuid());
-          var area = Mapper.map(addTopologyMsg.getArea());
-          var topologyType = Zone.TopologyType.valueOf(addTopologyMsg.getType().name());
+          var zoneGUID = GUID.valueOf(updateTopologyMsg.getZoneGuid());
+          var area = Mapper.map(updateTopologyMsg.getArea());
+          var erase = updateTopologyMsg.getErase();
+          var topologyType = Zone.TopologyType.valueOf(updateTopologyMsg.getType().name());
           Zone zone = server.getCampaign().getZone(zoneGUID);
-          zone.addTopology(area, topologyType);
+          zone.updateTopology(area, erase, topologyType);
         });
   }
 

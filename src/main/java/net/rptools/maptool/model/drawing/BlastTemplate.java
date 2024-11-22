@@ -98,10 +98,6 @@ public class BlastTemplate extends ConeTemplate {
    * @param relY The Y coordinate of the control square relative to the origin square
    */
   public void setControlCellRelative(int relX, int relY) {
-
-    relX = Math.max(Math.min(relX, MAX_RADIUS), -MAX_RADIUS);
-    relY = Math.max(Math.min(relY, MAX_RADIUS), -MAX_RADIUS);
-
     int radius = Math.max(Math.abs(relX), Math.abs(relY));
     // Number of cells along axis of smaller offset we need to shift the square in order to "center"
     // the blast

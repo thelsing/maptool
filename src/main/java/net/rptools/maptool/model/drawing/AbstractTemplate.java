@@ -57,9 +57,6 @@ public abstract class AbstractTemplate extends AbstractDrawing {
    * Class Variables
    *-------------------------------------------------------------------------------------------*/
 
-  /** Maximum radius value allowed. */
-  public static final int MAX_RADIUS = 100;
-
   /** Minimum radius value allowed. */
   public static final int MIN_RADIUS = 1;
 

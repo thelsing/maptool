@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import javax.swing.SwingUtilities;
 import net.rptools.clientserver.ConnectionFactory;
@@ -32,6 +33,7 @@ import net.rptools.clientserver.simple.server.ServerObserver;
 import net.rptools.maptool.client.AppConstants;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.MapToolRegistry;
+import net.rptools.maptool.client.ui.StaticMessageDialog;
 import net.rptools.maptool.client.ui.connectioninfodialog.ConnectionInfoDialog;
 import net.rptools.maptool.common.MapToolConstants;
 import net.rptools.maptool.language.I18N;
@@ -388,7 +390,14 @@ public class MapToolServer {
 
     // Use UPnP to open port in router
     if (useUPnP && config != null) {
-      UPnPUtil.openPort(config.getPort());
+      MapTool.getFrame()
+          .showFilledGlassPane(
+              new StaticMessageDialog(I18N.getText("msg.info.server.upnp.discovering")));
+      try {
+        UPnPUtil.openPort(config.getPort());
+      } finally {
+        MapTool.getFrame().hideGlassPane();
+      }
     }
 
     // Registered ?
@@ -528,7 +537,7 @@ public class MapToolServer {
   ////
   // CLASSES
   private class AssetProducerThread extends Thread {
-    private boolean stop = false;
+    private final AtomicBoolean stop = new AtomicBoolean(false);
 
     public AssetProducerThread() {
       setName("AssetProducerThread");
@@ -536,7 +545,7 @@ public class MapToolServer {
 
     @Override
     public void run() {
-      while (!stop) {
+      while (!stop.get()) {
         Entry<String, AssetTransferManager> entryForException = null;
         try {
           boolean lookForMore = false;
@@ -567,7 +576,7 @@ public class MapToolServer {
     }
 
     public void shutdown() {
-      stop = true;
+      stop.set(true);
     }
   }
 }

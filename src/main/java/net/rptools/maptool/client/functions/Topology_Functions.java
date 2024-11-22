@@ -290,7 +290,7 @@ public class Topology_Functions extends AbstractFunction {
             default -> null;
           };
       if (newArea != null) {
-        TokenVBL.renderTopology(renderer, newArea, erase, topologyType);
+        MapTool.serverCommand().updateTopology(renderer.getZone(), newArea, erase, topologyType);
       }
     }
   }
@@ -515,8 +515,7 @@ public class Topology_Functions extends AbstractFunction {
       }
     }
     // Replace with new topology
-    MapTool.serverCommand()
-        .updateTokenProperty(token, Token.Update.setTopology, topologyType, tokenTopology);
+    MapTool.serverCommand().setTokenTopology(token, tokenTopology, topologyType);
 
     return results;
   }
@@ -524,7 +523,6 @@ public class Topology_Functions extends AbstractFunction {
   private void childEvaluateTransferTopology(
       VariableResolver resolver, String functionName, List<Object> parameters)
       throws ParserException {
-    ZoneRenderer renderer = MapTool.getFrame().getCurrentZoneRenderer();
     Token token = null;
 
     Zone.TopologyType topologyType;
@@ -594,18 +592,23 @@ public class Topology_Functions extends AbstractFunction {
       }
     }
 
+    Zone zone = MapTool.getFrame().getCurrentZoneRenderer().getZone();
     if (topologyFromToken) {
-      TokenVBL.renderTopology(
-          renderer, token.getTransformedTopology(topologyType), false, topologyType);
+      var newMapTopology = token.getTransformedTopology(topologyType);
+      if (newMapTopology != null) {
+        MapTool.serverCommand().updateTopology(zone, newMapTopology, false, topologyType);
+      }
       if (delete) {
-        token.setTopology(topologyType, null);
+        MapTool.serverCommand().setTokenTopology(token, null, topologyType);
       }
     } else {
-      Area topology = TokenVBL.getTopology_underToken(renderer, token, topologyType);
-      token.setTopology(
-          topologyType, TokenVBL.getMapTopology_transformed(renderer, token, topologyType));
+      Area topology = TokenVBL.getTopology_underToken(zone, token, topologyType);
+
+      MapTool.serverCommand()
+          .setTokenTopology(
+              token, TokenVBL.transformTopology_toToken(zone, token, topology), topologyType);
       if (delete) {
-        TokenVBL.renderTopology(renderer, topology, true, topologyType);
+        MapTool.serverCommand().updateTopology(zone, topology, true, topologyType);
       }
     }
   }

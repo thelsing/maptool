@@ -18,6 +18,7 @@ import java.awt.geom.Area;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.model.*;
 import net.rptools.maptool.model.Zone.VisionType;
@@ -41,21 +42,14 @@ public interface ServerCommand {
 
   void setFoW(GUID zoneGUID, Area area, Set<GUID> selectedToks);
 
-  default void addTopology(GUID zoneGUID, Area area, Zone.TopologyTypeSet topologyTypes) {
+  default void updateTopology(
+      Zone zone, Area area, boolean erase, Set<Zone.TopologyType> topologyTypes) {
     for (var topologyType : topologyTypes) {
-      addTopology(zoneGUID, area, topologyType);
+      updateTopology(zone, area, erase, topologyType);
     }
   }
 
-  void addTopology(GUID zoneGUID, Area area, Zone.TopologyType topologyType);
-
-  default void removeTopology(GUID zoneGUID, Area area, Zone.TopologyTypeSet topologyTypes) {
-    for (var topologyType : topologyTypes) {
-      removeTopology(zoneGUID, area, topologyType);
-    }
-  }
-
-  void removeTopology(GUID zoneGUID, Area area, Zone.TopologyType topologyType);
+  void updateTopology(Zone zone, Area area, boolean erase, Zone.TopologyType topologyType);
 
   void enforceZoneView(GUID zoneGUID, int x, int y, double scale, int width, int height);
 
@@ -64,6 +58,8 @@ public interface ServerCommand {
   void setCampaign(Campaign campaign);
 
   void setCampaignName(String name);
+
+  void setLandingMap(@Nullable GUID landingMapId);
 
   void getZone(GUID zoneGUID);
 
@@ -189,6 +185,8 @@ public interface ServerCommand {
 
   void removeData(String type, String namespace, String name);
 
+  void setTokenTopology(Token token, @Nullable Area area, Zone.TopologyType topologyType);
+
   void updateTokenProperty(Token token, Token.Update update, int value);
 
   void updateTokenProperty(Token token, Token.Update update, String value1, String value2);
@@ -220,9 +218,6 @@ public interface ServerCommand {
 
   void updateTokenProperty(
       Token token, Token.Update update, boolean value1, int value2, int value3);
-
-  void updateTokenProperty(
-      Token token, Token.Update update, Zone.TopologyType topologyType, Area area);
 
   void updateTokenProperty(Token token, Token.Update update, String value1, boolean value2);
 

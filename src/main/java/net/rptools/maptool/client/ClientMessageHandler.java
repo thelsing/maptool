@@ -101,7 +101,7 @@ public class ClientMessageHandler implements MessageHandler {
       log.debug("{} got: {}", id, msgType);
 
       switch (msgType) {
-        case ADD_TOPOLOGY_MSG -> handle(msg.getAddTopologyMsg());
+        case UPDATE_TOPOLOGY_MSG -> handle(msg.getUpdateTopologyMsg());
         case BOOT_PLAYER_MSG -> handle(msg.getBootPlayerMsg());
         case CHANGE_ZONE_DISPLAY_NAME_MSG -> handle(msg.getChangeZoneDisplayNameMsg());
         case CLEAR_ALL_DRAWINGS_MSG -> handle(msg.getClearAllDrawingsMsg());
@@ -128,13 +128,13 @@ public class ClientMessageHandler implements MessageHandler {
         case REMOVE_LABEL_MSG -> handle(msg.getRemoveLabelMsg());
         case REMOVE_TOKEN_MSG -> handle(msg.getRemoveTokenMsg());
         case REMOVE_TOKENS_MSG -> handle(msg.getRemoveTokensMsg());
-        case REMOVE_TOPOLOGY_MSG -> handle(msg.getRemoveTopologyMsg());
         case REMOVE_ZONE_MSG -> handle(msg.getRemoveZoneMsg());
         case RENAME_ZONE_MSG -> handle(msg.getRenameZoneMsg());
         case RESTORE_ZONE_VIEW_MSG -> handle(msg.getRestoreZoneViewMsg());
         case SET_BOARD_MSG -> handle(msg.getSetBoardMsg());
         case SET_CAMPAIGN_MSG -> handle(msg.getSetCampaignMsg());
         case SET_CAMPAIGN_NAME_MSG -> handle(msg.getSetCampaignNameMsg());
+        case SET_CAMPAIGN_LANDING_MAP_MSG -> handle(msg.getSetCampaignLandingMapMsg());
         case SET_FOW_MSG -> handle(msg.getSetFowMsg());
         case SET_LIVE_TYPING_LABEL_MSG -> handle(msg.getSetLiveTypingLabelMsg());
         case SET_TOKEN_LOCATION_MSG -> handle(msg.getSetTokenLocationMsg());
@@ -639,11 +639,22 @@ public class ClientMessageHandler implements MessageHandler {
         });
   }
 
+  private void handle(SetCampaignLandingMapMsg msg) {
+    EventQueue.invokeLater(
+        () -> {
+          if (msg.hasLandingMapId()) {
+            client.getCampaign().setLandingMapId(GUID.valueOf(msg.getLandingMapId()));
+          } else {
+            client.getCampaign().setLandingMapId(null);
+          }
+        });
+  }
+
   private void handle(SetCampaignMsg msg) {
     EventQueue.invokeLater(
         () -> {
           Campaign campaign = Campaign.fromDto(msg.getCampaign());
-          MapTool.setCampaign(campaign);
+          MapTool.setCampaign(campaign, null);
 
           // Hide the "Connecting" overlay
           MapTool.getFrame().hideGlassPane();
@@ -698,20 +709,6 @@ public class ClientMessageHandler implements MessageHandler {
               .getMainEventBus()
               .post(new TokensRemoved(zone, zone.getAllTokens()));
           new MapToolEventBus().getMainEventBus().post(new ZoneRemoved(zone));
-        });
-  }
-
-  private void handle(RemoveTopologyMsg msg) {
-    EventQueue.invokeLater(
-        () -> {
-          var zoneGUID = GUID.valueOf(msg.getZoneGuid());
-          var area = Mapper.map(msg.getArea());
-          var topologyType = Zone.TopologyType.valueOf(msg.getType().name());
-
-          var zone = client.getCampaign().getZone(zoneGUID);
-          zone.removeTopology(area, topologyType);
-
-          MapTool.getFrame().getZoneRenderer(zoneGUID).repaint();
         });
   }
 
@@ -917,7 +914,7 @@ public class ClientMessageHandler implements MessageHandler {
           if (renderer == null) {
             return;
           }
-          if (AppPreferences.getFitGMView()) {
+          if (AppPreferences.fitGmView.get()) {
             renderer.enforceView(x, y, scale, gmWidth, gmHeight);
           } else {
             renderer.setScale(scale);
@@ -1018,17 +1015,16 @@ public class ClientMessageHandler implements MessageHandler {
         });
   }
 
-  private void handle(AddTopologyMsg addTopologyMsg) {
+  private void handle(UpdateTopologyMsg updateTopologyMsg) {
     EventQueue.invokeLater(
         () -> {
-          var zoneGUID = GUID.valueOf(addTopologyMsg.getZoneGuid());
-          var area = Mapper.map(addTopologyMsg.getArea());
-          var topologyType = Zone.TopologyType.valueOf(addTopologyMsg.getType().name());
+          var zoneGUID = GUID.valueOf(updateTopologyMsg.getZoneGuid());
+          var area = Mapper.map(updateTopologyMsg.getArea());
+          var erase = updateTopologyMsg.getErase();
+          var topologyType = Zone.TopologyType.valueOf(updateTopologyMsg.getType().name());
 
           var zone = client.getCampaign().getZone(zoneGUID);
-          zone.addTopology(area, topologyType);
-
-          MapTool.getFrame().getZoneRenderer(zoneGUID).repaint();
+          zone.updateTopology(area, erase, topologyType);
         });
   }
 

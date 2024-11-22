@@ -159,29 +159,31 @@ public final class Asset {
       return switch (contentType) {
         case "audio" -> Type.AUDIO;
         case "image" -> Type.IMAGE;
-        case "text" -> switch (subType) {
-          case "html" -> Type.HTML;
-          case "markdown", "x-web-markdown" -> Type.MARKDOWN;
-          case "javascript" -> Type.JAVASCRIPT;
-          case "css" -> Type.CSS;
-          default -> Type.TEXT;
-        };
-        case "application" -> switch (subType) {
-          case "pdf" -> Type.PDF;
-          case "json" -> Type.JSON;
-          case "javascript" -> Type.JAVASCRIPT;
-          case "xml" -> Type.XML;
-          case "zip" -> {
-            if (filename != null && !filename.isEmpty()) {
-              if (AddOnLibraryImporter.isAssetFileAddonLibrary(filename)) {
-                yield Type.MTLIB;
+        case "text" ->
+            switch (subType) {
+              case "html" -> Type.HTML;
+              case "markdown", "x-web-markdown" -> Type.MARKDOWN;
+              case "javascript" -> Type.JAVASCRIPT;
+              case "css" -> Type.CSS;
+              default -> Type.TEXT;
+            };
+        case "application" ->
+            switch (subType) {
+              case "pdf" -> Type.PDF;
+              case "json" -> Type.JSON;
+              case "javascript" -> Type.JAVASCRIPT;
+              case "xml" -> Type.XML;
+              case "zip" -> {
+                if (filename != null && !filename.isEmpty()) {
+                  if (AddOnLibraryImporter.isAssetFileAddonLibrary(filename)) {
+                    yield Type.MTLIB;
+                  }
+                }
+                yield Type.INVALID;
               }
-            }
-            yield Type.INVALID;
-          }
 
-          default -> Type.INVALID;
-        };
+              default -> Type.INVALID;
+            };
         default -> Type.INVALID;
       };
     }

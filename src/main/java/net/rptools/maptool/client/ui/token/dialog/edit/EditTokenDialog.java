@@ -1351,11 +1351,12 @@ public class EditTokenDialog extends AbeillePanel<Token> {
                 for (final var type : Zone.TopologyType.values()) {
                   final var topology = getTokenTopologyPanel().getTopology(type);
                   if (topology != null) {
-                    TokenVBL.renderTopology(
-                        MapTool.getFrame().getCurrentZoneRenderer(),
-                        getTokenTopologyPanel().getToken().getTransformedTopology(topology),
-                        false,
-                        type);
+                    MapTool.serverCommand()
+                        .updateTopology(
+                            MapTool.getFrame().getCurrentZoneRenderer().getZone(),
+                            getTokenTopologyPanel().getToken().getTransformedTopology(topology),
+                            false,
+                            type);
                   }
                 }
 
@@ -1369,24 +1370,18 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     getTransferTopologyFromMap()
         .addActionListener(
             e -> {
+              var zone = MapTool.getFrame().getCurrentZoneRenderer().getZone();
+              var token = getTokenTopologyPanel().getToken();
               final boolean removeFromMap = getCopyOrMoveCheckbox().isSelected();
               for (final var type : getTokenTopologyPanel().getSelectedTopologyTypes()) {
-                Area mapTopology =
-                    TokenVBL.getMapTopology_transformed(
-                        MapTool.getFrame().getCurrentZoneRenderer(),
-                        getTokenTopologyPanel().getToken(),
-                        type);
+                Area mapTopology = TokenVBL.getTopology_underToken(zone, token, type);
+                Area newTokenTopology =
+                    TokenVBL.transformTopology_toToken(zone, token, mapTopology);
 
-                getTokenTopologyPanel().putCustomTopology(type, mapTopology);
+                getTokenTopologyPanel().putCustomTopology(type, newTokenTopology);
 
                 if (removeFromMap) {
-                  Area topologyToDelete =
-                      TokenVBL.getTopology_underToken(
-                          MapTool.getFrame().getCurrentZoneRenderer(),
-                          getTokenTopologyPanel().getToken(),
-                          type);
-                  TokenVBL.renderTopology(
-                      MapTool.getFrame().getCurrentZoneRenderer(), topologyToDelete, true, type);
+                  MapTool.serverCommand().updateTopology(zone, mapTopology, true, type);
                 }
               }
 
@@ -1573,7 +1568,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     // Set the color style via Theme
     try {
       File themeFile =
-          new File(AppConstants.THEMES_DIR, AppPreferences.getDefaultMacroEditorTheme() + ".xml");
+          new File(AppConstants.THEMES_DIR, AppPreferences.defaultMacroEditorTheme.get() + ".xml");
       Theme theme = Theme.load(new FileInputStream(themeFile));
       theme.apply(xmlStatblockRSyntaxTextArea);
 
@@ -1595,7 +1590,7 @@ public class EditTokenDialog extends AbeillePanel<Token> {
     // Set the color style via Theme
     try {
       File themeFile =
-          new File(AppConstants.THEMES_DIR, AppPreferences.getDefaultMacroEditorTheme() + ".xml");
+          new File(AppConstants.THEMES_DIR, AppPreferences.defaultMacroEditorTheme.get() + ".xml");
       Theme theme = Theme.load(new FileInputStream(themeFile));
       theme.apply(textStatblockRSyntaxTextArea);
 
@@ -1904,7 +1899,8 @@ public class EditTokenDialog extends AbeillePanel<Token> {
       // Set the color style via Theme
       try {
         File themeFile =
-            new File(AppConstants.THEMES_DIR, AppPreferences.getDefaultMacroEditorTheme() + ".xml");
+            new File(
+                AppConstants.THEMES_DIR, AppPreferences.defaultMacroEditorTheme.get() + ".xml");
         Theme theme = Theme.load(new FileInputStream(themeFile));
         theme.apply(j);
 
@@ -1972,7 +1968,8 @@ public class EditTokenDialog extends AbeillePanel<Token> {
       // Set the color style via Theme
       try {
         File themeFile =
-            new File(AppConstants.THEMES_DIR, AppPreferences.getDefaultMacroEditorTheme() + ".xml");
+            new File(
+                AppConstants.THEMES_DIR, AppPreferences.defaultMacroEditorTheme.get() + ".xml");
         Theme theme = Theme.load(new FileInputStream(themeFile));
         theme.apply(this);
 
