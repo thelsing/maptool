@@ -1174,7 +1174,7 @@ public class Token implements Cloneable {
     if (lookupTable == null) return getImageAssetId();
 
     try {
-      LookupTable.LookupEntry result = lookupTable.getLookup(getFacing().toString());
+      LookupTable.LookupEntry result = lookupTable.getLookup(String.valueOf(getFacing()));
       if (result != null) return result.getImageId();
 
     } catch (ParserException p) {

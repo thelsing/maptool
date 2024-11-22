@@ -100,11 +100,18 @@ public abstract class HexGrid extends Grid {
    */
   protected transient double edgeProjection;
 
+  public double getEdgeProjection() {
+    return edgeProjection;
+  }
   /**
    * Length all edges. For a regular hexagon, this will also be the distance from the center point
    * to any vertex, but for a stretch hexagon this does not hold different.
    */
   protected transient double edgeLength;
+
+  public double getEdgeLength() {
+    return edgeLength;
+  }
 
   @Override
   public boolean isHex() {
@@ -222,8 +229,8 @@ public abstract class HexGrid extends Grid {
     // edgeProjection = (diameter - edgeLength) / 2
   }
 
-  private GeneralPath createHalfShape(
-      double minorRadius, double edgeProjection, double edgeLength) {
+  public GeneralPath createHalfShape(
+          double minorRadius, double edgeProjection, double edgeLength) {
     GeneralPath hex = new GeneralPath();
     hex.moveTo(0, minorRadius);
     hex.lineTo(edgeProjection, 0);
@@ -332,9 +339,9 @@ public abstract class HexGrid extends Grid {
 
   protected abstract double getRendererSizeV(ZoneRenderer renderer);
 
-  protected abstract int getOffV(ZoneRenderer renderer);
+  public abstract int getOffV(ZoneRenderer renderer);
 
-  protected abstract int getOffU(ZoneRenderer renderer);
+  public abstract int getOffU(ZoneRenderer renderer);
 
   @Override
   public void draw(ZoneRenderer renderer, Graphics2D g, Rectangle bounds) {

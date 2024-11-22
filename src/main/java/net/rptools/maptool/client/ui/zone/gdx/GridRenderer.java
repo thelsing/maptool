@@ -20,10 +20,13 @@ import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Pools;
 import net.rptools.maptool.client.AppState;
+import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRendererConstants;
 import net.rptools.maptool.model.*;
 import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
+
+import java.awt.*;
 
 public class GridRenderer {
   private ZoneCache zoneCache;
@@ -63,6 +66,41 @@ public class GridRenderer {
   }
 
   private void renderGrid(HexGrid grid) {
+    /*
+    var renderer = zoneCache.getZoneRenderer();
+    var scale = renderer.getScale();
+    var scaledMinorRadius = grid.getVRadius() * scale;
+    var scaledEdgeLength = grid.getEdgeLength() * scale;
+    var scaledEdgeProjection = grid.getEdgeProjection() * scale;
+    var scaledHex = grid.createHalfShape(scaledMinorRadius, scaledEdgeProjection, scaledEdgeLength);
+
+    int offU = grid.getOffU(renderer);
+    int offV = grid.getOffV(renderer);
+    int count = 0;
+
+    Object oldAntiAlias = SwingUtil.useAntiAliasing(g);
+    g.setColor(new java.awt.Color(getZone().getGridColor()));
+    g.setStroke(new BasicStroke(AppState.getGridSize()));
+
+    for (double v = offV % (scaledMinorRadius * 2) - (scaledMinorRadius * 2);
+         v < getRendererSizeV(renderer);
+         v += scaledMinorRadius) {
+      double offsetU = (int) ((count & 1) == 0 ? 0 : -(scaledEdgeProjection + scaledEdgeLength));
+      count++;
+
+      double start =
+              offU % (2 * scaledEdgeLength + 2 * scaledEdgeProjection)
+                      - (2 * scaledEdgeLength + 2 * scaledEdgeProjection);
+      double end = getRendererSizeU(renderer) + 2 * scaledEdgeLength + 2 * scaledEdgeProjection;
+      double incr = 2 * scaledEdgeLength + 2 * scaledEdgeProjection;
+      for (double u = start; u < end; u += incr) {
+        setGridDrawTranslation(g, u + offsetU, v);
+        g.draw(scaledHex);
+        setGridDrawTranslation(g, -(u + offsetU), -v);
+      }
+    }
+    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntiAlias);
+
     var tmpColor = Pools.obtain(Color.class);
     Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
 
@@ -119,6 +157,7 @@ public class GridRenderer {
       }
     }
     Pools.free(tmpColor);
+    */
   }
 
   private void renderGrid(IsometricGrid grid) {
