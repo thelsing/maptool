@@ -88,7 +88,6 @@ public class DrawPanelPopupMenu extends JPopupMenu {
     add(new MergeDrawingsAction());
     addGMItem(new JSeparator());
     add(new DeleteDrawingAction(selectedDrawSet));
-    // add(new JSeparator());
     add(new GetPropertiesAction());
     add(new SetPropertiesAction());
     add(new SetDrawingName());
@@ -591,7 +590,8 @@ public class DrawPanelPopupMenu extends JPopupMenu {
     }
 
     MapTool.serverCommand()
-        .updateTopology(renderer.getZone(), area, isEraser, AppStatePersisted.getTopologyTypes());
+        .updateMaskTopology(
+            renderer.getZone(), area, isEraser, AppStatePersisted.getTopologyTypes());
   }
 
   private Path2D getPath(Drawable drawable) {

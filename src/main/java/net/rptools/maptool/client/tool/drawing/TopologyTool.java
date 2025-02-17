@@ -20,14 +20,14 @@ import java.awt.Graphics2D;
 import java.awt.Shape;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Area;
-import java.util.List;
 import javax.annotation.Nullable;
 import javax.swing.SwingUtilities;
 import net.rptools.maptool.client.AppStatePersisted;
 import net.rptools.maptool.client.AppStyle;
 import net.rptools.maptool.client.MapTool;
+import net.rptools.maptool.client.swing.TopologyModeSelectionPanel;
+import net.rptools.maptool.client.ui.zone.ZoneOverlay;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
-import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
 
@@ -36,6 +36,10 @@ public final class TopologyTool<StateT> extends AbstractDrawingLikeTool {
   private final String tooltipKey;
   private final boolean isFilled;
   private final Strategy<StateT> strategy;
+  private final TopologyModeSelectionPanel topologyModeSelectionPanel;
+
+  /** Displays the topology that is on the map and tokens, i.e., */
+  private final MaskOverlay maskOverlay;
 
   /** The current state of the tool. If {@code null}, nothing is being drawn right now. */
   private @Nullable StateT state;
@@ -45,13 +49,20 @@ public final class TopologyTool<StateT> extends AbstractDrawingLikeTool {
   private boolean centerOnOrigin;
 
   public TopologyTool(
-      String instructionKey, String tooltipKey, boolean isFilled, Strategy<StateT> strategy) {
+      String instructionKey,
+      String tooltipKey,
+      boolean isFilled,
+      Strategy<StateT> strategy,
+      TopologyModeSelectionPanel topologyModeSelectionPanel) {
     this.instructionKey = instructionKey;
     this.tooltipKey = tooltipKey;
     this.isFilled = isFilled;
     this.strategy = strategy;
     // Consistency with topology tools before refactoring. Can be updated as part of #5002.
     this.centerOnOrigin = this.strategy instanceof OvalStrategy;
+    this.topologyModeSelectionPanel = topologyModeSelectionPanel;
+
+    this.maskOverlay = new MaskOverlay();
   }
 
   @Override
@@ -67,6 +78,18 @@ public final class TopologyTool<StateT> extends AbstractDrawingLikeTool {
   @Override
   public boolean isAvailable() {
     return MapTool.getPlayer().isGM();
+  }
+
+  @Override
+  protected void attachTo(ZoneRenderer renderer) {
+    topologyModeSelectionPanel.setEnabled(true);
+    super.attachTo(renderer);
+  }
+
+  @Override
+  protected void detachFrom(ZoneRenderer renderer) {
+    topologyModeSelectionPanel.setEnabled(false);
+    super.detachFrom(renderer);
   }
 
   @Override
@@ -103,58 +126,16 @@ public final class TopologyTool<StateT> extends AbstractDrawingLikeTool {
     }
 
     MapTool.serverCommand()
-        .updateTopology(getZone(), area, isEraser(), AppStatePersisted.getTopologyTypes());
-  }
-
-  private Area getTokenTopology(Zone.TopologyType topologyType) {
-    List<Token> topologyTokens = getZone().getTokensWithTopology(topologyType);
-
-    Area tokenTopology = new Area();
-    for (Token topologyToken : topologyTokens) {
-      tokenTopology.add(topologyToken.getTransformedTopology(topologyType));
-    }
-
-    return tokenTopology;
+        .updateMaskTopology(getZone(), area, isEraser(), AppStatePersisted.getTopologyTypes());
   }
 
   @Override
   public void paintOverlay(ZoneRenderer renderer, Graphics2D g) {
-    if (!MapTool.getPlayer().isGM()) {
-      // Redundant check since the tool should not be available otherwise.
-      return;
-    }
-
-    Zone zone = renderer.getZone();
+    maskOverlay.paintOverlay(renderer, g);
 
     Graphics2D g2 = (Graphics2D) g.create();
     g2.translate(renderer.getViewOffsetX(), renderer.getViewOffsetY());
     g2.scale(renderer.getScale(), renderer.getScale());
-
-    g2.setColor(AppStyle.tokenMblColor);
-    g2.fill(getTokenTopology(Zone.TopologyType.MBL));
-    g2.setColor(AppStyle.tokenTopologyColor);
-    g2.fill(getTokenTopology(Zone.TopologyType.WALL_VBL));
-    g2.setColor(AppStyle.tokenHillVblColor);
-    g2.fill(getTokenTopology(Zone.TopologyType.HILL_VBL));
-    g2.setColor(AppStyle.tokenPitVblColor);
-    g2.fill(getTokenTopology(Zone.TopologyType.PIT_VBL));
-    g2.setColor(AppStyle.tokenCoverVblColor);
-    g2.fill(getTokenTopology(Zone.TopologyType.COVER_VBL));
-
-    g2.setColor(AppStyle.topologyTerrainColor);
-    g2.fill(zone.getTopology(Zone.TopologyType.MBL));
-
-    g2.setColor(AppStyle.topologyColor);
-    g2.fill(zone.getTopology(Zone.TopologyType.WALL_VBL));
-
-    g2.setColor(AppStyle.hillVblColor);
-    g2.fill(zone.getTopology(Zone.TopologyType.HILL_VBL));
-
-    g2.setColor(AppStyle.pitVblColor);
-    g2.fill(zone.getTopology(Zone.TopologyType.PIT_VBL));
-
-    g2.setColor(AppStyle.coverVblColor);
-    g2.fill(zone.getTopology(Zone.TopologyType.COVER_VBL));
 
     if (state != null) {
       var result = strategy.getShape(state, currentPoint, centerOnOrigin, false);
@@ -226,5 +207,49 @@ public final class TopologyTool<StateT> extends AbstractDrawingLikeTool {
     }
 
     super.mousePressed(e);
+  }
+
+  public static final class MaskOverlay implements ZoneOverlay {
+    @Override
+    public void paintOverlay(ZoneRenderer renderer, Graphics2D g) {
+      if (!MapTool.getPlayer().isGM()) {
+        // Redundant check since the tool should not be available otherwise.
+        return;
+      }
+
+      Zone zone = renderer.getZone();
+
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.translate(renderer.getViewOffsetX(), renderer.getViewOffsetY());
+      g2.scale(renderer.getScale(), renderer.getScale());
+
+      g2.setColor(AppStyle.tokenMblColor);
+      g2.fill(zone.getTokenMaskTopology(Zone.TopologyType.MBL, null));
+      g2.setColor(AppStyle.tokenTopologyColor);
+      g2.fill(zone.getTokenMaskTopology(Zone.TopologyType.WALL_VBL, null));
+      g2.setColor(AppStyle.tokenHillVblColor);
+      g2.fill(zone.getTokenMaskTopology(Zone.TopologyType.HILL_VBL, null));
+      g2.setColor(AppStyle.tokenPitVblColor);
+      g2.fill(zone.getTokenMaskTopology(Zone.TopologyType.PIT_VBL, null));
+      g2.setColor(AppStyle.tokenCoverVblColor);
+      g2.fill(zone.getTokenMaskTopology(Zone.TopologyType.COVER_VBL, null));
+
+      g2.setColor(AppStyle.topologyTerrainColor);
+      g2.fill(zone.getMaskTopology(Zone.TopologyType.MBL));
+
+      g2.setColor(AppStyle.topologyColor);
+      g2.fill(zone.getMaskTopology(Zone.TopologyType.WALL_VBL));
+
+      g2.setColor(AppStyle.hillVblColor);
+      g2.fill(zone.getMaskTopology(Zone.TopologyType.HILL_VBL));
+
+      g2.setColor(AppStyle.pitVblColor);
+      g2.fill(zone.getMaskTopology(Zone.TopologyType.PIT_VBL));
+
+      g2.setColor(AppStyle.coverVblColor);
+      g2.fill(zone.getMaskTopology(Zone.TopologyType.COVER_VBL));
+
+      g2.dispose();
+    }
   }
 }

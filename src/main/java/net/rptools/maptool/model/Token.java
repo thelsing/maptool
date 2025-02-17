@@ -206,7 +206,7 @@ public class Token implements Cloneable {
     setTerrainModifier,
     setTerrainModifierOperation,
     setTerrainModifiersIgnored,
-    setTopology,
+    setMaskTopology,
     setImageAsset,
     setPortraitImage,
     setCharsheetImage,
@@ -265,11 +265,16 @@ public class Token implements Cloneable {
   private int alwaysVisibleTolerance = 2; // Default for # of regions (out of 9) that must be seen
   // before token is shown over FoW
   private boolean isAlwaysVisible = false; // Controls whether a Token is shown over VBL
+
+  // region Topology masks
+
   private Area vbl;
   private Area hillVbl;
   private Area pitVbl;
   private Area coverVbl;
   private Area mbl;
+
+  // endregion
 
   private String name = "";
   private Set<String> ownerList = new HashSet<>();
@@ -332,6 +337,8 @@ public class Token implements Cloneable {
 
   private MD5Key charsheetImage;
   private MD5Key portraitImage;
+
+  private Map<GUID, LightSource> uniqueLightSources = new LinkedHashMap<>();
 
   /**
    * All light sources attached to the token.
@@ -409,12 +416,6 @@ public class Token implements Cloneable {
     y = token.y;
     z = token.z;
 
-    // These properties shouldn't be transferred, they are more transient and relate to token
-    // history, not to new tokens
-    // lastX = token.lastX;
-    // lastY = token.lastY;
-    // lastPath = token.lastPath;
-
     snapToScale = token.snapToScale;
     width = token.width;
     height = token.height;
@@ -478,6 +479,7 @@ public class Token implements Cloneable {
     ownerType = token.ownerType;
     ownerList.addAll(token.ownerList);
 
+    uniqueLightSources.putAll(token.uniqueLightSources);
     lightSourceList.addAll(token.lightSourceList);
 
     state.putAll(token.state);
@@ -544,10 +546,7 @@ public class Token implements Cloneable {
     lastX = lastY = 0;
     // lightSourceList?
     macroMap = null;
-    // macroPropertiesMap = null;
     ownerList.clear();
-    // propertyMapCI = null;
-    // propertyType = "Basic";
     /**
      * Lee: why shouldn't propertyType be set to what the framework uses? In case of multiple
      * propertyType, give a choice; or incorporate in the Campaign Properties window a marker for
@@ -568,8 +567,8 @@ public class Token implements Cloneable {
         sightType = MapTool.getCampaign().getCampaignProperties().getDefaultSightType();
       }
     } catch (Exception e) {
+      log.error("Error while defaulting sight type", e);
       sightType = MapTool.getCampaign().getCampaignProperties().getDefaultSightType();
-      e.printStackTrace();
     }
   }
 
@@ -872,7 +871,7 @@ public class Token implements Cloneable {
    * @return null or angle in degrees
    */
   public int getFacing() {
-    // -90° is natural alignment. TODO This should really be a per grid setting
+    // -90° is natural alignment.
     return facing == null ? -90 : facing;
   }
 
@@ -903,6 +902,26 @@ public class Token implements Cloneable {
     return imageTableName;
   }
 
+  public @Nonnull Collection<LightSource> getUniqueLightSources() {
+    return uniqueLightSources.values();
+  }
+
+  public @Nullable LightSource getUniqueLightSource(GUID lightSourceId) {
+    return uniqueLightSources.getOrDefault(lightSourceId, null);
+  }
+
+  public void addUniqueLightSource(LightSource source) {
+    uniqueLightSources.put(source.getId(), source);
+  }
+
+  public void removeUniqueLightSource(GUID lightSourceId) {
+    uniqueLightSources.remove(lightSourceId);
+  }
+
+  public void removeAllUniqueLightsources() {
+    uniqueLightSources.clear();
+  }
+
   public void addLightSource(GUID lightSourceId) {
     if (lightSourceList.stream().anyMatch(source -> source.matches(lightSourceId))) {
       // Avoid duplicates.
@@ -914,7 +933,7 @@ public class Token implements Cloneable {
   public void removeLightSourceType(LightSource.Type lightType) {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null && lightSource.getType() == lightType) {
         i.remove();
       }
@@ -924,7 +943,7 @@ public class Token implements Cloneable {
   public void removeGMAuras() {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -939,7 +958,7 @@ public class Token implements Cloneable {
   public void removeOwnerOnlyAuras() {
     for (ListIterator<AttachedLightSource> i = lightSourceList.listIterator(); i.hasNext(); ) {
       AttachedLightSource als = i.next();
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -953,7 +972,7 @@ public class Token implements Cloneable {
 
   public boolean hasOwnerOnlyAuras() {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -968,7 +987,7 @@ public class Token implements Cloneable {
 
   public boolean hasGMAuras() {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null) {
         List<Light> lights = lightSource.getLightList();
         for (Light light : lights) {
@@ -983,7 +1002,7 @@ public class Token implements Cloneable {
 
   public boolean hasLightSourceType(LightSource.Type lightType) {
     for (AttachedLightSource als : lightSourceList) {
-      LightSource lightSource = als.resolve(MapTool.getCampaign());
+      LightSource lightSource = als.resolve(this, MapTool.getCampaign());
       if (lightSource != null && lightSource.getType() == lightType) {
         return true;
       }
@@ -1373,7 +1392,7 @@ public class Token implements Cloneable {
    * @param topologyType The type of topology to return.
    * @return the current topology of the token.
    */
-  public Area getTopology(Zone.TopologyType topologyType) {
+  public Area getMaskTopology(Zone.TopologyType topologyType) {
     return switch (topologyType) {
       case WALL_VBL -> vbl;
       case HILL_VBL -> hillVbl;
@@ -1389,8 +1408,8 @@ public class Token implements Cloneable {
    * @param topologyType The type of topology to transform.
    * @return the transformed topology for the token
    */
-  public Area getTransformedTopology(Zone.TopologyType topologyType) {
-    return getTransformedTopology(getTopology(topologyType));
+  public Area getTransformedMaskTopology(Zone.TopologyType topologyType) {
+    return getTransformedMaskTopology(getMaskTopology(topologyType));
   }
 
   /**
@@ -1401,7 +1420,7 @@ public class Token implements Cloneable {
    * @param topologyType The type of topology to set.
    * @param topology the topology area to set.
    */
-  public void setTopology(Zone.TopologyType topologyType, @Nullable Area topology) {
+  public void setMaskTopology(Zone.TopologyType topologyType, @Nullable Area topology) {
     if (topology != null && topology.isEmpty()) {
       topology = null;
     }
@@ -1413,21 +1432,19 @@ public class Token implements Cloneable {
       case COVER_VBL -> coverVbl = topology;
       case MBL -> mbl = topology;
     }
-    ;
 
-    if (!hasAnyTopology()) {
+    if (!hasAnyMaskTopology()) {
       vblColorSensitivity = -1;
     }
   }
 
   /**
-   * Return the existence of the requested type of topology.
-   *
-   * @param topologyType The type of topology to check for.
-   * @return true if the token has the given type of topology.
+   * @return All types of mask topology attached to the token.
    */
-  public boolean hasTopology(Zone.TopologyType topologyType) {
-    return getTopology(topologyType) != null;
+  public Collection<Zone.TopologyType> getMaskTopologyTypes() {
+    var result = EnumSet.allOf(Zone.TopologyType.class);
+    result.removeIf(type -> getMaskTopology(type) == null);
+    return result;
   }
 
   /**
@@ -1435,9 +1452,9 @@ public class Token implements Cloneable {
    *
    * @return true if the token has any kind of topology.
    */
-  public boolean hasAnyTopology() {
+  public boolean hasAnyMaskTopology() {
     return Arrays.stream(Zone.TopologyType.values())
-        .map(this::getTopology)
+        .map(this::getMaskTopology)
         .anyMatch(Objects::nonNull);
   }
 
@@ -1450,7 +1467,7 @@ public class Token implements Cloneable {
    * @author Jamz
    * @since 1.4.1.5
    */
-  public Area getTransformedTopology(Area areaToTransform) {
+  public Area getTransformedMaskTopology(Area areaToTransform) {
     if (areaToTransform == null) {
       return null;
     }
@@ -1561,9 +1578,6 @@ public class Token implements Cloneable {
         // Center it on the footprint
         footprintBounds.x -= (w - footprintBounds.width) / 2;
         footprintBounds.y -= (h - footprintBounds.height) / 2;
-      } else {
-        // footprintBounds.x -= zone.getGrid().getSize()/2;
-        // footprintBounds.y -= zone.getGrid().getSize()/2;
       }
     }
     footprintBounds.width = (int) w; // perhaps make this a double
@@ -1829,48 +1843,44 @@ public class Token implements Cloneable {
   }
 
   public Object getProperty(String key) {
-
-    // // Short name ?
-    // if (value == null) {
-    // for (EditTokenProperty property :
-    // MapTool.getCampaign().getCampaignProperties().getTokenPropertyList(getPropertyType())) {
-    // if (property.getShortName().equals(key)) {
-    // value = getPropertyMap().get(property.getShortName().toUpperCase());
-    // }
-    // }
-    // }
     return getPropertyMap().get(key);
   }
 
-  public Object getEvaluatedProperty(String key) {
-    return getEvaluatedProperty(null, key);
+  /**
+   * Returns the default value of this key for the token's property type.
+   *
+   * <p>Searches the property list case-insensitively.
+   *
+   * @return null if the property doesn't exist, otherwise the value expression
+   */
+  @Nullable
+  public String getPropertyDefault(@Nonnull String key) {
+    List<TokenProperty> propertyList =
+        MapTool.getCampaign().getCampaignProperties().getTokenPropertyList(propertyType);
+    if (propertyList == null) {
+      return null;
+    }
+
+    for (TokenProperty property : propertyList) {
+      if (key.equalsIgnoreCase(property.getName())) {
+        return property.getDefaultValue();
+      }
+    }
+
+    return null;
   }
 
   /**
-   * Returns the evaluated property corresponding to the key.
+   * Evaluate the provided expression with the resolver
    *
    * @param resolver the variable resolver to parse code inside the property
    * @param key the key of the value
-   * @return the value
+   * @param val An expression to evaluate
+   * @return The evaluated value
    */
-  public Object getEvaluatedProperty(MapToolVariableResolver resolver, String key) {
-    Object val = getProperty(key);
-    if (val == null) {
-      // Global default ?
-      List<TokenProperty> propertyList =
-          MapTool.getCampaign().getCampaignProperties().getTokenPropertyList(propertyType);
-      if (propertyList != null) {
-        for (TokenProperty property : propertyList) {
-          if (key.equalsIgnoreCase(property.getName())) {
-            val = property.getDefaultValue();
-            break;
-          }
-        }
-      }
-    }
-    if (val == null) {
-      return "";
-    }
+  @Nonnull
+  public Object evaluateProperty(
+      @Nullable MapToolVariableResolver resolver, @Nonnull String key, @Nonnull Object val) {
     if (val.toString().trim().startsWith("{")) {
       /*
        * The normal Gson evaluator was too lenient in identifying JSON objects, so we had to move
@@ -1912,17 +1922,42 @@ public class Token implements Cloneable {
       val = val.toString();
     }
     if (val == null) {
-      val = "";
-    } else {
-      // Finally we try convert it to a JSON object. Fixes #1560.
-      if (val.toString().trim().startsWith("{")) {
-        JsonElement json = JSONMacroFunctions.getInstance().asJsonElement(val.toString());
-        if (json.isJsonObject()) {
-          return json;
-        }
+      return "";
+    }
+    // Finally we try convert it to a JSON object. Fixes #1560.
+    if (val.toString().trim().startsWith("{")) {
+      JsonElement json = JSONMacroFunctions.getInstance().asJsonElement(val.toString());
+      if (json.isJsonObject()) {
+        return json;
       }
     }
+
     return val;
+  }
+
+  @Nonnull
+  public Object getEvaluatedProperty(@Nonnull String key) {
+    return getEvaluatedProperty(null, key);
+  }
+
+  /**
+   * Returns the evaluated property corresponding to the key.
+   *
+   * @param resolver the variable resolver to parse code inside the property
+   * @param key the key of the value
+   * @return the value
+   */
+  @Nonnull
+  public Object getEvaluatedProperty(
+      @Nullable MapToolVariableResolver resolver, @Nonnull String key) {
+    Object val = getProperty(key);
+    if (val == null) {
+      val = getPropertyDefault(key);
+    }
+    if (val == null) {
+      return "";
+    }
+    return evaluateProperty(resolver, key, val);
   }
 
   /**
@@ -2354,7 +2389,7 @@ public class Token implements Cloneable {
         AssetManager.putAsset(asset);
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      log.error("Error while creating asset", e);
     }
     return asset;
   }
@@ -2535,6 +2570,12 @@ public class Token implements Cloneable {
     if (ownerList == null) {
       ownerList = new HashSet<>();
     }
+    if (uniqueLightSources == null) {
+      uniqueLightSources = new LinkedHashMap<>();
+    } else {
+      // Whatever type of map is present, we want an order-preserving linked hash map.
+      uniqueLightSources = new LinkedHashMap<>(uniqueLightSources);
+    }
 
     // Remove null and duplicate attached light sources.
     List<AttachedLightSource> lightSources =
@@ -2658,18 +2699,24 @@ public class Token implements Cloneable {
     boolean lightChanged = false;
     boolean macroChanged = false;
     boolean panelLookChanged = false; // appearance of token in a panel changed
-    boolean topologyChanged = false;
+    Zone.TopologyType topologyChangeType = null;
     switch (update) {
       case setState:
         var state = parameters.get(0).getStringValue();
         var stateValue = parameters.get(1);
-        if (stateValue.hasBoolValue()) setState(state, stateValue.getBoolValue());
-        else setState(state, BigDecimal.valueOf(stateValue.getDoubleValue()));
+        if (stateValue.hasBoolValue()) {
+          setState(state, stateValue.getBoolValue());
+        } else {
+          setState(state, BigDecimal.valueOf(stateValue.getDoubleValue()));
+        }
         break;
       case setAllStates:
         stateValue = parameters.get(0);
-        if (stateValue.hasBoolValue()) setAllStates(stateValue.getBoolValue());
-        else setAllStates(BigDecimal.valueOf(stateValue.getDoubleValue()));
+        if (stateValue.hasBoolValue()) {
+          setAllStates(stateValue.getBoolValue());
+        } else {
+          setAllStates(BigDecimal.valueOf(stateValue.getDoubleValue()));
+        }
         break;
       case setPropertyType:
         setPropertyType(parameters.get(0).getStringValue());
@@ -2821,11 +2868,11 @@ public class Token implements Cloneable {
                 .map(TerrainModifierOperation::valueOf)
                 .collect(Collectors.toSet()));
         break;
-      case setTopology:
+      case setMaskTopology:
         {
           final var topologyType = Zone.TopologyType.valueOf(parameters.get(0).getTopologyType());
-          setTopology(topologyType, Mapper.map(parameters.get(1).getArea()));
-          topologyChanged = true;
+          setMaskTopology(topologyType, Mapper.map(parameters.get(1).getArea()));
+          topologyChangeType = topologyType;
           break;
         }
       case setImageAsset:
@@ -2915,8 +2962,8 @@ public class Token implements Cloneable {
     if (panelLookChanged) {
       zone.tokenPanelChanged(this);
     }
-    if (topologyChanged) {
-      zone.tokenTopologyChanged();
+    if (topologyChangeType != null) {
+      zone.tokenMaskTopologyChanged(EnumSet.of(topologyChangeType));
     }
     zone.tokenChanged(this); // fire Event.TOKEN_CHANGED, which updates topology if token has VBL
   }
@@ -2988,6 +3035,10 @@ public class Token implements Cloneable {
         dto.hasCharsheetImage() ? new MD5Key(dto.getCharsheetImage().getValue()) : null;
     token.portraitImage =
         dto.hasPortraitImage() ? new MD5Key(dto.getPortraitImage().getValue()) : null;
+
+    dto.getUniqueLightSourcesList().stream()
+        .map(LightSource::fromDto)
+        .forEach(source -> token.uniqueLightSources.put(source.getId(), source));
     token.lightSourceList.addAll(
         dto.getLightSourcesList().stream()
             .map(AttachedLightSource::fromDto)
@@ -3115,6 +3166,8 @@ public class Token implements Cloneable {
     if (portraitImage != null) {
       dto.setPortraitImage(StringValue.of(portraitImage.toString()));
     }
+    dto.addAllUniqueLightSources(
+        uniqueLightSources.values().stream().map(LightSource::toDto).collect(Collectors.toList()));
     dto.addAllLightSources(
         lightSourceList.stream().map(AttachedLightSource::toDto).collect(Collectors.toList()));
     if (sightType != null) {

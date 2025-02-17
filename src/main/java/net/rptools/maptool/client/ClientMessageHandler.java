@@ -64,6 +64,8 @@ import net.rptools.maptool.model.library.LibraryManager;
 import net.rptools.maptool.model.library.addon.AddOnLibraryImporter;
 import net.rptools.maptool.model.library.addon.TransferableAddOnLibrary;
 import net.rptools.maptool.model.player.Player;
+import net.rptools.maptool.model.topology.Wall;
+import net.rptools.maptool.model.topology.WallTopology;
 import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensRemoved;
 import net.rptools.maptool.model.zones.ZoneAdded;
@@ -101,7 +103,7 @@ public class ClientMessageHandler implements MessageHandler {
       log.debug("{} got: {}", id, msgType);
 
       switch (msgType) {
-        case UPDATE_TOPOLOGY_MSG -> handle(msg.getUpdateTopologyMsg());
+        case UPDATE_MASK_TOPOLOGY_MSG -> handle(msg.getUpdateMaskTopologyMsg());
         case BOOT_PLAYER_MSG -> handle(msg.getBootPlayerMsg());
         case CHANGE_ZONE_DISPLAY_NAME_MSG -> handle(msg.getChangeZoneDisplayNameMsg());
         case CLEAR_ALL_DRAWINGS_MSG -> handle(msg.getClearAllDrawingsMsg());
@@ -169,6 +171,8 @@ public class ClientMessageHandler implements MessageHandler {
         case UPDATE_EXPOSED_AREA_META_MSG -> handle(msg.getUpdateExposedAreaMetaMsg());
         case UPDATE_TOKEN_MOVE_MSG -> handle(msg.getUpdateTokenMoveMsg());
         case UPDATE_PLAYER_STATUS_MSG -> handle(msg.getUpdatePlayerStatusMsg());
+        case SET_WALL_TOPOLOGY_MSG -> handle(msg.getSetWallTopologyMsg());
+        case UPDATE_WALL_DATA_MSG -> handle(msg.getUpdateWallDataMsg());
         default -> log.warn(msgType + "not handled.");
       }
       log.debug(id + " handled: " + msgType);
@@ -752,7 +756,6 @@ public class ClientMessageHandler implements MessageHandler {
           Zone zone = Zone.fromDto(msg.getZone());
           client.getCampaign().putZone(zone);
 
-          // TODO: combine this with MapTool.addZone()
           var renderer = ZoneRendererFactory.newRenderer(zone);
           MapTool.getFrame().addZoneRenderer(renderer);
           if (MapTool.getFrame().getCurrentZoneRenderer() == null && zone.isVisible()) {
@@ -1015,16 +1018,16 @@ public class ClientMessageHandler implements MessageHandler {
         });
   }
 
-  private void handle(UpdateTopologyMsg updateTopologyMsg) {
+  private void handle(UpdateMaskTopologyMsg updateMaskTopologyMsg) {
     EventQueue.invokeLater(
         () -> {
-          var zoneGUID = GUID.valueOf(updateTopologyMsg.getZoneGuid());
-          var area = Mapper.map(updateTopologyMsg.getArea());
-          var erase = updateTopologyMsg.getErase();
-          var topologyType = Zone.TopologyType.valueOf(updateTopologyMsg.getType().name());
+          var zoneGUID = GUID.valueOf(updateMaskTopologyMsg.getZoneGuid());
+          var area = Mapper.map(updateMaskTopologyMsg.getArea());
+          var erase = updateMaskTopologyMsg.getErase();
+          var topologyType = Zone.TopologyType.valueOf(updateMaskTopologyMsg.getType().name());
 
           var zone = client.getCampaign().getZone(zoneGUID);
-          zone.updateTopology(area, erase, topologyType);
+          zone.updateMaskTopology(area, erase, topologyType);
         });
   }
 
@@ -1059,5 +1062,35 @@ public class ClientMessageHandler implements MessageHandler {
 
     final var eventBus = new MapToolEventBus().getMainEventBus();
     eventBus.post(new PlayerStatusChanged(player));
+  }
+
+  private void handle(SetWallTopologyMsg setWallTopologyMsg) {
+    EventQueue.invokeLater(
+        () -> {
+          var zoneId = new GUID(setWallTopologyMsg.getZoneGuid());
+          var zone = client.getCampaign().getZone(zoneId);
+          if (zone == null) {
+            log.warn("Failed to find zone with id {}", zoneId);
+            return;
+          }
+          var topology = WallTopology.fromDto(setWallTopologyMsg.getTopology());
+
+          zone.replaceWalls(topology);
+        });
+  }
+
+  private void handle(UpdateWallDataMsg updateWallDataMsg) {
+    EventQueue.invokeLater(
+        () -> {
+          var zoneId = new GUID(updateWallDataMsg.getZoneGuid());
+          var zone = client.getCampaign().getZone(zoneId);
+          if (zone == null) {
+            log.warn("Failed to find zone with id {}", zoneId);
+            return;
+          }
+          var wall = Wall.fromDto(updateWallDataMsg.getWall());
+
+          zone.updateWall(wall);
+        });
   }
 }

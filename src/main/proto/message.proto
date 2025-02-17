@@ -15,7 +15,7 @@ import "message_types.proto";
 
 message Message {
   oneof message_type {
-    UpdateTopologyMsg update_topology_msg = 501;
+    UpdateMaskTopologyMsg update_mask_topology_msg = 1;
     BootPlayerMsg boot_player_msg = 2;
     BringTokensToFrontMsg bring_tokens_to_front_msg = 3;
     ChangeZoneDisplayNameMsg change_zone_display_name_msg = 4;
@@ -89,5 +89,7 @@ message Message {
     RemoveDataMsg remove_data_msg = 73;
     UpdatePlayerStatusMsg update_player_status_msg = 74;
     SetCampaignLandingMapMsg set_campaign_landing_map_msg = 75;
+    SetWallTopologyMsg set_wall_topology_msg = 76;
+    UpdateWallDataMsg update_wall_data_msg = 77;
   }
 }

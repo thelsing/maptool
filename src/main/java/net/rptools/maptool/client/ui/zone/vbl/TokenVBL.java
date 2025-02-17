@@ -177,7 +177,7 @@ public class TokenVBL {
 
   public static Area getTopology_underToken(
       Zone zone, Token token, Zone.TopologyType topologyType) {
-    Area topologyOnMap = zone.getTopology(topologyType);
+    Area topologyOnMap = zone.getMaskTopology(topologyType);
     Rectangle footprintBounds = token.getBounds(zone);
 
     final AffineTransform captureArea = new AffineTransform();

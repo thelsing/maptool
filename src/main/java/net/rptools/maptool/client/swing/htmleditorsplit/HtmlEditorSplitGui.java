@@ -155,7 +155,6 @@ public class HtmlEditorSplitGui {
                 if (selectedText == null) {
                   selectedText = getText();
                 }
-                // TODO: Combine this with the code in MacroButton
                 JTextComponent commandArea =
                     MapTool.getFrame().getCommandPanel().getCommandTextArea();
 
@@ -176,7 +175,6 @@ public class HtmlEditorSplitGui {
                 if (selectedText == null) {
                   selectedText = getText();
                 }
-                // TODO: Combine this with the code in MacroButton
                 String finalSelectedText = selectedText;
                 SwingUtilities.invokeLater(
                     () -> {

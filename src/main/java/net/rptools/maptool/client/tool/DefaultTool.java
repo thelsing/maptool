@@ -99,7 +99,11 @@ public abstract class DefaultTool extends Tool
     return isDraggingMap;
   }
 
-  /** Stop dragging the map. */
+  /**
+   * Stop dragging the map.
+   *
+   * <p>Useful if the default behaviour is interfering with a tool.
+   */
   protected void cancelMapDrag() {
     mapDragStart = null;
     isDraggingMap = false;
@@ -149,7 +153,6 @@ public abstract class DefaultTool extends Tool
         KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.SHIFT_DOWN_MASK),
         new FlipTokenVerticalActionListener());
 
-    // Disable until the conrete hotkeys are decided.
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_1, InputEvent.CTRL_DOWN_MASK),
         new AbstractAction() {
@@ -198,7 +201,7 @@ public abstract class DefaultTool extends Tool
   @Override
   public void mousePressed(MouseEvent e) {
     // Potential map dragging
-    if (SwingUtilities.isRightMouseButton(e)) {
+    if (SwingUtilities.isRightMouseButton(e) && mapDragStart == null) {
       setDragStart(e.getX(), e.getY());
     }
   }
@@ -352,7 +355,7 @@ public abstract class DefaultTool extends Tool
     // ZOOM
     if (!AppState.isZoomLocked()) {
       boolean direction = e.getWheelRotation() < 0;
-      direction = isKeyDown('z') == direction; // XXX Why check for this?
+      direction = isKeyDown('z') == direction;
       if (direction) {
         renderer.zoomOut(e.getX(), e.getY());
       } else {

@@ -33,8 +33,12 @@ import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Zone;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class AppMenuBar extends JMenuBar {
+  private static final Logger log = LogManager.getLogger(AppMenuBar.class);
+
   /** The manager of the Most Recently Used campaigns. */
   private static MRUCampaignManager mruManager;
 
@@ -109,7 +113,6 @@ public class AppMenuBar extends JMenuBar {
     menu.addSeparator();
 
     menu.add(new JMenuItem(AppActions.EXPORT_CAMPAIGN_REPO));
-    // menu.add(new JMenuItem(AppActions.UPDATE_CAMPAIGN_REPO));
 
     return menu;
   }
@@ -130,7 +133,6 @@ public class AppMenuBar extends JMenuBar {
     // MAP TOGGLES
     // Lee: modifying due to the waypoint exposure toggle's dependency to this.
     menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_CURRENT_ZONE_VISIBILITY, menu));
-    // menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_FOG, menu));
 
     RPCheckBoxMenuItem fowToggleMenuItem = new RPCheckBoxMenuItem(AppActions.TOGGLE_FOG, menu);
     final RPCheckBoxMenuItem fowRevealToggleMenuItem =
@@ -203,8 +205,6 @@ public class AppMenuBar extends JMenuBar {
     JMenu menu = I18N.createMenu("menu.edit");
     menu.add(new JMenuItem(AppActions.UNDO_PER_MAP));
     menu.add(new JMenuItem(AppActions.REDO_PER_MAP));
-    // menu.add(new JMenuItem(AppActions.UNDO_DRAWING));
-    // menu.add(new JMenuItem(AppActions.REDO_DRAWING));
     menu.add(new JMenuItem(AppActions.CLEAR_DRAWING));
 
     menu.addSeparator();
@@ -242,12 +242,8 @@ public class AppMenuBar extends JMenuBar {
     item.setSelected(AppState.isShowLightSources());
     menu.add(item);
 
-    // menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_ZONE_SELECTOR));
     menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_GRID, menu));
     menu.add(new RPCheckBoxMenuItem(AppActions.TOGGLE_COORDINATES, menu));
-    // LATER: This needs to be genericized, but it seems to constant, and so
-    // short, that I
-    // didn't feel compelled to do that in this impl
     JMenu gridSizeMenu = I18N.createMenu("action.gridLineWight");
     JCheckBoxMenuItem gridSize1 = new RPCheckBoxMenuItem(new AppActions.GridSizeAction(1), menu);
     JCheckBoxMenuItem gridSize2 = new RPCheckBoxMenuItem(new AppActions.GridSizeAction(2), menu);
@@ -300,7 +296,7 @@ public class AppMenuBar extends JMenuBar {
       try {
         AppSetup.installDefaultTokens();
       } catch (IOException ioe) {
-        ioe.printStackTrace();
+        log.error("Error while install default assets", ioe);
         menu.add(new JMenuItem(I18N.getText("msg.error.loadingQuickMaps")));
         return menu;
       }
@@ -315,8 +311,6 @@ public class AppMenuBar extends JMenuBar {
                 new AppActions.QuickMapAction(FileUtil.getNameWithoutExtension(file), file)));
       }
     }
-    // basicQuickMap.putValue(Action.ACCELERATOR_KEY,
-    // KeyStroke.getKeyStroke("ctrl shift N"));
 
     return menu;
   }

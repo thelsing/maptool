@@ -585,8 +585,8 @@ public class HTMLWebViewManager {
           // Java bug JDK-8199014 workaround
           webEngine.executeScript(String.format(SCRIPT_ANCHOR, href.substring(1)));
         } else if (!href2.startsWith("javascript")) {
-          // non-macrolink, non-anchor link, non-javascript code
-          MapTool.showDocument(href); // show in usual browser
+          // non-macrolink, non-anchor link, non-javascript code. Show in usual browser
+          SwingUtilities.invokeLater(() -> MapTool.showDocument(href));
         }
         event.preventDefault(); // don't change webview
       }

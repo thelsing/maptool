@@ -75,6 +75,21 @@ public class TopologyModeSelectionPanel extends JToolBar {
     this.add(Box.createHorizontalStrut(5));
   }
 
+  @Override
+  public void setEnabled(boolean enabled) {
+    super.setEnabled(enabled);
+
+    if (enabled) {
+      for (var button : modeButtons.values()) {
+        button.setEnabled(true);
+      }
+    } else {
+      for (var button : modeButtons.values()) {
+        button.setEnabled(false);
+      }
+    }
+  }
+
   private void createAndAddModeButton(
       Zone.TopologyType type,
       final Icons icon,

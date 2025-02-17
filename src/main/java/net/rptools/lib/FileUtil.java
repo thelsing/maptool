@@ -44,6 +44,7 @@ import java.util.zip.ZipInputStream;
 import net.rptools.maptool.client.ui.token.BarTokenOverlay;
 import net.rptools.maptool.model.AStarCellPointConverter;
 import net.rptools.maptool.model.ShapeType;
+import net.rptools.maptool.model.converters.WallTopologyConverter;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
@@ -152,10 +153,6 @@ public class FileUtil {
     String file = url.getFile();
     try {
       file = url.toURI().getPath();
-      // int beginning = file.lastIndexOf(File.separatorChar); // Don't need to strip the path since
-      // the File()
-      // constructor will take care of that
-      // file = file.substring(beginning < 0 ? 0 : beginning + 1);
     } catch (URISyntaxException e) {
       // If the conversion doesn't work, ignore it and use the original file name.
     }
@@ -384,7 +381,6 @@ public class FileUtil {
         String path = file.getAbsolutePath();
         file.getParentFile().mkdirs();
 
-        // System.out.println("Writing file: " + path);
         try (InputStream is = zipFile.getInputStream(entry);
             OutputStream os = new BufferedOutputStream(new FileOutputStream(path))) {
           IOUtils.copy(is, os);
@@ -484,6 +480,7 @@ public class FileUtil {
     XStream.setupDefaultSecurity(xStream);
     xStream.allowTypesByWildcard(new String[] {"net.rptools.**", "java.awt.**", "sun.awt.**"});
     xStream.registerConverter(new AStarCellPointConverter());
+    xStream.registerConverter(new WallTopologyConverter(xStream));
     xStream.addImmutableType(ShapeType.class, true);
     xStream.addImmutableType(BarTokenOverlay.Side.class, true);
     return xStream;

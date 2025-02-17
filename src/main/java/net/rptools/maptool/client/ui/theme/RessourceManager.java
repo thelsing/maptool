@@ -86,18 +86,25 @@ public class RessourceManager {
           put(Icons.COLORPICKER_SNAP_OFF, IMAGE_DIR + "freehand.png");
           put(Icons.COLORPICKER_SNAP_ON, IMAGE_DIR + "shape_handles.png");
           put(Icons.DRAWPANEL_AREA_DRAW, IMAGE_DIR + "tool/drawpanel-poly.png");
+          put(Icons.DRAWPANEL_ARC_DRAW, IMAGE_DIR + "tool/drawpanel-arc.png");
+          put(Icons.DRAWPANEL_CUBIC_DRAW, IMAGE_DIR + "tool/drawpanel-cubic.png");
           put(Icons.DRAWPANEL_AREA_ERASE, IMAGE_DIR + "tool/drawpanel-poly-erase.png");
           put(Icons.DRAWPANEL_ELLIPSE_DRAW, IMAGE_DIR + "tool/drawpanel-ellipse.png");
           put(Icons.DRAWPANEL_ELLIPSE_ERASE, IMAGE_DIR + "tool/drawpanel-ellipse-erase.png");
           put(Icons.DRAWPANEL_LINE_DRAW, IMAGE_DIR + "tool/drawpanel-line.png");
+          put(Icons.DRAWPANEL_LINE2D_DRAW, IMAGE_DIR + "tool/drawpanel-line2d.png");
           put(Icons.DRAWPANEL_LINE_ERASE, IMAGE_DIR + "tool/drawpanel-line-erase.png");
+          put(Icons.DRAWPANEL_PATH_DRAW, IMAGE_DIR + "tool/drawpanel-path.png");
           put(Icons.DRAWPANEL_POLYGON_DRAW, IMAGE_DIR + "tool/drawpanel-poly.png");
           put(Icons.DRAWPANEL_POLYGON_ERASE, IMAGE_DIR + "tool/drawpanel-poly-erase.png");
           put(Icons.DRAWPANEL_RECTANGLE_DRAW, IMAGE_DIR + "tool/drawpanel-rectangle.png");
+          put(Icons.DRAWPANEL_ROUND_RECT, IMAGE_DIR + "tool/drawpanel-roundrect.png");
+          put(Icons.DRAWPANEL_QUAD_DRAW, IMAGE_DIR + "tool/drawpanel-quad.png");
           put(Icons.DRAWPANEL_RECTANGLE_ERASE, IMAGE_DIR + "tool/drawpanel-rectangle-erase.png");
           put(Icons.DRAWPANEL_TEMPLATE_BLAST, IMAGE_DIR + "tool/drawpanel-temp-blue-square.png");
           put(Icons.DRAWPANEL_TEMPLATE_BURST, IMAGE_DIR + "tool/drawpanel-temp-blue-burst.png");
           put(Icons.DRAWPANEL_TEMPLATE_CONE, IMAGE_DIR + "tool/drawpanel-temp-blue-cone.png");
+          put(Icons.DRAWPANEL_UNKNOWN_DRAW, IMAGE_DIR + "tool/drawpanel-unknown.png");
           put(
               Icons.DRAWPANEL_TEMPLATE_LINE,
               IMAGE_DIR + "tool/drawpanel-temp-blue-vertex-line.png");
@@ -186,6 +193,7 @@ public class RessourceManager {
           put(Icons.TOOLBAR_TOKENSELECTION_NPC_ON, IMAGE_DIR + "tool/select-npc-blue.png");
           put(Icons.TOOLBAR_TOKENSELECTION_PC_OFF, IMAGE_DIR + "tool/select-pc-blue-off.png");
           put(Icons.TOOLBAR_TOKENSELECTION_PC_ON, IMAGE_DIR + "tool/select-pc-blue.png");
+          put(Icons.TOOLBAR_TOPOLOGY_WALL, IMAGE_DIR + "tool/wall-topology.png");
           put(Icons.TOOLBAR_TOPOLOGY_BOX, IMAGE_DIR + "tool/top-blue-rect.png");
           put(Icons.TOOLBAR_TOPOLOGY_BOX_HOLLOW, IMAGE_DIR + "tool/top-blue-hrect.png");
           put(Icons.TOOLBAR_TOPOLOGY_CROSS, IMAGE_DIR + "tool/top-blue-cross.png");
@@ -321,8 +329,6 @@ public class RessourceManager {
           put(Icons.COLORPICKER_SNAP_ON, ROD_ICONS + "shape_handles.svg");
           put(Icons.EDIT_TOKEN_COLOR_PICKER, ROD_ICONS + "misc/Colour Selection (eye dropper).svg");
           put(Icons.EDIT_TOKEN_HEROLAB, ROD_ICONS + "hero-lab-icon.svg");
-          // FIXME: both icons are the same. Maybe we could change the color of svgs according to
-          // the theme?
           put(Icons.EDIT_TOKEN_REFRESH_OFF, ROD_ICONS + "refresh_arrows.svg");
           put(Icons.EDIT_TOKEN_REFRESH_ON, ROD_ICONS + "refresh_arrows.svg");
           put(Icons.GRID_HEX_HORIZONTAL, ROD_ICONS + "gridHorizontalHex.svg");
@@ -412,6 +418,7 @@ public class RessourceManager {
           put(Icons.TOOLBAR_TOKENSELECTION_NPC_ON, ROD_ICONS + "ribbon/NPC.svg");
           put(Icons.TOOLBAR_TOKENSELECTION_PC_OFF, ROD_ICONS + "ribbon/PC.svg");
           put(Icons.TOOLBAR_TOKENSELECTION_PC_ON, ROD_ICONS + "ribbon/PC.svg");
+          put(Icons.TOOLBAR_TOPOLOGY_WALL, ROD_ICONS + "ribbon/Wall Topology.svg");
           put(Icons.TOOLBAR_TOPOLOGY_BOX, ROD_ICONS + "ribbon/Draw Rectangle.svg");
           put(Icons.TOOLBAR_TOPOLOGY_BOX_HOLLOW, ROD_ICONS + "ribbon/Draw Hollow Rectangle.svg");
           put(Icons.TOOLBAR_TOPOLOGY_CROSS, ROD_ICONS + "ribbon/Draw Cross.svg");
@@ -563,9 +570,7 @@ public class RessourceManager {
   }
 
   public static void main(String[] args) {
-    // checkMissingFiles();
     checkMissingIcons(classicIcons, rodIcons);
-    // for (var img : Set.of(images.values())) System.out.println(img);
   }
 
   private static void checkMissingIcons(

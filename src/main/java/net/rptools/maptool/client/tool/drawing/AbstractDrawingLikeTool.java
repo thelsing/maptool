@@ -59,7 +59,7 @@ public abstract class AbstractDrawingLikeTool extends DefaultTool implements Zon
       // is used for expand from center.
       zp = renderer.getCellCenterAt(sp);
     } else if (isSnapToGrid(e)) {
-      zp = renderer.getZone().getNearestVertex(zp);
+      zp = renderer.getZone().getGrid().getNearestVertex(zp);
     }
     return zp;
   }

@@ -228,8 +228,6 @@ public abstract class Grid implements Cloneable {
   @Override
   public Object clone() throws CloneNotSupportedException {
     return super.clone();
-    // Grid newGrid = (Grid) super.clone();
-    // return newGrid;
   }
 
   /**
@@ -256,12 +254,27 @@ public abstract class Grid implements Cloneable {
   public abstract ZonePoint convert(CellPoint cp);
 
   public ZonePoint getNearestVertex(ZonePoint point) {
-    int gridx = (int) Math.round((point.x - getOffsetX()) / getCellWidth());
-    int gridy = (int) Math.round((point.y - getOffsetY()) / getCellHeight());
+    double gridx = Math.round((point.x - getOffsetX()) / getCellWidth());
+    double gridy = Math.round((point.y - getOffsetY()) / getCellHeight());
 
     return new ZonePoint(
         (int) (gridx * getCellWidth() + getOffsetX()),
         (int) (gridy * getCellHeight() + getOffsetY()));
+  }
+
+  /**
+   * Like {@link #getNearestVertex(ZonePoint)}, but can snap by sub-cell increments.
+   *
+   * <p>It is up to the implementation what a useful definition of "fine" is. By default, it is the
+   * same as {@link #getNearestVertex(ZonePoint)}. For square grids it is the same as snapping to a
+   * half-grid.
+   *
+   * @param point The point to snap.
+   * @return The snapped point.
+   */
+  public Point2D snapFine(ZonePoint point) {
+    var vertex = getNearestVertex(point);
+    return new Point2D.Double(vertex.x, vertex.y);
   }
 
   public abstract GridCapabilities getCapabilities();
@@ -522,10 +535,8 @@ public abstract class Grid implements Cloneable {
       double arcAngle,
       int offsetAngle,
       boolean scaleWithToken) {
-    if (range == 0) {
-      range = zone.getTokenVisionDistance();
-    }
-    double visionRange = range * getSize() / zone.getUnitsPerCell();
+    double visionRange =
+        ((range == 0) ? zone.getTokenVisionDistance() : range) * getSize() / zone.getUnitsPerCell();
 
     Rectangle footprint = token.getFootprint(this).getBounds(this);
 
@@ -574,19 +585,14 @@ public abstract class Grid implements Cloneable {
    * @return the distance (in cells) between the two cells
    */
   public double cellDistance(CellPoint cellA, CellPoint cellB, WalkerMetric wmetric) {
-    int distance;
     int distX = Math.abs(cellA.x - cellB.x);
     int distY = Math.abs(cellA.y - cellB.y);
-    if (wmetric == WalkerMetric.NO_DIAGONALS || wmetric == WalkerMetric.MANHATTAN) {
-      distance = distX + distY;
-    } else if (wmetric == WalkerMetric.ONE_ONE_ONE) {
-      distance = Math.max(distX, distY);
-    } else if (wmetric == WalkerMetric.ONE_TWO_ONE) {
-      distance = Math.max(distX, distY) + Math.min(distX, distY) / 2;
-    } else {
-      System.out.println("Incorrect WalkerMetric in method cellDistance of Grid.java");
-      distance = -1; // error, should not happen;
-    }
+    int distance =
+        switch (wmetric) {
+          case NO_DIAGONALS, MANHATTAN -> distX + distY;
+          case ONE_TWO_ONE -> Math.max(distX, distY) + Math.min(distX, distY) / 2;
+          case ONE_ONE_ONE -> Math.max(distX, distY);
+        };
     return distance;
   }
 
@@ -837,7 +843,8 @@ public abstract class Grid implements Cloneable {
    * Returns an Area with a given radius that is shaped and aligned to the current grid
    *
    * @param token token which to center the grid area on
-   * @param range range in units grid area extends out to
+   * @param range range in units grid area extends out to. if set to {@code 0}, the result will be a
+   *     circular area extending out to {@code visionRange}.
    * @param scaleWithToken whether grid area should expand by the size of the token
    * @param visionRange token's vision in pixels
    * @return the {@link Area} conforming to the current grid layout

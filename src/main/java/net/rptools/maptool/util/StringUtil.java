@@ -28,11 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import net.rptools.maptool.client.AppPreferences;
-import net.rptools.maptool.client.MapTool;
-import org.apache.commons.lang.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.apache.commons.lang3.StringUtils;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
 /**
@@ -94,7 +90,6 @@ public class StringUtil {
     double def = 0.0;
     if (text == null) return def;
     def = nf.parse(text).doubleValue();
-    // System.out.println("Decimal: Input string is >>"+text+"<< and parsing produces "+newValue);
     return def;
   }
 
@@ -128,7 +123,6 @@ public class StringUtil {
     int def = 0;
     if (text == null) return def;
     def = nf.parse(text).intValue();
-    // System.out.println("Integer: Input string is >>"+text+"<< and parsing produces "+newValue);
     return def;
   }
 
@@ -239,7 +233,6 @@ public class StringUtil {
     List<String> list = new ArrayList<String>();
     while (line != null && line.trim().length() > 0) {
       line = line.trim();
-      // System.out.println("'" + line + "'");
       List<String> split = splitNextWord(line);
 
       String nextWord = split.get(0);

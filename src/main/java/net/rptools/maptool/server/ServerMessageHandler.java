@@ -37,6 +37,8 @@ import net.rptools.maptool.model.Zone.VisionType;
 import net.rptools.maptool.model.drawing.Drawable;
 import net.rptools.maptool.model.drawing.DrawnElement;
 import net.rptools.maptool.model.drawing.Pen;
+import net.rptools.maptool.model.topology.Wall;
+import net.rptools.maptool.model.topology.WallTopology;
 import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensRemoved;
 import net.rptools.maptool.model.zones.ZoneAdded;
@@ -78,8 +80,8 @@ public class ServerMessageHandler implements MessageHandler {
       }
 
       switch (msgType) {
-        case UPDATE_TOPOLOGY_MSG -> {
-          handle(msg.getUpdateTopologyMsg());
+        case UPDATE_MASK_TOPOLOGY_MSG -> {
+          handle(msg.getUpdateMaskTopologyMsg());
           sendToClients(id, msg);
         }
         case BRING_TOKENS_TO_FRONT_MSG -> handle(msg.getBringTokensToFrontMsg());
@@ -255,6 +257,14 @@ public class ServerMessageHandler implements MessageHandler {
         }
         case UPDATE_PLAYER_STATUS_MSG -> {
           handle(id, msg.getUpdatePlayerStatusMsg());
+          sendToClients(id, msg);
+        }
+        case SET_WALL_TOPOLOGY_MSG -> {
+          handle(msg.getSetWallTopologyMsg());
+          sendToClients(id, msg);
+        }
+        case UPDATE_WALL_DATA_MSG -> {
+          handle(msg.getUpdateWallDataMsg());
           sendToClients(id, msg);
         }
 
@@ -678,7 +688,7 @@ public class ServerMessageHandler implements MessageHandler {
         });
   }
 
-  private void handle(UpdateTopologyMsg updateTopologyMsg) {
+  private void handle(UpdateMaskTopologyMsg updateTopologyMsg) {
     EventQueue.invokeLater(
         () -> {
           var zoneGUID = GUID.valueOf(updateTopologyMsg.getZoneGuid());
@@ -686,7 +696,7 @@ public class ServerMessageHandler implements MessageHandler {
           var erase = updateTopologyMsg.getErase();
           var topologyType = Zone.TopologyType.valueOf(updateTopologyMsg.getType().name());
           Zone zone = server.getCampaign().getZone(zoneGUID);
-          zone.updateTopology(area, erase, topologyType);
+          zone.updateMaskTopology(area, erase, topologyType);
         });
   }
 
@@ -703,6 +713,36 @@ public class ServerMessageHandler implements MessageHandler {
             : GUID.valueOf(updatePlayerStatusMsg.getZoneGuid());
     var loaded = updatePlayerStatusMsg.getLoaded();
     server.updatePlayerStatus(playerName, zoneId, loaded);
+  }
+
+  private void handle(SetWallTopologyMsg setWallTopologyMsg) {
+    EventQueue.invokeLater(
+        () -> {
+          var zoneId = new GUID(setWallTopologyMsg.getZoneGuid());
+          var zone = server.getCampaign().getZone(zoneId);
+          if (zone == null) {
+            log.warn("Failed to find zone with id {}", zoneId);
+            return;
+          }
+
+          var topology = WallTopology.fromDto(setWallTopologyMsg.getTopology());
+          zone.replaceWalls(topology);
+        });
+  }
+
+  private void handle(UpdateWallDataMsg updateWallDataMsg) {
+    EventQueue.invokeLater(
+        () -> {
+          var zoneId = new GUID(updateWallDataMsg.getZoneGuid());
+          var zone = server.getCampaign().getZone(zoneId);
+          if (zone == null) {
+            log.warn("Failed to find zone with id {}", zoneId);
+            return;
+          }
+          var wall = Wall.fromDto(updateWallDataMsg.getWall());
+
+          zone.updateWall(wall);
+        });
   }
 
   private void sendToClients(String excludedId, Message message) {

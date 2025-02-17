@@ -46,6 +46,9 @@ import net.rptools.maptool.model.drawing.Pen;
 import net.rptools.maptool.model.player.Player;
 import net.rptools.maptool.model.tokens.TokenMacroChanged;
 import net.rptools.maptool.model.tokens.TokenPanelChanged;
+import net.rptools.maptool.model.topology.MaskTopology;
+import net.rptools.maptool.model.topology.Wall;
+import net.rptools.maptool.model.topology.WallTopology;
 import net.rptools.maptool.model.zones.BoardChanged;
 import net.rptools.maptool.model.zones.DrawableAdded;
 import net.rptools.maptool.model.zones.DrawableRemoved;
@@ -55,11 +58,12 @@ import net.rptools.maptool.model.zones.InitiativeListChanged;
 import net.rptools.maptool.model.zones.LabelAdded;
 import net.rptools.maptool.model.zones.LabelChanged;
 import net.rptools.maptool.model.zones.LabelRemoved;
+import net.rptools.maptool.model.zones.MaskTopologyChanged;
 import net.rptools.maptool.model.zones.TokenEdited;
 import net.rptools.maptool.model.zones.TokensAdded;
 import net.rptools.maptool.model.zones.TokensChanged;
 import net.rptools.maptool.model.zones.TokensRemoved;
-import net.rptools.maptool.model.zones.TopologyChanged;
+import net.rptools.maptool.model.zones.WallTopologyChanged;
 import net.rptools.maptool.model.zones.ZoneLightingChanged;
 import net.rptools.maptool.server.Mapper;
 import net.rptools.maptool.server.proto.DrawnElementListDto;
@@ -362,6 +366,8 @@ public class Zone {
   private DrawablePaint fogPaint;
   private transient UndoPerZone undo;
 
+  // region Topology masks
+
   /**
    * The Wall VBL topology of the zone. Does not include token Wall VBL. Should really be called
    * wallVbl.
@@ -379,6 +385,11 @@ public class Zone {
 
   /** The MBL topology of the zone. Does not include token MBL. Should really be called mbl. */
   private Area topologyTerrain = new Area();
+
+  // endregion
+
+  // The new take on topology.
+  private WallTopology walls = new WallTopology();
 
   // The 'board' layer, at the very bottom of the layer stack.
   // Itself has two sub-layers:
@@ -421,8 +432,6 @@ public class Zone {
   }
 
   public Zone() {
-    // TODO: Was this needed?
-    // setGrid(new SquareGrid());
     undo = new UndoPerZone(this); // registers as ModelChangeListener for drawables...
   }
 
@@ -662,11 +671,14 @@ public class Zone {
 
     boardPosition = (Point) zone.boardPosition.clone();
     exposedArea = (Area) zone.exposedArea.clone();
-    topology = (Area) zone.topology.clone();
-    hillVbl = (Area) zone.hillVbl.clone();
-    pitVbl = (Area) zone.pitVbl.clone();
-    coverVbl = (Area) zone.coverVbl.clone();
-    topologyTerrain = (Area) zone.topologyTerrain.clone();
+
+    topology = new Area(zone.topology);
+    hillVbl = new Area(zone.hillVbl);
+    pitVbl = new Area(zone.pitVbl);
+    coverVbl = new Area(zone.coverVbl);
+    topologyTerrain = new Area(zone.topologyTerrain);
+    walls = new WallTopology(zone.walls);
+
     aStarRounding = zone.aStarRounding;
     isVisible = zone.isVisible;
     hasFog = zone.hasFog;
@@ -940,10 +952,59 @@ public class Zone {
     }
     combined.intersect(tokenFootprint);
     return !combined.isEmpty();
-    // return combined.intersects(tokenSize);
   }
 
-  public Area getTopology(TopologyType topologyType) {
+  public WallTopology getWalls() {
+    return walls;
+  }
+
+  /**
+   * Get all masks.
+   *
+   * <p>This is particularly used for the sake of pathfinding. The provided types will be usually
+   * include just {@link TopologyType#MBL}, but based on preferences may also include all VBL types.
+   * The {@code exclude} parameter exists so a moving token will not be blocked by its own topology.
+   * All other tokens' topology will be included.
+   *
+   * @param types The type of masks to get.
+   * @param excluding
+   * @return
+   */
+  public List<MaskTopology> getMasks(Set<TopologyType> types, @Nullable GUID excluding) {
+    var masks = new ArrayList<MaskTopology>();
+
+    for (var type : types) {
+      var mapArea = getMaskTopology(type);
+      var tokenArea = getTokenMaskTopology(type, excluding);
+      if (mapArea != null) {
+        tokenArea.add(mapArea);
+      }
+      masks.addAll(MaskTopology.createFromLegacy(type, tokenArea));
+    }
+
+    return masks;
+  }
+
+  public void replaceWalls(WallTopology walls) {
+    this.walls = walls;
+    new MapToolEventBus().getMainEventBus().post(new WallTopologyChanged(this));
+  }
+
+  public void updateWall(Wall wall) {
+    var existingWall = this.walls.getWall(wall.from(), wall.to());
+
+    existingWall.ifPresentOrElse(
+        existing -> {
+          existing.copyDataFrom(wall);
+
+          new MapToolEventBus().getMainEventBus().post(new WallTopologyChanged(this));
+        },
+        () -> {
+          log.warn("Could not find wall [{}, {}] for updating", wall.from(), wall.to());
+        });
+  }
+
+  public Area getMaskTopology(TopologyType topologyType) {
     return switch (topologyType) {
       case WALL_VBL -> topology;
       case HILL_VBL -> hillVbl;
@@ -959,7 +1020,7 @@ public class Zone {
    * @param area the area
    * @param topologyType the type of the topology
    */
-  public void updateTopology(Area area, boolean erase, TopologyType topologyType) {
+  public void updateMaskTopology(Area area, boolean erase, TopologyType topologyType) {
     var topology =
         switch (topologyType) {
           case WALL_VBL -> this.topology;
@@ -975,13 +1036,27 @@ public class Zone {
       topology.add(area);
     }
 
-    new MapToolEventBus().getMainEventBus().post(new TopologyChanged(this));
+    new MapToolEventBus().getMainEventBus().post(new MaskTopologyChanged(this));
   }
 
-  /** Fire the event TOPOLOGY_CHANGED. */
-  // TODO Remove this in favour of firing from token as it own its topology.
-  public void tokenTopologyChanged() {
-    new MapToolEventBus().getMainEventBus().post(new TopologyChanged(this));
+  /** Fire the event {@link MaskTopologyChanged}. */
+  public void tokenMaskTopologyChanged(Collection<TopologyType> types) {
+    new MapToolEventBus().getMainEventBus().post(new MaskTopologyChanged(this));
+  }
+
+  public Area getTokenMaskTopology(TopologyType type, @Nullable GUID excluding) {
+    var result = new Area();
+    for (var token : getAllTokens()) {
+      if (excluding != null && excluding.equals(token.getId())) {
+        continue;
+      }
+
+      var tokenArea = token.getTransformedMaskTopology(type);
+      if (tokenArea != null) {
+        result.add(tokenArea);
+      }
+    }
+    return result;
   }
 
   /**
@@ -1080,7 +1155,7 @@ public class Zone {
         }
         putToken(tok);
         new MapToolEventBus().getMainEventBus().post(new FogChanged(this));
-        return; // FJE Added so that TEA isn't added to the GEA, below.
+        return;
       }
     }
     exposedArea.add(area);
@@ -1111,7 +1186,6 @@ public class Zone {
           MapTool.getPlayer().isGM() || !MapTool.getServerPolicy().useStrictTokenManagement();
       String playerId = MapTool.getPlayer().getName();
       MapToolFrame frame = MapTool.getFrame();
-      // FIXME 'zr' was null -- how can this happen? Fix is to use getId() instead of 'this'
       ZoneRenderer zr = frame.getZoneRenderer(getId());
       ZoneView zoneView = zr.getZoneView();
       ExposedAreaMetaData meta = null;
@@ -1217,10 +1291,6 @@ public class Zone {
     return creationTime;
   }
 
-  public ZonePoint getNearestVertex(ZonePoint point) {
-    return grid.getNearestVertex(point);
-  }
-
   /**
    * Returns the Area of the exposed fog for the current tokens (as determined by view.getTokens()).
    * This means if no tokens are current, the return value is the zone's global exposed fog area. If
@@ -1240,11 +1310,6 @@ public class Zone {
       return combined;
     }
     for (Token tok : view.getTokens()) {
-      // Don't need this IF statement; see
-      // net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer.getPlayerView(Role)
-      // if (!tok.getHasSight() || !AppUtil.playerOwns(tok)) {
-      // continue;
-      // }
       ExposedAreaMetaData meta = exposedAreaMeta.get(tok.getExposedAreaGUID());
       if (meta != null) {
         combined.add(meta.getExposedAreaHistory());
@@ -1464,8 +1529,6 @@ public class Zone {
    */
   @Deprecated
   public void putTokens(List<Token> tokens) {
-    // System.out.println("putToken() called with list of " + tokens.size() + " tokens.");
-
     Collection<Token> values = tokenMap.values();
 
     List<Token> addedTokens = new LinkedList<Token>(tokens);
@@ -1699,10 +1762,6 @@ public class Zone {
     return getTokensFiltered(Token::isAlwaysVisible);
   }
 
-  public List<Token> getTokensWithTopology(TopologyType topologyType) {
-    return getTokensFiltered(token -> token.hasTopology(topologyType));
-  }
-
   public List<Token> getTokensWithTerrainModifiers() {
     return getTokensFiltered(
         t -> !t.getTerrainModifierOperation().equals(TerrainModifierOperation.NONE));
@@ -1721,15 +1780,9 @@ public class Zone {
   public List<Token> getOwnedTokensWithSight(Player p) {
     return getTokensFiltered(
         t -> {
-          // System.out.println("isOwnedByAll(): " + t.getName() + ":" + t.isOwnedByAll());
-          // System.out.println("AppUtil.playerOwns(t): " + t.getName() + ":" +
-          // AppUtil.playerOwns(t));
-          // return t.getType() == Token.Type.PC && t.getHasSight() && AppUtil.playerOwns(t);
-
           if (tokenSelection == null) {
             tokenSelection = TokenSelection.ALL;
           }
-          // System.out.println("TokenSelection: " + tokenSelection);
           switch (tokenSelection) {
             case ALL: // Show FoW for ANY Token I own
               return t.getHasSight() && AppUtil.playerOwns(t);
@@ -1764,7 +1817,6 @@ public class Zone {
    * @return the list of tokens with sight.
    */
   public List<Token> getTokensOwnedByAllWithSight() {
-    // String playerId = MapTool.getPlayer().getName();
     return getTokensFiltered(
         t ->
             (t.getHasSight()
@@ -2103,6 +2155,10 @@ public class Zone {
     drawablesByLayer.put(Layer.OBJECT, objectDrawables);
     drawablesByLayer.put(Layer.BACKGROUND, backgroundDrawables);
 
+    if (walls == null) {
+      walls = new WallTopology();
+    }
+
     return this;
   }
 
@@ -2209,6 +2265,7 @@ public class Zone {
     zone.pitVbl = Mapper.map(dto.getPitVbl());
     zone.coverVbl = Mapper.map(dto.getCoverVbl());
     zone.topologyTerrain = Mapper.map(dto.getTopologyTerrain());
+    zone.walls = WallTopology.fromDto(dto.getWalls());
     zone.backgroundPaint = DrawablePaint.fromDto(dto.getBackgroundPaint());
     zone.mapAsset = dto.hasMapAsset() ? new MD5Key(dto.getMapAsset().getValue()) : null;
     zone.boardPosition.x = dto.getBoardPosition().getX();
@@ -2273,6 +2330,7 @@ public class Zone {
     dto.setPitVbl(Mapper.map(pitVbl));
     dto.setCoverVbl(Mapper.map(coverVbl));
     dto.setTopologyTerrain(Mapper.map(topologyTerrain));
+    dto.setWalls(walls.toDto());
     dto.setBackgroundPaint(backgroundPaint.toDto());
     if (mapAsset != null) {
       dto.setMapAsset(StringValue.of(mapAsset.toString()));

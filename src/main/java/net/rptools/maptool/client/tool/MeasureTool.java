@@ -192,6 +192,9 @@ public class MeasureTool extends DefaultTool implements ZoneOverlay {
     ZoneRenderer renderer = (ZoneRenderer) e.getSource();
 
     if (SwingUtilities.isLeftMouseButton(e)) {
+      if (walker != null) {
+        walker.close();
+      }
       walker = null;
       gridlessPath = null;
       currentGridlessPoint = null;

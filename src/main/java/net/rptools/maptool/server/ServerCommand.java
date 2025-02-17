@@ -30,6 +30,8 @@ import net.rptools.maptool.model.gamedata.proto.GameDataDto;
 import net.rptools.maptool.model.gamedata.proto.GameDataValueDto;
 import net.rptools.maptool.model.library.addon.TransferableAddOnLibrary;
 import net.rptools.maptool.model.player.Player;
+import net.rptools.maptool.model.topology.Wall;
+import net.rptools.maptool.model.topology.WallTopology;
 
 public interface ServerCommand {
   void bootPlayer(String player);
@@ -42,14 +44,18 @@ public interface ServerCommand {
 
   void setFoW(GUID zoneGUID, Area area, Set<GUID> selectedToks);
 
-  default void updateTopology(
+  void replaceWalls(Zone zone, WallTopology walls);
+
+  void updateWall(Zone zone, Wall wall);
+
+  default void updateMaskTopology(
       Zone zone, Area area, boolean erase, Set<Zone.TopologyType> topologyTypes) {
     for (var topologyType : topologyTypes) {
-      updateTopology(zone, area, erase, topologyType);
+      updateMaskTopology(zone, area, erase, topologyType);
     }
   }
 
-  void updateTopology(Zone zone, Area area, boolean erase, Zone.TopologyType topologyType);
+  void updateMaskTopology(Zone zone, Area area, boolean erase, Zone.TopologyType topologyType);
 
   void enforceZoneView(GUID zoneGUID, int x, int y, double scale, int width, int height);
 
@@ -185,7 +191,17 @@ public interface ServerCommand {
 
   void removeData(String type, String namespace, String name);
 
-  void setTokenTopology(Token token, @Nullable Area area, Zone.TopologyType topologyType);
+  /**
+   * Adds or removes a light source on {@code token}.
+   *
+   * @param token The token to modify
+   * @param toggleOn If {@code true}, the light source is turned on for the token. Otherwise, it is
+   *     turned off.
+   * @param lightSource The light source to add.
+   */
+  void toggleLightSourceOnToken(Token token, boolean toggleOn, LightSource lightSource);
+
+  void setTokenMaskTopology(Token token, @Nullable Area area, Zone.TopologyType topologyType);
 
   void updateTokenProperty(Token token, Token.Update update, int value);
 
@@ -199,8 +215,6 @@ public interface ServerCommand {
   void updateTokenProperty(Token token, Token.Update update, MacroButtonProperties value);
 
   void updateTokenProperty(Token token, Token.Update update, String value);
-
-  void updateTokenProperty(Token token, Token.Update update, LightSource value);
 
   void updateTokenProperty(Token token, Token.Update update, int value1, int value2);
 

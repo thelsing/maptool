@@ -16,11 +16,21 @@ import "data_transfer_objects.proto";
 import "drawing_dto.proto";
 import "gamedata.proto";
 
-message UpdateTopologyMsg {
+message UpdateMaskTopologyMsg {
   string zone_guid = 1;
   AreaDto area = 2;
   bool erase = 3;
   TopologyTypeDto type = 4;
+}
+
+message SetWallTopologyMsg {
+  string zone_guid = 1;
+  WallTopologyDto topology = 2;
+}
+
+message UpdateWallDataMsg {
+  string zone_guid = 1;
+  WallDto wall = 2;
 }
 
 message BootPlayerMsg {
