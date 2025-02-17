@@ -421,6 +421,10 @@ public class AppPreferences {
     }
   }
 
+  public static String getDeepLApiKey() {
+    return "";
+  }
+
   public enum RenderQuality {
     LOW_SCALING,
     PIXEL_ART_SCALING,

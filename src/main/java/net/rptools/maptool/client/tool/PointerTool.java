@@ -44,6 +44,7 @@ import net.rptools.maptool.client.functions.FindTokenFunctions;
 import net.rptools.maptool.client.swing.HTMLPanelRenderer;
 import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.ui.*;
+import net.rptools.maptool.client.ui.htmlframe.HTMLFrameFactory;
 import net.rptools.maptool.client.ui.theme.Images;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.client.ui.zone.FogUtil;
@@ -59,6 +60,7 @@ import net.rptools.maptool.util.GraphicsUtil;
 import net.rptools.maptool.util.ImageManager;
 import net.rptools.maptool.util.StringUtil;
 import org.apache.commons.lang.StringUtils;
+import org.apache.logging.log4j.util.Strings;
 
 /**
  * This is the pointer tool from the top-level of the toolbar. It allows tokens to be selected and
@@ -684,7 +686,7 @@ public class PointerTool extends DefaultTool {
       if (tokenUnderMouse == null
           && markerUnderMouse != null
           && !isShowingHover
-          && !isDraggingToken) {
+          && tokenDragOp == null) {
         isShowingHover = true;
         hoverTokenBounds = renderer.getMarkerBounds(markerUnderMouse);
         hoverTokenNotes = createHoverNote(markerUnderMouse, true);

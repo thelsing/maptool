@@ -269,8 +269,8 @@ public class FoundryModuleImporter {
                 new Area(
                     WALL_VBL_STROKE.createStrokedShape(
                         getVBLPath(v.getAsJsonObject().getAsJsonArray("c"))));
-            zone.addTopology(vblArea, Zone.TopologyType.WALL_VBL);
-            zone.addTopology(vblArea, Zone.TopologyType.MBL);
+            //   zone.addTopology(vblArea, Zone.TopologyType.WALL_VBL);
+            //   zone.addTopology(vblArea, Zone.TopologyType.MBL);
           });
     }
 
