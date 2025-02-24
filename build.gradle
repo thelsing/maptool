@@ -40,7 +40,9 @@ def javaArgs = [
         "-DMAPTOOL_DATADIR=.maptool-" + vendor.toLowerCase(), "-XX:+ShowCodeDetailsInExceptionMessages",
         "--add-opens=java.desktop/java.awt=ALL-UNNAMED", "--add-opens=java.desktop/java.awt.geom=ALL-UNNAMED",
         "--add-opens=java.desktop/sun.awt.geom=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED",
-        "--add-opens=javafx.web/javafx.scene.web=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED",
+        "--add-opens=javafx.web/javafx.scene.web=ALL-UNNAMED", "--add-opens=javafx.web/com.sun.webkit=ALL-UNNAMED",
+        "--add-opens=javafx.web/com.sun.webkit.dom=ALL-UNNAMED","--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED", "--add-opens=java.desktop/sun.java2d=ALL-UNNAMED",
         "--add-opens=java.desktop/javax.swing=ALL-UNNAMED","--add-opens=java.desktop/sun.awt.shell=ALL-UNNAMED",
         "--add-opens=java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED"]
 
@@ -481,10 +483,6 @@ shadowJar {
     }
 
     exclude 'module-info.class' //This is to make sure maptool doesn't become a module by including module-info of dependencies. Probably needs to be fixed before we go to jdk 11+
-}
-
-configurations.all {
-    resolutionStrategy.cacheDynamicVersionsFor 10, 'minutes'
 }
 
 jar {

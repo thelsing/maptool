@@ -276,7 +276,7 @@ public class AreaRenderer {
           segmentIndicies.add(index);
           index += 1;
           break;
-          // return tmpFloat;
+        // return tmpFloat;
         case PathIterator.SEG_LINETO:
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");

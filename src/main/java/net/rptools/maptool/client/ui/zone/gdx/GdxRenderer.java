@@ -48,10 +48,7 @@ import net.rptools.maptool.client.events.ZoneActivated;
 import net.rptools.maptool.client.swing.ImageBorder;
 import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.tool.Tool;
-import net.rptools.maptool.client.tool.drawing.FreehandExposeTool;
-import net.rptools.maptool.client.tool.drawing.OvalExposeTool;
-import net.rptools.maptool.client.tool.drawing.PolygonExposeTool;
-import net.rptools.maptool.client.tool.drawing.RectangleExposeTool;
+import net.rptools.maptool.client.tool.WallTopologyTool;
 import net.rptools.maptool.client.ui.Scale;
 import net.rptools.maptool.client.ui.theme.Borders;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
@@ -325,7 +322,7 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   private void updateVbl() {
-    var currentVbl = zoneCache.getZone().getTopology(Zone.TopologyType.WALL_VBL);
+    var currentVbl = zoneCache.getZone().getMaskTopology(Zone.TopologyType.WALL_VBL);
     // if (currentVbl.equals(vbl)) return;
 
     vbl = currentVbl;
@@ -780,7 +777,7 @@ public class GdxRenderer extends ApplicationAdapter {
       if (token.hasLightSources()) {
         boolean foundNormalLight = false;
         for (AttachedLightSource attachedLightSource : token.getLightSources()) {
-          LightSource lightSource = attachedLightSource.resolve(MapTool.getCampaign());
+          LightSource lightSource = attachedLightSource.resolve(token, MapTool.getCampaign());
           if (lightSource != null && lightSource.getType() == LightSource.Type.NORMAL) {
             foundNormalLight = true;
             break;
@@ -846,8 +843,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
   private void renderVisionOverlay(PlayerView view) {
     var tokenUnderMouse = zoneCache.getZoneRenderer().getTokenUnderMouse();
-    if (tokenUnderMouse == null)
-      return;
+    if (tokenUnderMouse == null) return;
 
     Area currentTokenVisionArea = zoneCache.getZoneView().getVisibleArea(tokenUnderMouse, view);
     if (currentTokenVisionArea == null) {
@@ -887,7 +883,7 @@ public class GdxRenderer extends ApplicationAdapter {
     if (tokenUnderMouse == null) return;
 
     boolean useHaloColor =
-        tokenUnderMouse.getHaloColor() != null && AppPreferences.getUseHaloColorOnVisionOverlay();
+        tokenUnderMouse.getHaloColor() != null && AppPreferences.useHaloColorOnVisionOverlay.get();
     if (tokenUnderMouse.getVisionOverlayColor() != null || useHaloColor) {
       java.awt.Color visionColor =
           useHaloColor ? tokenUnderMouse.getHaloColor() : tokenUnderMouse.getVisionOverlayColor();
@@ -896,7 +892,7 @@ public class GdxRenderer extends ApplicationAdapter {
           visionColor.getRed() / 255f,
           visionColor.getGreen() / 255f,
           visionColor.getBlue() / 255f,
-          AppPreferences.getHaloOverlayOpacity() / 255f);
+          AppPreferences.haloOverlayOpacity.get() / 255f);
       areaRenderer.setColor(tmpColor);
       areaRenderer.fillArea(batch, visible);
     }
@@ -977,7 +973,7 @@ public class GdxRenderer extends ApplicationAdapter {
   private void renderFogArea(Area softFog, Area visibleArea) {
     if (zoneCache.getZoneView().isUsingVision()) {
       if (visibleArea != null && !visibleArea.isEmpty()) {
-        tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
+        tmpColor.set(0, 0, 0, AppPreferences.fogOverlayOpacity.get() / 255.0f);
         areaRenderer.setColor(tmpColor);
         // Fill in the exposed area
         areaRenderer.fillArea(batch, softFog);
@@ -988,7 +984,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
         areaRenderer.fillArea(batch, visibleArea);
       } else {
-        tmpColor.set(0, 0, 0, AppPreferences.getFogOverlayOpacity() / 255.0f);
+        tmpColor.set(0, 0, 0, AppPreferences.fogOverlayOpacity.get() / 255.0f);
         areaRenderer.setColor(tmpColor);
         areaRenderer.fillArea(batch, softFog);
       }
@@ -1257,7 +1253,7 @@ public class GdxRenderer extends ApplicationAdapter {
   }
 
   private void renderAuras(PlayerView view) {
-    var alpha = AppPreferences.getAuraOverlayOpacity() / 255.0f;
+    var alpha = AppPreferences.auraOverlayOpacity.get() / 255.0f;
 
     // Setup
     timer.start("renderAuras:getAuras");
@@ -1284,7 +1280,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
       renderLightOverlay(
           drawableLights,
-          AppPreferences.getLightOverlayOpacity() / 255.f,
+          AppPreferences.lightOverlayOpacity.get() / 255.f,
           GL20.GL_SRC_COLOR,
           GL20.GL_ONE_MINUS_SRC_COLOR);
       timer.stop("renderLights:renderLightOverlay");
@@ -1293,7 +1289,7 @@ public class GdxRenderer extends ApplicationAdapter {
     if (AppState.isShowLumensOverlay()) {
       // Lumens overlay enabled.
       timer.start("renderLights:renderLumensOverlay");
-      renderLumensOverlay(view, AppPreferences.getLumensOverlayOpacity() / 255.0f);
+      renderLumensOverlay(view, AppPreferences.lumensOverlayOpacity.get() / 255.0f);
       timer.stop("renderLights:renderLumensOverlay");
     }
   }
@@ -1370,7 +1366,7 @@ public class GdxRenderer extends ApplicationAdapter {
     batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
     // Now draw borders around each region if configured.
     batch.setColor(Color.WHITE);
-    final var borderThickness = AppPreferences.getLumensOverlayBorderThickness();
+    final var borderThickness = AppPreferences.lumensOverlayBorderThickness.get();
     if (borderThickness > 0) {
       tmpColor.set(0.f, 0.f, 0.f, 1.f);
       for (final var lumensLevel : disjointLumensLevels) {
@@ -1559,7 +1555,7 @@ public class GdxRenderer extends ApplicationAdapter {
             batch,
             zoneCache.getZone().getGrid().getTokenCellArea(tokenBounds),
             false,
-            AppPreferences.getHaloLineWidth());
+            AppPreferences.haloLineWidth.get());
       }
 
       // Calculate alpha Transparency from token and use opacity for indicating that token is moving
@@ -1626,7 +1622,7 @@ public class GdxRenderer extends ApplicationAdapter {
           case FIGURE:
             if (token.getHasImageTable()
                 && token.hasFacing()
-                && AppPreferences.getForceFacingArrow() == false) {
+                && AppPreferences.forceFacingArrow.get() == false) {
               break;
             }
             java.awt.Shape arrow =
@@ -1659,7 +1655,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
             break;
           case TOP_DOWN:
-            if (AppPreferences.getForceFacingArrow() == false) {
+            if (AppPreferences.forceFacingArrow.get() == false) {
               break;
             }
           case CIRCLE:
@@ -1796,12 +1792,7 @@ public class GdxRenderer extends ApplicationAdapter {
         }
         if (useIF && token.getLayer().supportsVision() && zoneCache.getZoneView().isUsingVision()) {
           Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
-          if (tool
-                  instanceof
-                  RectangleExposeTool // XXX Change to use marker interface such as ExposeTool?
-              || tool instanceof OvalExposeTool
-              || tool instanceof FreehandExposeTool
-              || tool instanceof PolygonExposeTool) {
+          if (tool instanceof WallTopologyTool) {
             selectedBorder = RessourceManager.getBorder(Borders.FOW_TOOLS);
           }
         }
@@ -1866,7 +1857,7 @@ public class GdxRenderer extends ApplicationAdapter {
     // Stacks
     // TODO: find a cleaner way to indicate token layer
     if (!tokenList.isEmpty() && tokenList.get(0).getLayer().isTokenLayer()) {
-      boolean hideTSI = AppPreferences.getHideTokenStackIndicator();
+      boolean hideTSI = AppPreferences.hideTokenStackIndicator.get();
       if (tokenStackMap != null
           && !hideTSI) { // FIXME Needed to prevent NPE but how can it be null?
         for (Token token : tokenStackMap.keySet()) {

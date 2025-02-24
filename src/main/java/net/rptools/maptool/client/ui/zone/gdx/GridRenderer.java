@@ -17,16 +17,12 @@ package net.rptools.maptool.client.ui.zone.gdx;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
-import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Pools;
+import java.awt.*;
 import net.rptools.maptool.client.AppState;
-import net.rptools.maptool.client.swing.SwingUtil;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRendererConstants;
 import net.rptools.maptool.model.*;
-import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
-
-import java.awt.*;
 
 public class GridRenderer {
   private ZoneCache zoneCache;
