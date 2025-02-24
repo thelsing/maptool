@@ -138,6 +138,8 @@ reflections                  = { group = "org.reflections",             name = "
 yasb                         = { group = "yasb",                        name = "yasb",                    version = "0.2-21012007"    }
 # For map noise
 noiselib                     = { group = "com.github.cwisniew",         name = "NoiseLib",                version = "1.0.0"           }
+# translation
+deepl                        = { group=  "com.deepl.api",               name = "deepl-java",              version = "1.8.1"          }
 
 # JS support for macros
 graalvm-js                   = { group = "org.graalvm.js",              name = "js",                      version.ref = "graalvm-js"  }
@@ -159,6 +161,7 @@ rptools-maptool-addons       = { group = "com.github.RPTools",          name = "
 # For advanced dice roller
 rptools-dice-roller          = { group = "com.github.RPTools",          name = "advanced-dice-roller",    version = "1.0.3"           }
 
+
 # Test only
 junit-platform-launcher      = { group = "org.junit.platform",          name = "junit-platform-launcher", version     = "1.11.4"      }
 junit-engine                 = { group = "org.junit.jupiter",           name = "junit-jupiter-engine",    version.ref = "junit"       }
@@ -166,7 +169,6 @@ junit-api                    = { group = "org.junit.jupiter",           name = "
 junit-params                 = { group = "org.junit.jupiter",           name = "junit-jupiter-params",    version.ref = "junit"       }
 # For mocking features during unit tests
 mockito-core                 = { group = "org.mockito",                 name = "mockito-core",            version     = "5.15.2"      }
-
 
 [bundles]
 log4j       = [ "log4j-core", "log4j-api", "log4j-1_2-api" ]

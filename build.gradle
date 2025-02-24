@@ -420,6 +420,7 @@ dependencies {
     implementation(libs.rptools.maptool.addons)
     implementation(libs.rptools.dice.roller)
     implementation(libs.noiselib)
+    implementation(libs.deepl)
 }
 
 processResources {

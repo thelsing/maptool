@@ -60,6 +60,7 @@ import net.rptools.maptool.util.GraphicsUtil;
 import net.rptools.maptool.util.ImageManager;
 import net.rptools.maptool.util.StringUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.util.Strings;
 
 /**
  * This is the pointer tool from the top-level of the toolbar. It allows tokens to be selected and

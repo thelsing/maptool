@@ -20,7 +20,6 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 import net.rptools.lib.MD5Key;
 import net.rptools.maptool.client.AppPreferences;
-import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.model.drawing.DrawableColorPaint;
 import net.rptools.maptool.model.drawing.DrawablePaint;
 import net.rptools.maptool.model.drawing.DrawableTexturePaint;
@@ -43,7 +42,7 @@ public class ZoneFactory {
     }
 
     File grassImage =
-        new File(AppUtil.getAppHome("resource/Default/Textures").getAbsolutePath() + "/Grass.png");
+        new File("C:\\Users\\tkunze\\OneDrive\\Desktop\\cos\\art\\woodboard_seemless.jpg");
     if (!grassImage.exists()) {
       log.warn(
           "Unable to load the default background texture: file {} does not exist",
