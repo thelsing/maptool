@@ -26,6 +26,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListSet;
 import javax.swing.*;
+import net.rptools.maptool.client.AppConstants;
 import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.MapToolExpressionParser;
@@ -185,7 +186,7 @@ public class getInfoFunction extends AbstractFunction {
       final var backgroundPaint = zone.getBackgroundPaint();
       String background = null;
       if (backgroundPaint instanceof DrawableColorPaint dcp) {
-        background = String.format("#%h", zone.getGridColor());
+        background = String.format("#%h", dcp.getColor());
       } else if (backgroundPaint instanceof DrawableTexturePaint dtp) {
         background = "asset://" + dtp.getAssetId().toString();
       }
@@ -195,7 +196,7 @@ public class getInfoFunction extends AbstractFunction {
       final var fogPaint = zone.getFogPaint();
       String fog = null;
       if (fogPaint instanceof DrawableColorPaint dcp) {
-        fog = String.format("#%h", zone.getGridColor());
+        fog = String.format("#%h", dcp.getColor());
       } else if (fogPaint instanceof DrawableTexturePaint dtp) {
         fog = "asset://" + dtp.getAssetId().toString();
       }
@@ -217,17 +218,19 @@ public class getInfoFunction extends AbstractFunction {
   private JsonObject getClientInfo() {
     JsonObject cinfo = new JsonObject();
 
-    cinfo.addProperty("face edge", FunctionUtil.getDecimalForBoolean(AppPreferences.getFaceEdge()));
     cinfo.addProperty(
-        "face vertex", FunctionUtil.getDecimalForBoolean(AppPreferences.getFaceVertex()));
-    cinfo.addProperty("portrait size", AppPreferences.getPortraitSize());
-    cinfo.addProperty("show portrait", AppPreferences.getShowPortrait());
-    cinfo.addProperty("show stat sheet", AppPreferences.getShowStatSheet());
-    cinfo.addProperty("file sync directory", AppPreferences.getFileSyncPath());
-    cinfo.addProperty("show avatar in chat", AppPreferences.getShowAvatarInChat());
+        "face edge", FunctionUtil.getDecimalForBoolean(AppPreferences.faceEdge.get()));
     cinfo.addProperty(
-        "suppress tooltips for macroLinks", AppPreferences.getSuppressToolTipsForMacroLinks());
-    cinfo.addProperty("use tooltips for inline rolls", AppPreferences.getUseToolTipForInlineRoll());
+        "face vertex", FunctionUtil.getDecimalForBoolean(AppPreferences.faceVertex.get()));
+    cinfo.addProperty("portrait size", AppPreferences.portraitSize.get());
+    cinfo.addProperty("show portrait", AppPreferences.showPortrait.get());
+    cinfo.addProperty("show stat sheet", AppPreferences.showStatSheet.get());
+    cinfo.addProperty("file sync directory", AppPreferences.fileSyncPath.get());
+    cinfo.addProperty("show avatar in chat", AppPreferences.showAvatarInChat.get());
+    cinfo.addProperty(
+        "suppress tooltips for macroLinks", AppPreferences.suppressToolTipsForMacroLinks.get());
+    cinfo.addProperty(
+        "use tooltips for inline rolls", AppPreferences.useToolTipForInlineRoll.get());
     cinfo.addProperty("version", MapTool.getVersion());
     cinfo.addProperty(
         "isFullScreen", FunctionUtil.getDecimalForBoolean(MapTool.getFrame().isFullScreen()));
@@ -258,7 +261,9 @@ public class getInfoFunction extends AbstractFunction {
     ConcurrentSkipListSet<HTMLOverlayManager> registeredOverlays =
         MapTool.getFrame().getOverlayPanel().getOverlays();
     for (HTMLOverlayManager o : registeredOverlays) {
-      overlays.add(o.getName(), o.getProperties());
+      if (!o.getName().startsWith(AppConstants.INTERNAL_FRAME_PREFIX)) {
+        overlays.add(o.getName(), o.getProperties());
+      }
     }
     cinfo.add("overlays", overlays);
 
@@ -385,10 +390,6 @@ public class getInfoFunction extends AbstractFunction {
         linfo.addProperty("type", ls.getType().name());
         linfo.addProperty("scale", ls.isScaleWithToken());
         linfo.addProperty("ignores-vbl", ls.isIgnoresVBL());
-        // List<Light> lights = new ArrayList<Light>();
-        // for (Light light : ls.getLightList()) {
-        // lights.add(light);
-        // }
         JsonArray lightList = new JsonArray();
         for (Light light : ls.getLightList()) {
           lightList.add(gson.toJsonTree(light));

@@ -58,7 +58,7 @@ import net.rptools.maptool.model.sheet.stats.StatSheetManager;
 import net.rptools.maptool.util.GraphicsUtil;
 import net.rptools.maptool.util.ImageManager;
 import net.rptools.maptool.util.StringUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * This is the pointer tool from the top-level of the toolbar. It allows tokens to be selected and
@@ -67,6 +67,7 @@ import org.apache.commons.lang.StringUtils;
  * held down (possibly in combination with Shift or Ctrl).
  */
 public class PointerTool extends DefaultTool {
+
   private static final long serialVersionUID = 8606021718606275084L;
   private BufferedImage panelTexture = RessourceManager.getImage(Images.TEXTURE_PANEL);
 
@@ -144,8 +145,8 @@ public class PointerTool extends DefaultTool {
    * use. Those keystrokes are then added to the InputMap and ActionMap for the component by calling
    * the superclass's addListeners() method.
    *
-   * @deprecated
    * @param comp the component to add as listener
+   * @deprecated
    */
   @Deprecated
   protected void addListeners_NOT_USED(JComponent comp) {
@@ -165,8 +166,7 @@ public class PointerTool extends DefaultTool {
    * criminal acts on the code base. :(
    */
   @Override
-  protected void addGridBasedKeys(Grid grid, boolean enable) { // XXX Currently not called from
-    // anywhere
+  protected void addGridBasedKeys(Grid grid, boolean enable) {
     try {
       if (enable) {
         grid.installMovementKeys(this, keyActionMap);
@@ -240,6 +240,7 @@ public class PointerTool extends DefaultTool {
   }
 
   private class TokenStackPanel {
+
     private static final int PADDING = 4;
 
     private List<Token> tokenList;
@@ -312,8 +313,6 @@ public class PointerTool extends DefaultTool {
             .startTokenDrag(
                 token,
                 Collections.singleton(token.getId()),
-                // TODO is dragstart even correct in this case? I know it's not from the map
-                // explorer
                 new ScreenPoint(dragStartX, dragStartY).convertToZone(renderer),
                 false);
       }
@@ -374,7 +373,9 @@ public class PointerTool extends DefaultTool {
   }
 
   private boolean handledByHover(Point p) {
-    if (!isShowingHover) return false;
+    if (!isShowingHover) {
+      return false;
+    }
 
     if (htmlRenderer.contains(p)) {
       htmlRenderer.clickAt(p);
@@ -389,7 +390,9 @@ public class PointerTool extends DefaultTool {
   public void mousePressed(MouseEvent e) {
     super.mousePressed(e);
 
-    if (handledByHover(e.getPoint())) return;
+    if (handledByHover(e.getPoint())) {
+      return;
+    }
 
     mouseButtonDown = true;
 
@@ -478,7 +481,6 @@ public class PointerTool extends DefaultTool {
   @Override
   public void mouseReleased(MouseEvent e) {
     mouseButtonDown = false;
-    // System.out.println("mouseReleased " + e.toString());
 
     if (isShowingTokenStackPopup) {
       if (tokenStackPanel.contains(e.getX(), e.getY())) {
@@ -495,7 +497,7 @@ public class PointerTool extends DefaultTool {
     // WAYPOINT
     if (SwingUtilities.isRightMouseButton(e) && tokenDragOp != null) {
       tokenDragOp.setWaypoint();
-      setDraggingMap(false); // We no longer drag the map. Fixes bug #616
+      cancelMapDrag(); // We no longer drag the map. Fixes bug #616
       return;
     }
 
@@ -582,13 +584,6 @@ public class PointerTool extends DefaultTool {
           new StampPopupMenu(selectedTokens, e.getX(), e.getY(), renderer, tokenUnderMouse)
               .showPopup(renderer);
         } else if (AppUtil.playerOwns(tokenUnderMouse)) {
-          // FIXME Every once in awhile we get a report on the forum of the following exception:
-          // java.awt.IllegalComponentStateException: component must be showing on the screen to
-          // determine its location
-          // It's thrown as a result of the showPopup() call on the next line. For the life of me, I
-          // can't figure out why the "renderer" component might not be "showing on the screen"???
-          // Maybe it has something to do with a dual-monitor configuration? Or a monitor added
-          // after Java was started and then MT dragged to that monitor?
           new TokenPopupMenu(selectedTokens, e.getX(), e.getY(), renderer, tokenUnderMouse)
               .showPopup(renderer);
         }
@@ -703,9 +698,7 @@ public class PointerTool extends DefaultTool {
         renderer.repaint();
       }
     }
-    // XXX Updating the status bar is done in super.mouseDragged() -- maybe just call that here?
-    // But
-    // it also causes repaint events...
+
     CellPoint cellUnderMouse = renderer.getCellAt(new ScreenPoint(mouseX, mouseY));
     if (cellUnderMouse != null) {
       MapTool.getFrame().getCoordinateStatusBar().update(cellUnderMouse.x, cellUnderMouse.y);
@@ -771,7 +764,7 @@ public class PointerTool extends DefaultTool {
             selectedTokenSet,
             new ScreenPoint(dragStartX, dragStartY).convertToZone(renderer),
             false);
-        if (AppPreferences.getHideMousePointerWhileDragging()) {
+        if (AppPreferences.hideMousePointerWhileDragging.get()) {
           SwingUtil.hidePointer(renderer);
         }
       }
@@ -873,13 +866,12 @@ public class PointerTool extends DefaultTool {
           private static final long serialVersionUID = 1L;
 
           public void actionPerformed(ActionEvent e) {
-            // TODO: Combine all this crap with the Stamp tool
             if (renderer.getSelectedTokenSet().isEmpty()) {
               return;
             }
             Toolbox toolbox = MapTool.getFrame().getToolbox();
 
-            FacingTool tool = (FacingTool) toolbox.getTool(FacingTool.class);
+            FacingTool tool = toolbox.getTool(FacingTool.class);
             tool.init(
                 renderer.getZone().getToken(renderer.getSelectedTokenSet().iterator().next()),
                 renderer.getSelectedTokenSet());
@@ -888,7 +880,6 @@ public class PointerTool extends DefaultTool {
           }
         });
 
-    // TODO: Optimize this by making it non anonymous
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), ToolHelper.getDeleteTokenAction());
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, true), new StopPointerActionListener());
@@ -951,8 +942,6 @@ public class PointerTool extends DefaultTool {
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD9, 0), new MovementKey(this, size, -size));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD4, 0), new MovementKey(this, -size, 0));
-    // actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD5, 0), new MovementKey(this, 0,
-    // 0));
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD6, 0), new MovementKey(this, size, 0));
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD1, 0), new MovementKey(this, -size, size));
@@ -1102,8 +1091,8 @@ public class PointerTool extends DefaultTool {
                 .getGrid()
                 .nextFacing(
                     facing,
-                    AppPreferences.getFaceEdge(),
-                    AppPreferences.getFaceVertex(),
+                    AppPreferences.faceEdge.get(),
+                    AppPreferences.faceVertex.get(),
                     direction < 0);
       }
       MapTool.serverCommand().updateTokenProperty(token, Token.Update.setFacing, facing);
@@ -1159,6 +1148,7 @@ public class PointerTool extends DefaultTool {
   // //
   // POINTER KEY ACTION
   private class PointerActionListener extends AbstractAction {
+
     private static final long serialVersionUID = 8348513388262364724L;
 
     Pointer.Type type;
@@ -1179,8 +1169,6 @@ public class PointerTool extends DefaultTool {
 
         ZonePoint zp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
         Pointer pointer = new Pointer(renderer.getZone(), zp.x, zp.y, 0, type);
-        // Jamz test move clients to view when using point (for GM only)...
-        // TODO: Snap player view back when done?
         if (MapTool.getPlayer().isGM() && type.equals(Pointer.Type.LOOK_HERE)) {
           MapTool.serverCommand()
               .enforceZoneView(
@@ -1306,6 +1294,7 @@ public class PointerTool extends DefaultTool {
   // //
   // STOP POINTER ACTION
   private class StopPointerActionListener extends AbstractAction {
+
     private static final long serialVersionUID = -8508019800264211345L;
     private boolean restoreZoneView = false;
 
@@ -1371,7 +1360,7 @@ public class PointerTool extends DefaultTool {
       Stroke stroke = g.getStroke();
       g.setStroke(new BasicStroke(2));
 
-      if (AppPreferences.getFillSelectionBox()) {
+      if (AppPreferences.fillSelectionBox.get()) {
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .25f));
         g.setPaint(AppStyle.selectionBoxFill);
         g.fillRoundRect(
@@ -1403,8 +1392,9 @@ public class PointerTool extends DefaultTool {
         && tokenDragOp == null
         && AppUtil.tokenIsVisible(
             renderer.getZone(), tokenUnderMouse, new PlayerView(MapTool.getPlayer().getRole()))) {
-      if (AppPreferences.getPortraitSize() > 0
-          && (SwingUtil.isShiftDown(keysDown) == AppPreferences.getShowStatSheetModifier())
+      if (AppPreferences.portraitSize.get() > 0
+          && (SwingUtil.isShiftDown(keysDown)
+              == AppPreferences.showStatSheetRequiresModifierKey.get())
           && new StatSheetManager().isLegacyStatSheet(tokenUnderMouse.getStatSheet())
           && (tokenOnStatSheet == null
               || !tokenOnStatSheet.equals(tokenUnderMouse)
@@ -1413,7 +1403,7 @@ public class PointerTool extends DefaultTool {
 
         BufferedImage image = null;
         Dimension imgSize = new Dimension(0, 0);
-        if (AppPreferences.getShowPortrait()) {
+        if (AppPreferences.showPortrait.get()) {
           // Portrait
           MD5Key portraitId =
               tokenUnderMouse.getPortraitImage() != null
@@ -1434,7 +1424,7 @@ public class PointerTool extends DefaultTool {
           imgSize = new Dimension(image.getWidth(), image.getHeight());
 
           // Size
-          SwingUtil.constrainTo(imgSize, AppPreferences.getPortraitSize());
+          SwingUtil.constrainTo(imgSize, AppPreferences.portraitSize.get());
         }
 
         Dimension statSize = null;
@@ -1454,7 +1444,7 @@ public class PointerTool extends DefaultTool {
         Map<String, String> propertyMap = new LinkedHashMap<String, String>();
         Map<String, Integer> propertyLineCount = new LinkedHashMap<String, Integer>();
         LinkedList<TextLayout> lineLayouts = new LinkedList<TextLayout>();
-        if (AppPreferences.getShowStatSheet()
+        if (AppPreferences.showStatSheet.get()
             && new StatSheetManager().isLegacyStatSheet(tokenUnderMouse.getStatSheet())) {
           CodeTimer.using(
               "statSheet",
@@ -1480,7 +1470,9 @@ public class PointerTool extends DefaultTool {
                     resolver.flush();
                     if (propertyValue != null && propertyValue.toString().length() > 0) {
                       String propName = property.getShortName();
-                      if (StringUtils.isEmpty(propName)) propName = property.getName();
+                      if (StringUtils.isEmpty(propName)) {
+                        propName = property.getName();
+                      }
                       propertyMap.put(propName, propertyValue.toString());
                     }
                     timer.stop(property.getName());
@@ -1499,7 +1491,6 @@ public class PointerTool extends DefaultTool {
           int layoutWidth = 1;
           if (!propertyMap.isEmpty()) {
             // Figure out size requirements
-            // int height = propertyMap.size() * (rowHeight + PADDING);
             int height = 0;
             // Iterate over keys to reserve room for key column
             for (Entry<String, String> entry : propertyMap.entrySet()) {
@@ -1629,18 +1620,12 @@ public class PointerTool extends DefaultTool {
                 }
               }
 
-              // statsG.setFont(font);
-              // int strw = SwingUtilities.computeStringWidth(valueFM,
-              // entry.getValue());
-              // statsG.drawString(entry.getValue(), bounds.x + bounds.width - strw
-              // -PADDING, y);
-
               y += PADDING;
             }
           }
 
           // Draw the portrait
-          if (AppPreferences.getShowPortrait()) {
+          if (AppPreferences.showPortrait.get()) {
             Rectangle bounds =
                 new Rectangle(lm, height - imgSize.height - bm, imgSize.width, imgSize.height);
 
@@ -1649,7 +1634,7 @@ public class PointerTool extends DefaultTool {
                     panelTexture,
                     new Rectangle(0, 0, panelTexture.getWidth(), panelTexture.getHeight())));
             statsG.fill(bounds);
-            AppPreferences.getRenderQuality().setShrinkRenderingHints(g);
+            AppPreferences.renderQuality.get().setShrinkRenderingHints(g);
             statsG.drawImage(image, bounds.x, bounds.y, imgSize.width, imgSize.height, this);
             AppStyle.miniMapBorder.paintAround(statsG, bounds);
             AppStyle.shadowBorder.paintWithin(statsG, bounds);
@@ -1657,7 +1642,7 @@ public class PointerTool extends DefaultTool {
             // Label
             GraphicsUtil.drawBoxedString(
                 statsG, tokenUnderMouse.getName(), bounds.width / 2 + lm, height - 15);
-          } else if (AppPreferences.getShowStatSheet() && statSize != null) {
+          } else if (AppPreferences.showStatSheet.get() && statSize != null) {
             // Label
             Rectangle bounds =
                 new Rectangle(
@@ -1720,10 +1705,6 @@ public class PointerTool extends DefaultTool {
       }
 
       // Background
-      // g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .5f));
-      // g.setColor(Color.black);
-      // g.fillRect(location.x, location.y, size.width, size.height);
-      // g.setComposite(composite);
       g.setPaint(
           new TexturePaint(
               panelTexture,
@@ -1738,8 +1719,6 @@ public class PointerTool extends DefaultTool {
       // Border
       AppStyle.miniMapBorder.paintAround(g, location.x, location.y, size.width, size.height);
       AppStyle.shadowBorder.paintWithin(g, location.x, location.y, size.width, size.height);
-      // AppStyle.border.paintAround(g, location.x, location.y,
-      // size.width, size.height);
     }
   }
 
@@ -1799,6 +1778,7 @@ public class PointerTool extends DefaultTool {
   }
 
   private static final class TokenDragOp {
+
     private final ZoneRenderer renderer;
     private final Token tokenBeingDragged;
     private boolean isMovingWithKeys;
@@ -1832,7 +1812,7 @@ public class PointerTool extends DefaultTool {
     }
 
     public void finish() {
-      renderer.commitMoveSelectionSet(tokenBeingDragged.getId()); // TODO: figure out a better way
+      renderer.commitMoveSelectionSet(tokenBeingDragged.getId());
       exposeFoW(null);
     }
 
@@ -1865,7 +1845,7 @@ public class PointerTool extends DefaultTool {
       var grid = renderer.getZone().getGrid();
       if (tokenBeingDragged.isSnapToGrid()
           && grid.getCapabilities().isSnapToGridSupported()
-          && AppPreferences.getTokensSnapWhileDragging()) {
+          && AppPreferences.tokensSnapWhileDragging.get()) {
         // Snap to grid point.
         zonePoint = grid.convert(grid.convert(zonePoint));
 
@@ -1967,7 +1947,7 @@ public class PointerTool extends DefaultTool {
 
       if (MapTool.isPersonalServer()) {
         ownerReveal =
-            hasOwnerReveal = noOwnerReveal = AppPreferences.getAutoRevealVisionOnGMMovement();
+            hasOwnerReveal = noOwnerReveal = AppPreferences.autoRevealVisionOnGMMovement.get();
       } else {
         ownerReveal = MapTool.getServerPolicy().isAutoRevealOnMovement();
         hasOwnerReveal = isGM && MapTool.getServerPolicy().isAutoRevealOnMovement();
@@ -1981,9 +1961,13 @@ public class PointerTool extends DefaultTool {
           if (token == null) {
             continue;
           }
-          if (ownerReveal && token.isOwner(name)) exposeSet.add(tokenGUID);
-          else if (hasOwnerReveal && token.hasOwners()) exposeSet.add(tokenGUID);
-          else if (noOwnerReveal && !token.hasOwners()) exposeSet.add(tokenGUID);
+          if (ownerReveal && token.isOwner(name)) {
+            exposeSet.add(tokenGUID);
+          } else if (hasOwnerReveal && token.hasOwners()) {
+            exposeSet.add(tokenGUID);
+          } else if (noOwnerReveal && !token.hasOwners()) {
+            exposeSet.add(tokenGUID);
+          }
         }
 
         if (p != null) {
@@ -2009,7 +1993,9 @@ public class PointerTool extends DefaultTool {
       if (zone.hasFog()) {
         // Check that the new position for each token is within the exposed area
         Area zoneFog = zone.getExposedArea();
-        if (zoneFog == null) zoneFog = new Area();
+        if (zoneFog == null) {
+          zoneFog = new Area();
+        }
         boolean useTokenExposedArea =
             MapTool.getServerPolicy().isUseIndividualFOW()
                 && zone.getVisionType() != VisionType.OFF;

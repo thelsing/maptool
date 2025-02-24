@@ -27,8 +27,6 @@ import net.rptools.maptool.model.ZonePoint;
  * Base class for the radius, line, and cone templates.
  *
  * @author jgorrell
- * @version $Revision: 5945 $ $Date: 2013-06-03 04:35:50 +0930 (Mon, 03 Jun 2013) $ $Author:
- *     azhrei_fje $
  */
 public abstract class AbstractTemplate extends AbstractDrawing {
   /*---------------------------------------------------------------------------------------------
@@ -56,9 +54,6 @@ public abstract class AbstractTemplate extends AbstractDrawing {
   /*---------------------------------------------------------------------------------------------
    * Class Variables
    *-------------------------------------------------------------------------------------------*/
-
-  /** Maximum radius value allowed. */
-  public static final int MAX_RADIUS = 100;
 
   /** Minimum radius value allowed. */
   public static final int MIN_RADIUS = 1;

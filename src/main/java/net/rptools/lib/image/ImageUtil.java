@@ -47,13 +47,10 @@ import org.apache.logging.log4j.Logger;
  * @author trevor
  */
 public class ImageUtil {
+
   private static final Logger log = LogManager.getLogger();
 
   public static final String HINT_TRANSPARENCY = "hintTransparency";
-
-  // TODO: perhaps look at reintroducing this later
-  // private static GraphicsConfiguration graphicsConfig =
-  // GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
 
   public static final FilenameFilter SUPPORTED_IMAGE_FILE_FILTER =
       (dir, name) -> {
@@ -61,16 +58,12 @@ public class ImageUtil {
         return Arrays.asList(ImageIO.getReaderFileSuffixes()).contains(name);
       };
 
-  // public static void setGraphicsConfiguration(GraphicsConfiguration config) {
-  // graphicsConfig = config;
-  // }
-  //
   /**
    * Load the image. Does not create a graphics configuration compatible version.
    *
    * @param file the file with the image in it
-   * @throws IOException when the image can't be read in the file
    * @return an {@link Image} from the content of the file
+   * @throws IOException when the image can't be read in the file
    */
   public static Image getImage(File file) throws IOException {
     return bytesToImage(FileUtils.readFileToByteArray(file), file.getCanonicalPath());
@@ -80,8 +73,8 @@ public class ImageUtil {
    * Load the image in the classpath. Does not create a graphics configuration compatible version.
    *
    * @param image the resource name of the image file
-   * @throws IOException when the image can't be read in the file
    * @return an {@link Image} from the content of the file
+   * @throws IOException when the image can't be read in the file
    */
   public static Image getImage(String image) throws IOException {
     ByteArrayOutputStream dataStream = new ByteArrayOutputStream(8192);
@@ -155,7 +148,7 @@ public class ImageUtil {
     Graphics2D g = null;
     try {
       g = compImg.createGraphics();
-      AppPreferences.getRenderQuality().setRenderingHints(g);
+      AppPreferences.renderQuality.get().setRenderingHints(g);
       g.drawImage(img, 0, 0, width, height, null);
     } finally {
       if (g != null) {
@@ -189,12 +182,11 @@ public class ImageUtil {
     try {
       pg.grabPixels();
     } catch (InterruptedException e) {
-      System.err.println("interrupted waiting for pixels!");
+      log.error("Interrupted waiting for pixels", e);
       return Transparency.OPAQUE;
     }
     if ((pg.getStatus() & ImageObserver.ABORT) != 0) {
       log.error("image fetch aborted or errored");
-      System.err.println("image fetch aborted or errored");
       return Transparency.OPAQUE;
     }
     // Look for specific pixels
@@ -442,7 +434,7 @@ public class ImageUtil {
    */
   public static BufferedImage scaleBufferedImage(BufferedImage image, int width, int height) {
     ResampleOp resampleOp =
-        new ResampleOp(width, height, AppPreferences.getRenderQuality().getResampleOpFilter());
+        new ResampleOp(width, height, AppPreferences.renderQuality.get().getResampleOpFilter());
     return resampleOp.filter(image, null);
   }
 }

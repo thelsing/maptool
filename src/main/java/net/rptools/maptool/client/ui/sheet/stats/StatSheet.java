@@ -54,12 +54,14 @@ public class StatSheet {
                     .getOverlay(AppConstants.INTERNAL_MAP_UNDER_POINTER_HTML_OVERLAY_NAME);
             if (overlay != null) {
               overlay.updateContents(output, true);
+              overlay.setVisible(true);
             } else {
               MapTool.getFrame()
                   .getOverlayPanel()
                   .showOverlay(
                       AppConstants.INTERNAL_MAP_UNDER_POINTER_HTML_OVERLAY_NAME,
-                      Integer.MIN_VALUE,
+                      Integer.MAX_VALUE,
+                      Boolean.TRUE,
                       output,
                       null);
             }
@@ -77,7 +79,10 @@ public class StatSheet {
               MapTool.getFrame()
                   .getOverlayPanel()
                   .getOverlay(AppConstants.INTERNAL_MAP_UNDER_POINTER_HTML_OVERLAY_NAME);
-          overlay.updateContents("", true);
+          if (overlay != null) {
+            overlay.setVisible(false);
+            overlay.updateContents("", true);
+          }
         });
   }
 }

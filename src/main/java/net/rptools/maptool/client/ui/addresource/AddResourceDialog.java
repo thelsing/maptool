@@ -40,8 +40,8 @@ import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
 import net.rptools.lib.FileUtil;
-import net.rptools.maptool.client.AppPreferences;
 import net.rptools.maptool.client.AppSetup;
+import net.rptools.maptool.client.AppStatePersisted;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.RemoteFileDownloader;
 import net.rptools.maptool.client.WebDownloader;
@@ -50,7 +50,7 @@ import net.rptools.maptool.client.swing.GenericDialog;
 import net.rptools.maptool.client.ui.theme.Icons;
 import net.rptools.maptool.client.ui.theme.RessourceManager;
 import net.rptools.maptool.language.I18N;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -196,7 +196,7 @@ public class AddResourceDialog extends AbeillePanel<AddResourceDialog.Model> {
           new DownloadListWorker(
               getLibraryList(),
               new WebDownloader(new URL(LIBRARY_LIST_URL)),
-              AppPreferences.getAssetRoots());
+              AppStatePersisted.getAssetRoots());
       worker.execute();
     } catch (MalformedURLException e) {
       MapTool.showMessage(

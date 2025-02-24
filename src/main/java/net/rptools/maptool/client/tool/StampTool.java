@@ -81,7 +81,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
 
   private final TokenStackPanel tokenStackPanel = new TokenStackPanel();
 
-  // private Map<Shape, Token> rotateBoundsMap = new HashMap<Shape, Token>();
   private final Map<Shape, Token> resizeBoundsMap = new HashMap<Shape, Token>();
 
   // Keeps track of the start of a token drag, in screen coordinates.
@@ -219,8 +218,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
                 .startTokenDrag(
                     location.getToken(),
                     Collections.singleton(location.getToken().getId()),
-                    // TODO is dragstart even correct in this case? I know it's not from the map
-                    // explorer
                     new ScreenPoint(dragStartX, dragStartY).convertToZone(renderer),
                     false);
           }
@@ -648,14 +645,13 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
               return;
             }
             Toolbox toolbox = MapTool.getFrame().getToolbox();
-            FacingTool tool = (FacingTool) toolbox.getTool(FacingTool.class);
+            FacingTool tool = toolbox.getTool(FacingTool.class);
             tool.init(
                 renderer.getZone().getToken(renderer.getSelectedTokenSet().iterator().next()),
                 renderer.getSelectedTokenSet());
             toolbox.setSelectedTool(FacingTool.class);
           }
         });
-    // TODO: Optimize this by making it non anonymous
     actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), ToolHelper.getDeleteTokenAction());
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_D, 0),
@@ -684,7 +680,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
           }
         });
 
-    // TODO Should these keystrokes be based on the grid type, like they are in PointerTool?
     actionMap.put(
         KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD6, 0),
         new AbstractAction() {
@@ -970,7 +965,7 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
         Stroke stroke = g.getStroke();
         g.setStroke(new BasicStroke(2));
 
-        if (AppPreferences.getFillSelectionBox()) {
+        if (AppPreferences.fillSelectionBox.get()) {
           Composite composite = g.getComposite();
           g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, .25f));
           g.setPaint(AppStyle.selectionBoxFill);
@@ -1001,7 +996,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
       tokenStackPanel.paint(g);
     } else {
       resizeBoundsMap.clear();
-      // rotateBoundsMap.clear();
       for (GUID tokenGUID : renderer.getSelectedTokenSet()) {
         Token token = renderer.getZone().getToken(tokenGUID);
         if (token == null) {
@@ -1124,7 +1118,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
         adjustAnchor(1 + (newScaleX - currentScaleX), 1 + (newScaleY - currentScaleY));
     }
 
-    // AppState.setShowGrid(showGrid);
     MapTool.getFrame().refresh();
   }
 
@@ -1178,7 +1171,7 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
     }
 
     public void finish() {
-      renderer.commitMoveSelectionSet(tokenBeingDragged.getId()); // TODO: figure out a better way
+      renderer.commitMoveSelectionSet(tokenBeingDragged.getId());
     }
 
     public void dragTo(int mouseX, int mouseY) {
@@ -1324,7 +1317,7 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
     public void dragTo(int mouseX, int mouseY, boolean lockAspectRatio, boolean snapSizeToGrid) {
       var currentZp = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
       if (snapSizeToGrid) { // snap size to grid
-        currentZp = getNearestVertex(currentZp);
+        currentZp = renderer.getZone().getGrid().getNearestVertex(currentZp);
       } else {
         // Keep the cursor at the same conceptual position in the drag handle.
         currentZp.x += dragOffsetX;
@@ -1361,10 +1354,6 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
       tokenBeingResized.setScaleY(updatedHeight / (double) tokenImage.getHeight());
 
       renderer.repaint();
-    }
-
-    private ZonePoint getNearestVertex(ZonePoint point) {
-      return renderer.getZone().getNearestVertex(point);
     }
   }
 }

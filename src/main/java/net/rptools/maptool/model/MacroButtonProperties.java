@@ -73,7 +73,7 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
   private @Nonnull String fontSize = "1.00em";
   private @Nonnull String minWidth = "";
   private @Nonnull String maxWidth = "";
-  private @Nonnull Boolean allowPlayerEdits = AppPreferences.getAllowPlayerMacroEditsDefault();
+  private @Nonnull Boolean allowPlayerEdits = AppPreferences.allowPlayerMacroEditsDefault.get();
   private @Nonnull String toolTip = "";
   private @Nonnull Boolean displayHotKey = true;
 
@@ -174,7 +174,7 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
     setMaxWidth("");
     setTokenId((GUID) null);
     setSaveLocation("");
-    setAllowPlayerEdits(AppPreferences.getAllowPlayerMacroEditsDefault());
+    setAllowPlayerEdits(AppPreferences.allowPlayerMacroEditsDefault.get());
     setDisplayHotKey(true);
     setCompareGroup(true);
     setCompareSortPrefix(true);
@@ -190,7 +190,7 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
     this(index);
     setSaveLocation(panelClass);
     setGroup(group);
-    setAllowPlayerEdits(AppPreferences.getAllowPlayerMacroEditsDefault());
+    setAllowPlayerEdits(AppPreferences.allowPlayerMacroEditsDefault.get());
     setDisplayHotKey(true);
     setCompareGroup(true);
     setCompareSortPrefix(true);
@@ -208,7 +208,7 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
     setSaveLocation("Token");
     setTokenId(token);
     setGroup(group);
-    setAllowPlayerEdits(AppPreferences.getAllowPlayerMacroEditsDefault());
+    setAllowPlayerEdits(AppPreferences.allowPlayerMacroEditsDefault.get());
     setDisplayHotKey(true);
     setCompareGroup(true);
     setCompareSortPrefix(true);
@@ -658,7 +658,6 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
   }
 
   public static String[] getFontColors() {
-    // return (String[]) HTMLColors.toArray();
     String[] array = MapToolUtil.getColorNames().toArray(new String[0]);
     return array;
   }
@@ -815,11 +814,10 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
     fontSize = "1.00em";
     minWidth = "";
     maxWidth = "";
-    allowPlayerEdits = AppPreferences.getAllowPlayerMacroEditsDefault();
+    allowPlayerEdits = AppPreferences.allowPlayerMacroEditsDefault.get();
     toolTip = "";
   }
 
-  // TODO: may have to rewrite hashcode and equals to only take index into account
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -1058,7 +1056,7 @@ public class MacroButtonProperties implements Comparable<MacroButtonProperties> 
       compareApplyToSelectedTokens = true;
     }
     if (allowPlayerEdits == null) {
-      allowPlayerEdits = AppPreferences.getAllowPlayerMacroEditsDefault();
+      allowPlayerEdits = AppPreferences.allowPlayerMacroEditsDefault.get();
     }
     if (macroUUID == null) {
       macroUUID = UUID.randomUUID().toString();

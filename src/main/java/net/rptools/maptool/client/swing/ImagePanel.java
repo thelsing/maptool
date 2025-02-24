@@ -260,9 +260,9 @@ public class ImagePanel extends JComponent
                 Dimension dim = constrainSize(image, gridSize);
                 var savedRenderingHints = g.getRenderingHints();
                 if (dim.width < image.getWidth(null) || dim.height < image.getHeight(null)) {
-                  AppPreferences.getRenderQuality().setShrinkRenderingHints(g);
+                  AppPreferences.renderQuality.get().setShrinkRenderingHints(g);
                 } else if (dim.width > image.getWidth(null) || dim.height > image.getHeight(null)) {
-                  AppPreferences.getRenderQuality().setRenderingHints(g);
+                  AppPreferences.renderQuality.get().setRenderingHints(g);
                 }
                 g.drawImage(
                     image,
@@ -282,7 +282,6 @@ public class ImagePanel extends JComponent
             }
             // Selected
             if (selectedIDList.contains(model.getID(i))) {
-              // TODO: Let the user pick the border
               RessourceManager.getBorder(Borders.RED)
                   .paintAround(g, bounds.x, bounds.y, bounds.width, bounds.height);
             }
@@ -499,8 +498,6 @@ public class ImagePanel extends JComponent
     if (transferable == null) {
       return;
     }
-    // dge.startDrag(Toolkit.getDefaultToolkit().createCustomCursor(model.getImage(index), new
-    // Point(0, 0), "Thumbnail"), transferable, this);
     dge.startDrag(getDragCursor(), transferable, this);
     DragSource.getDefaultDragSource().addDragSourceMotionListener(this);
   }
@@ -548,7 +545,6 @@ public class ImagePanel extends JComponent
     }
     Object imageID = getImageIDAt(e.getX(), e.getY());
 
-    // TODO: Handle shift too
     if (!SwingUtil.isControlDown(e) || selectionMode == SelectionMode.SINGLE) {
       selectedIDList.clear();
     }

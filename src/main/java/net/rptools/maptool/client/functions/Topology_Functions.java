@@ -41,6 +41,8 @@ import net.rptools.parser.Parser;
 import net.rptools.parser.ParserException;
 import net.rptools.parser.VariableResolver;
 import net.rptools.parser.function.AbstractFunction;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * New class extending AbstractFunction to create new "Macro Functions" drawVBL, eraseVBL, getVBL
@@ -129,6 +131,7 @@ public class Topology_Functions extends AbstractFunction {
   private static final Topology_Functions instance = new Topology_Functions();
   private static final String[] paramTranslate = new String[] {"tx", "ty"};
   private static final String[] paramScale = new String[] {"sx", "sy"};
+  private static final Logger log = LogManager.getLogger(Topology_Functions.class);
 
   private Topology_Functions() {
     super(
@@ -290,7 +293,8 @@ public class Topology_Functions extends AbstractFunction {
             default -> null;
           };
       if (newArea != null) {
-        TokenVBL.renderTopology(renderer, newArea, erase, topologyType);
+        MapTool.serverCommand()
+            .updateMaskTopology(renderer.getZone(), newArea, erase, topologyType);
       }
     }
   }
@@ -349,7 +353,7 @@ public class Topology_Functions extends AbstractFunction {
     Area topologyArea = new Area();
     for (int i = 0; i < topologyArray.size(); i++) {
       JsonObject topologyObject = topologyArray.get(i).getAsJsonObject();
-      Area tempTopologyArea = getTopology(renderer, topologyObject, topologyType, functionName);
+      Area tempTopologyArea = getMaskTopology(renderer, topologyObject, topologyType, functionName);
       topologyArea.add(tempTopologyArea);
     }
 
@@ -405,7 +409,7 @@ public class Topology_Functions extends AbstractFunction {
     }
 
     JsonArray allShapes = new JsonArray();
-    Area topologyArea = token.getTopology(topologyType);
+    Area topologyArea = token.getMaskTopology(topologyType);
     if (topologyArea != null) {
       var areaShape = getAreaShapeObject(topologyArea);
       if (areaShape != null) {
@@ -508,15 +512,11 @@ public class Topology_Functions extends AbstractFunction {
 
           break;
         case NONE:
-          // Setting to null causes various token topology updating to be skipped during event
-          // handling. Leaving it as an empty Area fixed that.
-          // tokenTopology = null;
           break;
       }
     }
     // Replace with new topology
-    MapTool.serverCommand()
-        .updateTokenProperty(token, Token.Update.setTopology, topologyType, tokenTopology);
+    MapTool.serverCommand().setTokenMaskTopology(token, tokenTopology, topologyType);
 
     return results;
   }
@@ -524,7 +524,6 @@ public class Topology_Functions extends AbstractFunction {
   private void childEvaluateTransferTopology(
       VariableResolver resolver, String functionName, List<Object> parameters)
       throws ParserException {
-    ZoneRenderer renderer = MapTool.getFrame().getCurrentZoneRenderer();
     Token token = null;
 
     Zone.TopologyType topologyType;
@@ -594,18 +593,23 @@ public class Topology_Functions extends AbstractFunction {
       }
     }
 
+    Zone zone = MapTool.getFrame().getCurrentZoneRenderer().getZone();
     if (topologyFromToken) {
-      TokenVBL.renderTopology(
-          renderer, token.getTransformedTopology(topologyType), false, topologyType);
+      var newMapTopology = token.getTransformedMaskTopology(topologyType);
+      if (newMapTopology != null) {
+        MapTool.serverCommand().updateMaskTopology(zone, newMapTopology, false, topologyType);
+      }
       if (delete) {
-        token.setTopology(topologyType, null);
+        MapTool.serverCommand().setTokenMaskTopology(token, null, topologyType);
       }
     } else {
-      Area topology = TokenVBL.getTopology_underToken(renderer, token, topologyType);
-      token.setTopology(
-          topologyType, TokenVBL.getMapTopology_transformed(renderer, token, topologyType));
+      Area topology = TokenVBL.getTopology_underToken(zone, token, topologyType);
+
+      MapTool.serverCommand()
+          .setTokenMaskTopology(
+              token, TokenVBL.transformTopology_toToken(zone, token, topology), topologyType);
       if (delete) {
-        TokenVBL.renderTopology(renderer, topology, true, topologyType);
+        MapTool.serverCommand().updateMaskTopology(zone, topology, true, topologyType);
       }
     }
   }
@@ -1062,7 +1066,7 @@ public class Topology_Functions extends AbstractFunction {
    * @return the topology area.
    * @throws ParserException If the minimum required parameters are not present in the JSON.
    */
-  private Area getTopology(
+  private Area getMaskTopology(
       ZoneRenderer renderer,
       JsonObject topologyObject,
       Zone.TopologyType topologyType,
@@ -1151,7 +1155,7 @@ public class Topology_Functions extends AbstractFunction {
 
     // Note: when multiple modes are requested, the overlap between each topology is returned.
     var zone = renderer.getZone();
-    var topology = zone.getTopology(topologyType);
+    var topology = zone.getMaskTopology(topologyType);
     area.intersect(topology);
 
     return area;
@@ -1229,7 +1233,7 @@ public class Topology_Functions extends AbstractFunction {
       } else if (currentElement[0] == PathIterator.SEG_CLOSE) {
         pointConsumer.accept(moveTo[1], moveTo[2]);
       } else {
-        // System.out.println("in getAreaPoints(): found a curve, ignoring");
+        log.error("Found a curve in the path (segment type {}). Ignoring.", currentElement[0]);
       }
     }
   }

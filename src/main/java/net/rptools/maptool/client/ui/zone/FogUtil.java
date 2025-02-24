@@ -17,22 +17,22 @@ package net.rptools.maptool.client.ui.zone;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.geom.Area;
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import net.rptools.lib.CodeTimer;
 import net.rptools.lib.GeometryUtil;
 import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
-import net.rptools.maptool.client.ui.zone.vbl.AreaTree;
+import net.rptools.maptool.client.ui.zone.vbl.NodedTopology;
 import net.rptools.maptool.client.ui.zone.vbl.VisibilityProblem;
-import net.rptools.maptool.client.ui.zone.vbl.VisionBlockingAccumulator;
 import net.rptools.maptool.model.AbstractPoint;
 import net.rptools.maptool.model.CellPoint;
 import net.rptools.maptool.model.ExposedAreaMetaData;
@@ -44,121 +44,123 @@ import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.player.Player.Role;
+import net.rptools.maptool.model.topology.VisibilityType;
+import net.rptools.maptool.model.topology.VisionResult;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.locationtech.jts.awt.ShapeWriter;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LinearRing;
 
 public class FogUtil {
   private static final Logger log = LogManager.getLogger(FogUtil.class);
   private static final GeometryFactory geometryFactory = GeometryUtil.getGeometryFactory();
 
   /**
-   * Return the visible area for an origin, a lightSourceArea and a VBL.
+   * Performs a vision sweep, producing a visibility polygon.
    *
-   * @param origin the vision origin.
-   * @param vision the lightSourceArea.
-   * @param wallVbl the VBL topology.
-   * @return the visible area.
+   * @param origin The origin point for the vision.
+   * @param visionBounds Some bounds on the vision.
+   * @param topology The topology to account for.
+   * @return The boundary of the visibility polygon. If no vision is possible - e.g., because {@code
+   *     origin} is inside a Wall VBL mask - an empty ring is returned. If no topology was present,
+   *     {@code null} is returned to indicate no restriction on vision.
+   */
+  public static @Nullable LinearRing doVisionSweep(
+      VisibilityType visibilityType,
+      Coordinate origin,
+      Envelope visionBounds,
+      NodedTopology topology) {
+    var timer = CodeTimer.get();
+
+    timer.start("create solver");
+    final var problem = new VisibilityProblem(origin, visionBounds);
+    timer.stop("create solver");
+
+    timer.start("accumulate blocking walls");
+    var visionResult = topology.getSegments(visibilityType, origin, visionBounds, problem::add);
+    if (visionResult == VisionResult.CompletelyObscured) {
+      // No vision possible.
+      return geometryFactory.createLinearRing();
+    }
+    if (problem.isEmpty()) {
+      // No topology.
+      return null;
+    }
+    timer.stop("accumulate blocking walls");
+
+    timer.start("calculate visible area");
+    final Coordinate[] visibilityPolygon;
+    try {
+      visibilityPolygon = problem.solve();
+    } catch (Exception e) {
+      log.error("Unexpected error while calculating visible area.", e);
+      // Play it safe and don't consider anything to be visible.
+      return geometryFactory.createLinearRing();
+    }
+    timer.stop("calculate visible area");
+
+    return geometryFactory.createLinearRing(visibilityPolygon);
+  }
+
+  /**
+   * Figure out the visible area for a given topology, origin, and unblocked vision.
+   *
+   * @param origin The origin point of the vision.
+   * @param vision The area of the vision before blocking is applied.
+   * @param topology The topology to apply to the vision blocking.
+   * @return A subset of {@code vision}, restricted to the visibility polygon. Can be empty if
+   *     vision is not possible.
    */
   public static @Nonnull Area calculateVisibility(
-      Point origin,
-      Area vision,
-      AreaTree wallVbl,
-      AreaTree hillVbl,
-      AreaTree pitVbl,
-      AreaTree coverVbl) {
+      VisibilityType visibilityType, Point2D origin, Area vision, NodedTopology topology) {
     var timer = CodeTimer.get();
     timer.start("FogUtil::calculateVisibility");
-    var originCoordinate = new Coordinate(origin.x, origin.y);
-
     try {
-      timer.start("get vision bounds");
+      var cOrigin = new Coordinate(origin.getX(), origin.getY());
+
       Envelope visionBounds;
-      {
+      try {
+        timer.start("get vision bounds");
         var awtBounds = vision.getBounds2D();
         visionBounds =
             new Envelope(
                 new Coordinate(awtBounds.getMinX(), awtBounds.getMinY()),
                 new Coordinate(awtBounds.getMaxX(), awtBounds.getMaxY()));
+      } finally {
+        timer.stop("get vision bounds");
       }
-      timer.stop("get vision bounds");
 
-      /*
-       * Find the visible area for each topology type independently.
-       *
-       * In principle, we could also combine all the vision blocking segments for all topology types
-       * and run the sweep algorithm once. But this is subject to some pathological cases that JTS
-       * cannot handle. These cases do not exist within a single type of topology, but can arise when
-       * we combine them.
-       */
+      LinearRing visibilityPolygon;
+      try {
+        timer.start("doVisionSweep()");
+        visibilityPolygon = doVisionSweep(visibilityType, cOrigin, visionBounds, topology);
+      } finally {
+        timer.stop("doVisionSweep()");
+      }
 
-      List<Coordinate[]> visibilityPolygons = new ArrayList<>();
-      var topologies = new EnumMap<Zone.TopologyType, AreaTree>(Zone.TopologyType.class);
-      topologies.put(Zone.TopologyType.WALL_VBL, wallVbl);
-      topologies.put(Zone.TopologyType.HILL_VBL, hillVbl);
-      topologies.put(Zone.TopologyType.PIT_VBL, pitVbl);
-      topologies.put(Zone.TopologyType.COVER_VBL, coverVbl);
-      for (final var topology : topologies.entrySet()) {
-
-        timer.start("get pooled vision blocking set");
-        final var solver = new VisibilityProblem(originCoordinate, visionBounds);
-        timer.stop("get pooled vision blocking set");
-
-        timer.start("accumulate blocking walls");
-        final var accumulator =
-            new VisionBlockingAccumulator(originCoordinate, visionBounds, solver);
-
-        final var isVisionCompletelyBlocked =
-            accumulator.add(topology.getKey(), topology.getValue());
-        timer.stop("accumulate blocking walls");
-        if (!isVisionCompletelyBlocked) {
-          // Vision has been completely blocked by this topology. Short circuit.
-          return new Area();
+      Area blockedVision;
+      try {
+        timer.start("combine visibility polygon with vision");
+        if (visibilityPolygon == null) {
+          // There was no topology, so we can just use the original area.
+          blockedVision = new Area(vision);
+        } else if (visibilityPolygon.isEmpty()) {
+          // Vision is not possible.
+          blockedVision = new Area();
+        } else {
+          // We intersect in AWT space because JTS can be finicky about intersection precision.
+          var shapeWriter = new ShapeWriter();
+          // The linear ring is just the boundary, but the resulting shape is the enclosed region.
+          blockedVision = new Area(shapeWriter.toShape(visibilityPolygon));
+          blockedVision.intersect(vision);
         }
-
-        timer.start("calculate visible area");
-        final Coordinate[] visibleArea;
-        try {
-          visibleArea = solver.solve();
-        } catch (Exception e) {
-          log.error("Unexpected error while calculating visible area.", e);
-          // Play it safe and dont consider anything to be visible.
-          return new Area();
-        }
-        timer.stop("calculate visible area");
-
-        timer.start("add visibility polygon");
-        if (visibleArea != null) {
-          visibilityPolygons.add(visibleArea);
-        }
-        timer.stop("add visibility polygon");
+      } finally {
+        timer.stop("combine visibility polygon with vision");
       }
-
-      if (visibilityPolygons.isEmpty()) {
-        return vision;
-      }
-
-      // We have to intersect all the results in order to find the true remaining visible area.
-      timer.start("clone existing vision");
-      vision = new Area(vision);
-      timer.stop("clone existing vision");
-      timer.start("combine visibility polygons with vision");
-      // We intersect in AWT space because JTS can be really finicky about intersection precision.
-      var shapeWriter = new ShapeWriter();
-      for (var visibilityPolygon : visibilityPolygons) {
-        // Even though linear ring is just the boundary, the Area constructor uses the entire
-        // enclosed region.
-        var area =
-            new Area(shapeWriter.toShape(geometryFactory.createLinearRing(visibilityPolygon)));
-        vision.intersect(area);
-      }
-      timer.stop("combine visibility polygons with vision");
-
-      // For simplicity, this catches some of the edge cases
-      return vision;
+      return blockedVision;
     } finally {
       timer.stop("FogUtil::calculateVisibility");
     }
@@ -226,7 +228,6 @@ public class FogUtil {
             MapTool.serverCommand().exposeFoW(zone.getId(), tokenVision, filteredToks);
           }
         }
-        // System.out.println("2. Token: " + token.getGMName() + " - ID: " + token.getId());
         renderer.flush(token);
       } else {
         renderer.flush(token);
@@ -340,19 +341,6 @@ public class FogUtil {
 
     for (Token token : tokList) tokenSet.add(token.getId());
 
-    // System.out.println("tokList: " + tokList.toString());
-
-    /*
-     * TODO: Jamz: May need to add back the isUseIndividualViews() logic later after testing... String playerName = MapTool.getPlayer().getName(); boolean isGM = MapTool.getPlayer().getRole() ==
-     * Role.GM;
-     *
-     * for (Token token : tokList) { boolean owner = token.isOwner(playerName) || isGM;
-     *
-     * //System.out.println("token: " + token.getName() + ", owner: " + owner);
-     *
-     * if ((!MapTool.isPersonalServer() || MapTool.getServerPolicy().isUseIndividualViews()) && !owner) { continue; } tokenSet.add(token.getId()); }
-     */
-
     renderer.getZone().clearExposedArea(tokenSet);
     exposeVisibleArea(renderer, tokenSet, true);
   }
@@ -363,7 +351,6 @@ public class FogUtil {
    * @param renderer the ZoneRenderer of the map.
    */
   public static void restoreFoW(final ZoneRenderer renderer) {
-    // System.out.println("Zone ID: " + renderer.getZone().getId());
     clearExposedArea(renderer.getZone(), false);
   }
 
@@ -463,9 +450,7 @@ public class FogUtil {
   }
 
   /**
-   * Find the center point of a vision TODO: This is a horrible horrible method. the API is just
-   * plain disgusting. But it'll work to consolidate all the places this has to be done until we can
-   * encapsulate it into the vision itself.
+   * Find the center point of a vision
    *
    * @param token the token to get the vision center of.
    * @param zone the Zone where the token is.

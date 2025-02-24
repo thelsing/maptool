@@ -198,8 +198,8 @@ public class MacroManager {
       for (var details : entry.getValue()) {
         switch (details.scope()) {
           case CLIENT, CAMPAIGN -> aliases.put(entry.getKey(), details.command());
-          case ADDON -> aliases.put(
-              details.addOnNamespace() + ":" + details.name(), details.command());
+          case ADDON ->
+              aliases.put(details.addOnNamespace() + ":" + details.name(), details.command());
         }
       }
     }
@@ -319,7 +319,6 @@ public class MacroManager {
 
         // Preprocess line if required.
         if (def == null || def.expandRolls()) {
-          // TODO: fix this, wow I really hate this, it's very, very ugly.
           Token tokenInContext = null;
           ZoneRenderer zr = MapTool.getFrame().getCurrentZoneRenderer();
           if (zr != null) {
@@ -414,11 +413,12 @@ public class MacroManager {
     for (var details : def) {
       switch (details.scope()) {
         case CLIENT -> sb.append("<li>/:").append(details.command()).append("</li>");
-        case ADDON -> sb.append("<li>/")
-            .append(details.addOnNamespace())
-            .append(":")
-            .append(details.name())
-            .append("</li>");
+        case ADDON ->
+            sb.append("<li>/")
+                .append(details.addOnNamespace())
+                .append(":")
+                .append(details.name())
+                .append("</li>");
         case CAMPAIGN -> {} // Do nothing
       }
     }
@@ -508,7 +508,6 @@ public class MacroManager {
   }
 
   // Package level for testing
-  // TODO: This should probably go in a util class in rplib
   static List<String> split(String line) {
 
     List<String> list = new ArrayList<String>();

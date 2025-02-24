@@ -171,4 +171,12 @@ public class GeometryUtil {
 
     return toPolygonizer(area).getPolygons();
   }
+
+  public static Point2D coordinateToPoint2D(Coordinate coordinate) {
+    return new Point2D.Double(coordinate.getX(), coordinate.getY());
+  }
+
+  public static Coordinate point2DToCoordinate(Point2D point2D) {
+    return new Coordinate(point2D.getX(), point2D.getY());
+  }
 }

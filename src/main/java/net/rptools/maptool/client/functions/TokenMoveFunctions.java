@@ -82,7 +82,6 @@ public class TokenMoveFunctions extends AbstractFunction {
   }
 
   public static TokenMoveFunctions getInstance() {
-    // log.setLevel(Level.INFO);
     return instance;
   }
 
@@ -345,8 +344,6 @@ public class TokenMoveFunctions extends AbstractFunction {
         previousPoint = currentPoint;
         ctr += 1;
       }
-      // Lee: commenting this out
-      // originalArea = tokenInContext.getBounds(zone);
     }
     return returnPoints;
   }
@@ -475,11 +472,9 @@ public class TokenMoveFunctions extends AbstractFunction {
 
   private String getMovement(
       final Token source, boolean returnFractionOnly, boolean useTerrainModifiers) {
-    ZoneWalker walker = null;
-
     WalkerMetric metric =
         MapTool.isPersonalServer()
-            ? AppPreferences.getMovementMetric()
+            ? AppPreferences.movementMetric.get()
             : MapTool.getServerPolicy().getMovementMetric();
 
     ZoneRenderer zr = MapTool.getFrame().getCurrentZoneRenderer();
@@ -503,12 +498,14 @@ public class TokenMoveFunctions extends AbstractFunction {
       if (zone.getGrid().getCapabilities().isPathingSupported()) {
         var firstPoint = cellPath.getFirst();
         List<CellPoint> cplist = new ArrayList<CellPoint>();
-        walker = grid.createZoneWalker();
-        walker.replaceLastWaypoint(new CellPoint(firstPoint.x, firstPoint.y));
-        for (AbstractPoint point : cellPath) {
-          CellPoint tokenPoint = new CellPoint(point.x, point.y);
-          walker.replaceLastWaypoint(tokenPoint);
-          cplist.add(tokenPoint);
+
+        try (ZoneWalker walker = grid.createZoneWalker()) {
+          walker.replaceLastWaypoint(new CellPoint(firstPoint.x, firstPoint.y));
+          for (AbstractPoint point : cellPath) {
+            CellPoint tokenPoint = new CellPoint(point.x, point.y);
+            walker.replaceLastWaypoint(tokenPoint);
+            cplist.add(tokenPoint);
+          }
         }
 
         double bar =
@@ -519,8 +516,6 @@ public class TokenMoveFunctions extends AbstractFunction {
         } else {
           return new BigDecimal(bar).stripTrailingZeros().toPlainString();
         }
-
-        // return Integer.toString(walker.getDistance());
       }
     } else {
       double c = 0;

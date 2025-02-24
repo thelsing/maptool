@@ -61,9 +61,12 @@ import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.util.FileUtil;
 import net.rptools.maptool.util.PersistenceUtil;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public abstract class AbstractTokenPopupMenu extends JPopupMenu {
   private static final long serialVersionUID = -3741870412603226747L;
+  private static final Logger log = LogManager.getLogger(AbstractTokenPopupMenu.class);
 
   private final ZoneRenderer renderer;
   private final Token tokenUnderMouse;
@@ -149,6 +152,15 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
         menu.add(new ClearOwnerAurasOnlyAction());
       }
       menu.addSeparator();
+    }
+
+    // Add unique light sources for the token.
+    {
+      JMenu subMenu = createLightCategoryMenu("Unique", tokenUnderMouse.getUniqueLightSources());
+      if (subMenu.getItemCount() != 0) {
+        menu.add(subMenu);
+        menu.addSeparator();
+      }
     }
 
     for (Entry<String, Map<GUID, LightSource>> entry :
@@ -412,7 +424,6 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
 
   public class ResetSizeAction extends AbstractAction {
     public ResetSizeAction() {
-      // putValue(Action.NAME, tokenUnderMouse.isStamp() ? "Free Size" : "Native Size");
       putValue(Action.NAME, I18N.getText("token.popup.menu.size.reset"));
     }
 
@@ -524,8 +535,6 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
         else if (token.getGMName().trim().isEmpty()) tokenNameGM = tokenName;
         else tokenNameGM = token.getGMName();
 
-        // chooser.setCurrentDirectory(AppPreferences.getSaveDir());
-
         final JFileChooser chooser = MapTool.getFrame().getSaveTokenFileChooser();
         final File defaultFile =
             FileUtil.cleanFileName(chooser.getCurrentDirectory().toString(), tokenName, "");
@@ -544,11 +553,9 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
                   && showSaveDialog) {
                 if (chooser.getFileFilter() != tokenFilter) {
                   File newFileName = new File(chooser.getCurrentDirectory(), tokenNameGM);
-                  System.out.println("newFileName 1: " + newFileName);
                   chooser.setSelectedFile(newFileName);
                 } else {
                   File newFileName = new File(chooser.getCurrentDirectory(), tokenName);
-                  System.out.println("newFileName 1: " + newFileName);
                   chooser.setSelectedFile(newFileName);
                 }
               }
@@ -659,12 +666,11 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
           }
           saveDirectory = tokenSaveFile.getParentFile();
         } catch (IOException ioe) {
-          ioe.printStackTrace();
-          MapTool.showError("Could not save token: " + ioe);
+          MapTool.showError("Could not save token", ioe);
         }
       }
       if (saveDirectory != null) {
-        AppPreferences.setTokenSaveDir(saveDirectory);
+        AppPreferences.tokenSaveDirectory.set(saveDirectory);
       }
     }
   }
@@ -677,7 +683,7 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
     public void actionPerformed(ActionEvent e) {
       Toolbox toolbox = MapTool.getFrame().getToolbox();
 
-      FacingTool tool = (FacingTool) toolbox.getTool(FacingTool.class);
+      FacingTool tool = toolbox.getTool(FacingTool.class);
       tool.init(tokenUnderMouse, renderer.getOwnedTokens(selectedTokenSet));
 
       toolbox.setSelectedTool(FacingTool.class);
@@ -923,7 +929,6 @@ public abstract class AbstractTokenPopupMenu extends JPopupMenu {
         MapTool.getFrame().updateTokenTree();
         MapTool.serverCommand().putToken(renderer.getZone().getId(), token);
 
-        // TODO: Need a better way of indicating local changes
         renderer.getZone().putToken(token);
       }
       renderer.repaint();

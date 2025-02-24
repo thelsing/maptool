@@ -106,7 +106,6 @@ public class TokenTopologyPanel extends JPanel {
 
     addMouseWheelListener(
         e -> {
-          // TODO: Zooming panel should zoom in at mouse cursor #mathishard
           int wheelMovement = e.getWheelRotation();
           if (wheelMovement == 0) {
             return;
@@ -413,7 +412,6 @@ public class TokenTopologyPanel extends JPanel {
     future.cancel(true);
     setToken(token);
 
-    // jtsMethod = JTS_SimplifyMethodType.getDefault();
     topologyColorPick = new Color(0, 0, 0, 0);
     hideTokenImage = false;
     inverseTopology = false;
@@ -496,7 +494,7 @@ public class TokenTopologyPanel extends JPanel {
     tokenTopologiesOriginal.clear();
     tokenTopologiesOptimized.clear();
     for (final var type : Zone.TopologyType.values()) {
-      final var topology = token.getTopology(type);
+      final var topology = token.getMaskTopology(type);
       if (topology != null) {
         selectedTopologyTypes.add(type);
         tokenTopologiesOriginal.put(type, topology);

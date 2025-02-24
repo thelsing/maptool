@@ -14,16 +14,17 @@
  */
 package net.rptools.maptool.client.walker;
 
-import java.awt.geom.Area;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import net.rptools.maptool.client.ui.zone.RenderPathWorker;
 import net.rptools.maptool.model.CellPoint;
 import net.rptools.maptool.model.Path;
+import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.Token.TerrainModifierOperation;
 import net.rptools.maptool.model.Zone;
 
@@ -33,11 +34,8 @@ public abstract class AbstractZoneWalker implements ZoneWalker {
   protected final Zone zone;
   protected boolean restrictMovement = false;
   protected Set<TerrainModifierOperation> terrainModifiersIgnored;
-  protected Area tokenWallVbl;
-  protected Area tokenHillVbl;
-  protected Area tokenPitVbl;
-  protected Area tokenCoverVbl;
-  protected Area tokenMbl;
+  // Can be null, e.g., for measurement tools.
+  protected @Nullable Token keyToken;
   protected RenderPathWorker renderPathWorker;
 
   public AbstractZoneWalker(Zone zone) {
@@ -75,15 +73,7 @@ public abstract class AbstractZoneWalker implements ZoneWalker {
   }
 
   public void replaceLastWaypoint(CellPoint point) {
-    replaceLastWaypoint(
-        point,
-        false,
-        Collections.singleton(TerrainModifierOperation.NONE),
-        null,
-        null,
-        null,
-        null,
-        null);
+    replaceLastWaypoint(point, false, Collections.singleton(TerrainModifierOperation.NONE), null);
   }
 
   @Override
@@ -91,28 +81,17 @@ public abstract class AbstractZoneWalker implements ZoneWalker {
       CellPoint point,
       boolean restrictMovement,
       Set<TerrainModifierOperation> terrainModifiersIgnored,
-      Area tokenWallVbl,
-      Area tokenHillVbl,
-      Area tokenPitVbl,
-      Area tokenCoverVbl,
-      Area tokenMbl) {
+      @Nullable Token keyToken) {
 
     this.restrictMovement = restrictMovement;
     this.terrainModifiersIgnored = terrainModifiersIgnored;
-    this.tokenWallVbl = tokenWallVbl;
-    this.tokenHillVbl = tokenHillVbl;
-    this.tokenPitVbl = tokenPitVbl;
-    this.tokenCoverVbl = tokenCoverVbl;
-    this.tokenMbl = tokenMbl;
+
+    this.keyToken = keyToken;
 
     if (partialPaths.isEmpty()) {
       return;
     }
     PartialPath oldPartial = partialPaths.remove(partialPaths.size() - 1);
-
-    // short circuit exit if the point hasn't changed.
-    // if (oldPartial.end.equals(point))
-    // return null;
 
     partialPaths.add(
         new PartialPath(oldPartial.start, point, calculatePath(oldPartial.start, point)));

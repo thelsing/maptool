@@ -32,9 +32,9 @@ import net.rptools.maptool.model.Token;
 
 /** */
 public class FacingTool extends DefaultTool {
+
   private static final long serialVersionUID = -2807604658989763950L;
 
-  // TODO: This shouldn't be necessary, just get it from the renderer
   private Token tokenUnderMouse;
   private Set<GUID> selectedTokenSet;
 
@@ -81,7 +81,7 @@ public class FacingTool extends DefaultTool {
         });
   }
 
-  ////
+  /// /
   // MOUSE
   @Override
   public void mouseMoved(MouseEvent e) {
@@ -104,7 +104,8 @@ public class FacingTool extends DefaultTool {
           renderer
               .getZone()
               .getGrid()
-              .nearestFacing(degrees, AppPreferences.getFaceEdge(), AppPreferences.getFaceVertex());
+              .nearestFacing(
+                  degrees, AppPreferences.faceEdge.get(), AppPreferences.faceVertex.get());
     }
     Area visibleArea = null;
     Set<GUID> remoteSelected = new HashSet<GUID>();
@@ -116,7 +117,7 @@ public class FacingTool extends DefaultTool {
     boolean noOwnerReveal; // if true, reveal FoW if token has no owners.
     if (MapTool.isPersonalServer()) {
       ownerReveal =
-          hasOwnerReveal = noOwnerReveal = AppPreferences.getAutoRevealVisionOnGMMovement();
+          hasOwnerReveal = noOwnerReveal = AppPreferences.autoRevealVisionOnGMMovement.get();
     } else {
       ownerReveal = MapTool.getServerPolicy().isAutoRevealOnMovement();
       hasOwnerReveal = isGM && MapTool.getServerPolicy().isAutoRevealOnMovement();
@@ -131,9 +132,13 @@ public class FacingTool extends DefaultTool {
 
       boolean revealFog = false;
       if (renderer.getZone().hasFog()) {
-        if (ownerReveal && token.isOwner(name)) revealFog = true;
-        else if (hasOwnerReveal && token.hasOwners()) revealFog = true;
-        else if (noOwnerReveal && !token.hasOwners()) revealFog = true;
+        if (ownerReveal && token.isOwner(name)) {
+          revealFog = true;
+        } else if (hasOwnerReveal && token.hasOwners()) {
+          revealFog = true;
+        } else if (noOwnerReveal && !token.hasOwners()) {
+          revealFog = true;
+        }
       }
 
       if (revealFog) {
@@ -144,13 +149,13 @@ public class FacingTool extends DefaultTool {
 
       renderer.flushFog();
     }
-    // XXX Instead of calling exposeFoW() when visibleArea is null, shouldn't we just skip it?
+
     MapTool.serverCommand()
         .exposeFoW(
             renderer.getZone().getId(),
             visibleArea == null ? new Area() : visibleArea,
             remoteSelected);
-    renderer.repaint(); // TODO: shrink this
+    renderer.repaint();
   }
 
   @Override

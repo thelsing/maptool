@@ -47,9 +47,10 @@ public class ServerFunctions extends AbstractFunction {
 
     String fName = functionName.toLowerCase();
     return switch (fName) {
-      case "server.isserver" -> MapTool.isHostingServer() || MapTool.isPersonalServer()
-          ? BigDecimal.ONE
-          : BigDecimal.ZERO;
+      case "server.isserver" ->
+          MapTool.isHostingServer() || MapTool.isPersonalServer()
+              ? BigDecimal.ONE
+              : BigDecimal.ZERO;
       case "server.ishosting" -> MapTool.isHostingServer() ? BigDecimal.ONE : BigDecimal.ZERO;
       case "server.ispersonal" -> MapTool.isPersonalServer() ? BigDecimal.ONE : BigDecimal.ZERO;
       case "getmovelock" -> MapTool.getServerPolicy().isMovementLocked();
@@ -72,8 +73,9 @@ public class ServerFunctions extends AbstractFunction {
         }
         yield "";
       }
-      default -> throw new ParserException(
-          I18N.getText("macro.function.general.unknownFunction", functionName));
+      default ->
+          throw new ParserException(
+              I18N.getText("macro.function.general.unknownFunction", functionName));
     };
   }
 }
