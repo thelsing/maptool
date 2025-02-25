@@ -427,7 +427,6 @@ dependencies {
     implementation 'com.github.thelsing:libgdx-jogl-backend:1.12.1'
     //maven local for development
     //implementation 'com.thelsing.gdx:gdx-backend-jogl:1.12.1'
-
     implementation 'com.badlogicgames.gdx:gdx:1.12.1'
     implementation 'com.badlogicgames.gdx:gdx-platform:1.12.1:natives-desktop'
     implementation "space.earlygrey:shapedrawer:2.6.0"

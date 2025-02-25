@@ -1988,7 +1988,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     }
     hideFullScreenTools();
 
-    rendererBorderPanel.add(currentRenderPanel);
+    rendererBorderPanel.add(zoneRendererPanel);
     setJMenuBar(menuBar);
     menuBar.setVisible(true);
     this.setVisible(true);

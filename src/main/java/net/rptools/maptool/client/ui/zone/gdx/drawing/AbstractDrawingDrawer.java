@@ -51,22 +51,25 @@ public abstract class AbstractDrawingDrawer {
       var color = gdxPaint.color();
       gdxPaint.color().set(color.r, color.g, color.b, alpha);
     }
-    areaRenderer.setTextureRegion(gdxPaint.textureRegion());
+
     areaRenderer.setColor(gdxPaint.color());
+    if(gdxPaint.textureRegion() != null) {
+      areaRenderer.setTextureRegion(gdxPaint.textureRegion());
+    }
   }
 
   protected void line(PolygonSpriteBatch batch, Pen pen, float x1, float y1, float x2, float y2) {
     var floats = new FloatArray();
     // negate y values because we are y-up
     floats.add(x1, -y1, x2, -y2);
-    var path =
-        areaRenderer.path(
-            floats.toArray(),
+    var polygon =
+        areaRenderer.drawPathWithJoin(
+            floats,
             pen.getThickness(),
             pen.getSquareCap() ? AreaRenderer.JoinType.Pointy : AreaRenderer.JoinType.Round,
             false);
     applyColor(pen.getPaint(), false);
-    areaRenderer.paintVertices(batch, path, null);
+    areaRenderer.paintPolygon(batch, polygon);
   }
 
   protected void fillArea(PolygonSpriteBatch batch, Area area, Pen pen) {

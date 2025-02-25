@@ -192,12 +192,12 @@ public class GdxRenderer extends ApplicationAdapter {
     rayHandler.setBlurNum(3);
 
     // light  =
-    var red = new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
-    red.setSoft(false);
-    var green = new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
-    green.setSoft(false);
-    var blue = new PointLight(rayHandler, 128, Color.CORAL, 600, 350, -350);
-    blue.setSoft(false);
+   // var red = new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
+    //red.setSoft(false);
+    //var green = new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
+    //green.setSoft(false);
+    //var blue = new PointLight(rayHandler, 128, Color.CORAL, 600, 350, -350);
+    //blue.setSoft(false);
 
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
@@ -318,7 +318,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     doRendering();
 
-    debugRenderer.render(world, cam.combined);
+    //debugRenderer.render(world, cam.combined);
   }
 
   private void updateVbl() {
@@ -641,8 +641,8 @@ public class GdxRenderer extends ApplicationAdapter {
     } else {
       // rayHandler.setAmbientLight(1.0f);
     }
-    rayHandler.setCombinedMatrix(cam);
-    rayHandler.updateAndRender();
+    //rayHandler.setCombinedMatrix(cam);
+    //rayHandler.updateAndRender();
     //  }
 
     // (This method has it's own 'timer' calls)

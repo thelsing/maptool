@@ -265,7 +265,7 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
     if (paint instanceof DrawableColorPaint) {
       var color = new Color();
       Color.argb8888ToColor(color, ((DrawableColorPaint) paint).getColor());
-      return new GdxPaint(color, whitePixelRegion);
+      return new GdxPaint(color, null);
     }
 
     var texturePaint = (DrawableTexturePaint) paint;
