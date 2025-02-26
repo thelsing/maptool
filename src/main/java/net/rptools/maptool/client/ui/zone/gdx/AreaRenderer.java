@@ -23,6 +23,7 @@ import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import com.badlogic.gdx.utils.ShortArray;
 import net.rptools.lib.gdx.Earcut;
@@ -42,7 +43,7 @@ public class AreaRenderer {
 
   private final IntArray segmentIndicies = new IntArray();
 
-  private Color color;
+  private final Color color = Color.WHITE.cpy();
 
   public AreaRenderer(ShapeDrawer drawer) {
     this.drawer = drawer;
@@ -54,11 +55,7 @@ public class AreaRenderer {
   }
 
   public void setColor(Color value) {
-    if (value == null) {
-      color = Color.WHITE;
-    } else {
-      color = value;
-    }
+    color.set(Objects.requireNonNullElse(value, Color.WHITE));
     textureRegion = whitePixel;
   }
 
@@ -96,7 +93,6 @@ public class AreaRenderer {
     }
 
     var lastSegmentIndex = 0;
-    var color = this.color;
     var polygons = new ArrayList<Polygon>();
     // Polygons in a PathIterator are ordered. If polygon p contains q, q comes first.
     // So we draw polygons that contains others, those others are the holes.
@@ -151,14 +147,9 @@ public class AreaRenderer {
     if (area == null || area.isEmpty()) return;
     for (var poly : triangulate(area)) {
       var polyRegion = new PolygonRegion(textureRegion, poly.vertices, poly.indices);
-      var color = this.color;
       paintRegion(batch, polyRegion);
-      this.color = color;
     }
-    this.color = Color.WHITE;
   }
-
-  private boolean debug = false;
 
   public void drawArea(PolygonSpriteBatch batch, Area area, boolean rounded, float thickness) {
     if (area == null || area.isEmpty()) return;
@@ -172,7 +163,6 @@ public class AreaRenderer {
     } else {
       var floats = tmpFloat.toArray();
       var lastSegmentIndex = 0;
-      var color = this.color;
       for (int i = 1; i <= segmentIndicies.size; i++) {
         var idx = i == segmentIndicies.size ? floats.length/2 :  segmentIndicies.get(i);
         var vertexCount = (idx - lastSegmentIndex);
@@ -182,17 +172,10 @@ public class AreaRenderer {
         tmpFloat.setSize(2*vertexCount);
         removeStartFromEnd();
         var polygon = drawPathWithJoin(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
-        this.color = color;
-       // if(i < end && i >= start)
           paintPolygon(batch, polygon);
         lastSegmentIndex = idx;
       }
-      this.color = null;
     }
-    // drawDebug(vertices);
-    // debug = true;
-
-    // debug = false;
   }
 
   private void removeStartFromEnd() {
@@ -204,49 +187,22 @@ public class AreaRenderer {
     }
   }
 
-  private void drawDebug(float[] vertices, short[] indicies) {
-    var oldColor = drawer.getPackedColor();
-    drawer.setColor(Color.CYAN);
-    for (int j = 0; j < indicies.length; j += 3) {
-      float x1 = vertices[2 * indicies[j]];
-      float y1 = vertices[2 * indicies[j] + 1];
-      float x2 = vertices[2 * indicies[j + 1]];
-      float y2 = vertices[2 * indicies[j + 1] + 1];
-      float x3 = vertices[2 * indicies[j + 2]];
-      float y3 = vertices[2 * indicies[j + 2] + 1];
-      drawer.triangle(x1, y1, x2, y2, x3, y3);
-    }
-    drawer.setColor(oldColor);
-  }
-
   public void paintPolygon(PolygonSpriteBatch batch, TriangledPolygon polygon) {
     var polyReg = new PolygonRegion(textureRegion, polygon.vertices, polygon.indices);
-
-    if (debug) drawDebug(polygon.vertices, polygon.indices);
-    else paintRegion(batch, polyReg);
-    color = Color.WHITE;
+    paintRegion(batch, polyReg);
   }
 
   public void paintVertices(PolygonSpriteBatch batch, float[] vertices, short[] holeIndices) {
     var indices = Earcut.earcut(vertices, holeIndices, (short) 2).toArray();
     var polyReg = new PolygonRegion(textureRegion, vertices, indices);
-
-    if (debug) drawDebug(vertices, indices);
-    else paintRegion(batch, polyReg);
-    color = Color.WHITE;
+    paintRegion(batch, polyReg);
   }
 
-  private PolygonSprite sprite = null;
-
   protected void paintRegion(PolygonSpriteBatch batch, PolygonRegion polygonRegion) {
-    if (sprite == null) {
-      sprite = new PolygonSprite(polygonRegion);
-    } else {
-      sprite.setRegion(polygonRegion);
-    }
-    sprite.setColor(color);
-    sprite.draw(batch);
-    color = Color.WHITE;
+    var oldColor = batch.getColor();
+    batch.setColor(color);
+    batch.draw(polygonRegion, 0,  0);
+    batch.setColor(oldColor);
   }
 
   public FloatArray pathToFloatArray(PathIterator it) {
@@ -387,6 +343,7 @@ public class AreaRenderer {
 
 
   public TriangledPolygon drawPathWithJoin(FloatArray path, float lineWidth, JoinType joinType, boolean open) {
+    // this code was adapted from shapedrawer
     float halfWidth = lineWidth / 2f;
     boolean pointyJoin = joinType == JoinType.Pointy;
 
@@ -654,12 +611,7 @@ public class AreaRenderer {
 
     }
 
-    //drawer.setColor(Color.WHITE_FLOAT_BITS);
     for (var i = 1; i <= sides; i++) {
-		/*	if(i>1) {
-				drawer.setColor(Color.RED);
-			}
-		*/
       var cos = MathUtils.cos(angle);
       var sin = MathUtils.sin(angle);
       angle += dAnglePerSide;
@@ -668,7 +620,6 @@ public class AreaRenderer {
 
       vertices.add(x);
       vertices.add(y);
-      //	drawer.circle(x,y,2);
     }
     var vertexCount = (vertices.size - oldSize) / 2;
 

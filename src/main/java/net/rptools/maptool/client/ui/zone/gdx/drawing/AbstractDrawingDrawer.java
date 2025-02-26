@@ -14,6 +14,7 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx.drawing;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch;
 import com.badlogic.gdx.utils.FloatArray;
 import java.awt.geom.Area;
@@ -47,12 +48,15 @@ public abstract class AbstractDrawingDrawer {
 
   protected void applyColor(DrawablePaint paint, boolean applyAlpha) {
     var gdxPaint = zoneCache.getPaint(paint);
+    var color = gdxPaint.color();
+    var c2 = new Color().set(color);
     if (alpha != null && applyAlpha) {
-      var color = gdxPaint.color();
-      gdxPaint.color().set(color.r, color.g, color.b, alpha);
+
+      c2.set(color.r, color.g, color.b, alpha);
     }
 
-    areaRenderer.setColor(gdxPaint.color());
+    areaRenderer.setColor(c2);
+    //areaRenderer.setColor(gdxPaint.color());
     if(gdxPaint.textureRegion() != null) {
       areaRenderer.setTextureRegion(gdxPaint.textureRegion());
     }
@@ -73,12 +77,14 @@ public abstract class AbstractDrawingDrawer {
   }
 
   protected void fillArea(PolygonSpriteBatch batch, Area area, Pen pen) {
+    alpha = pen.getOpacity();
     applyColor(pen.getBackgroundPaint(), true);
     areaRenderer.fillArea(batch, area);
   }
 
   protected void drawArea(PolygonSpriteBatch batch, Area area, Pen pen) {
-    applyColor(pen.getPaint(), false);
+    alpha = pen.getOpacity();
+    applyColor(pen.getPaint(), true);
     areaRenderer.drawArea(batch, area, !pen.getSquareCap(), pen.getThickness());
   }
 
