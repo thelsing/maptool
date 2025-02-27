@@ -483,6 +483,7 @@ public class MapToolFrame extends DefaultDockableHolder implements WindowListene
     config.title = "maptool";
     config.width = 640;
     config.height = 480;
+    config.samples = 1;
     var joglSwingCanvas = new JoglSwingCanvas(GdxRenderer.getInstance(), config);
 
     gdxPanel = joglSwingCanvas.getGLCanvas();

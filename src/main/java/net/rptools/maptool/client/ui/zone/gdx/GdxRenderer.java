@@ -14,8 +14,6 @@
  */
 package net.rptools.maptool.client.ui.zone.gdx;
 
-import box2dLight.PointLight;
-import box2dLight.RayHandler;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
@@ -28,7 +26,6 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreetypeFontLoader;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.ScreenUtils;
@@ -94,7 +91,6 @@ public class GdxRenderer extends ApplicationAdapter {
   private final String ATLAS = "net/rptools/maptool/client/maptool.atlas";
   private final String FONT_NORMAL = "normalFont.ttf";
   private final String FONT_BOLD = "boldFont.ttf";
-  private final String FONT_DISTANCE = "distanceFont.ttf";
 
   // from renderToken:
   private Area visibleScreenArea;
@@ -148,14 +144,8 @@ public class GdxRenderer extends ApplicationAdapter {
   private final Matrix4 tmpMatrix = new Matrix4();
   private final Area tmpArea = new Area();
   private final TiledDrawable tmpTile = new TiledDrawable();
-  private World world;
-  private ArrayList<Body> bodies = new ArrayList<Body>();
-  private Area vbl;
-  private Box2DDebugRenderer debugRenderer;
-  private RayHandler rayHandler;
 
   public GdxRenderer() {
-    Box2D.init();
     new MapToolEventBus().getMainEventBus().register(this);
   }
 
@@ -176,28 +166,6 @@ public class GdxRenderer extends ApplicationAdapter {
       normalFont = null;
       boldFont = null;
     }
-
-    world = new World(new Vector2(0, 0), true);
-    debugRenderer = new Box2DDebugRenderer();
-    /*
-    var options = new RayHandlerOptions();
-    options.setDiffuse(true);
-    options.setGammaCorrection(true);
-    rayHandler = new RayHandler(world, options);
-    */
-    RayHandler.setGammaCorrection(true);
-    RayHandler.useDiffuseLight(true);
-    rayHandler = new RayHandler(world);
-    // rayHandler.setAmbientLight(0f, 0f, 0f, 0.5f);
-    rayHandler.setBlurNum(3);
-
-    // light  =
-   // var red = new PointLight(rayHandler, 128, Color.RED, 600, 50, -50);
-    //red.setSoft(false);
-    //var green = new PointLight(rayHandler, 128, Color.GREEN, 600, 50, -350);
-    //green.setSoft(false);
-    //var blue = new PointLight(rayHandler, 128, Color.CORAL, 600, 350, -350);
-    //blue.setSoft(false);
 
     manager = new com.badlogic.gdx.assets.AssetManager();
     loadAssets();
@@ -251,8 +219,6 @@ public class GdxRenderer extends ApplicationAdapter {
       zoneCache.dispose();
     }
     onePixel.dispose();
-    rayHandler.dispose();
-    world.dispose();
   }
 
   @Override
@@ -312,79 +278,8 @@ public class GdxRenderer extends ApplicationAdapter {
 
     ensureTtfFont();
     ScreenUtils.clear(Color.BLACK);
-    // boolean stepped = fixedStep(delta);
-
-    updateVbl();
 
     doRendering();
-
-    //debugRenderer.render(world, cam.combined);
-  }
-
-  private void updateVbl() {
-    var currentVbl = zoneCache.getZone().getMaskTopology(Zone.TopologyType.WALL_VBL);
-    // if (currentVbl.equals(vbl)) return;
-
-    vbl = currentVbl;
-
-    for (Body body : bodies) {
-      world.destroyBody(body);
-    }
-    bodies.clear();
-
-    var polys = areaRenderer.triangulate(currentVbl);
-    for (var poly : polys) {
-      var vblDef = new BodyDef();
-      vblDef.type = BodyDef.BodyType.StaticBody;
-      var vblBody = world.createBody(vblDef);
-
-      var triangles = poly.indices();
-      var polygon = poly.vertices();
-
-      for (int i = 0; i < triangles.length; i += 3) {
-        PolygonShape vblShape = new PolygonShape();
-        FloatArray triangleOutlines = new FloatArray();
-
-        float ax = polygon[triangles[i] * 2];
-        float ay = polygon[triangles[i] * 2 + 1];
-        float bx = polygon[triangles[i + 1] * 2];
-        float by = polygon[triangles[i + 1] * 2 + 1];
-        float cx = polygon[triangles[i + 2] * 2];
-        float cy = polygon[triangles[i + 2] * 2 + 1];
-
-        triangleOutlines.add(ax);
-        triangleOutlines.add(ay);
-        triangleOutlines.add(bx);
-        triangleOutlines.add(by);
-        triangleOutlines.add(cx);
-        triangleOutlines.add(cy);
-
-        vblShape.set(triangleOutlines.toArray());
-        vblBody.createFixture(vblShape, 0f);
-
-        vblShape.dispose();
-      }
-      bodies.add(vblBody);
-    }
-  }
-
-  private float TIME_STEP = 1 / 60f;
-  private int VELOCITY_ITERATIONS = 6;
-  private int POSITION_ITERATIONS = 2;
-  private float accumulator = 0f;
-
-  private boolean fixedStep(float deltaTime) {
-    // fixed time step
-    // max frame time to avoid spiral of death (on slow devices)
-    float frameTime = Math.min(deltaTime, 0.25f);
-    accumulator += frameTime;
-    boolean stepped = false;
-    while (accumulator >= TIME_STEP) {
-      world.step(TIME_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
-      accumulator -= TIME_STEP;
-      stepped = true;
-    }
-    return stepped;
   }
 
   private void ensureTtfFont() {
@@ -396,7 +291,6 @@ public class GdxRenderer extends ApplicationAdapter {
 
     if (fontScale == this.boldFontScale && boldFont != null) return;
 
-    if (boldFont != null) manager.unload(FONT_DISTANCE);
 
     var fontParams = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
     fontParams.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Bold.ttf";
