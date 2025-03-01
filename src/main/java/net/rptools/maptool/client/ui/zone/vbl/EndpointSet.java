@@ -54,7 +54,7 @@ public class EndpointSet {
   private final int[] bucketSizes;
 
   public EndpointSet(Coordinate origin) {
-    this.origin = origin;
+    this.origin = new Coordinate(origin);
     this.envelope = new Envelope();
 
     this.buckets = new VisibilitySweepEndpoint[BUCKET_COUNT][];
@@ -140,21 +140,21 @@ public class EndpointSet {
     @Nonnull VisibilitySweepEndpoint previous = endpoints[0];
     for (var i = 1; i < size; ++i) {
       final var endpoint = endpoints[i];
-      if (!previous.getPoint().equals(endpoint.getPoint())) {
+      if (endpoint.getStartsWalls().isEmpty() && endpoint.getEndsWalls().isEmpty()) {
+        // Isolated points contribute nothing to the sweep.
+        endpoints[i] = null;
+      } else if (previous.getPoint().equals(endpoint.getPoint())) {
+        // endpoint is a duplicate of previous, so merge into previous. Don't keep the duplicate.
+        previous.mergeDuplicate(endpoint);
+
+        // I could also .remove(), but that's expensive for long lists. We're just as well to skip
+        // this while iterating later.
+        endpoints[i] = null;
+
+      } else {
         // Haven't seen this endpoint yet. Keep it around.
         previous = endpoint;
-        continue;
       }
-
-      // TODO Somehow increment the main counter.
-      //  duplicateEndpointCount += 1;
-
-      // endpoint is a duplicate of previous, so merge into previous. Don't keep the duplicate.
-      previous.mergeDuplicate(endpoint);
-
-      // I could also .remove(), but that's expensive for long lists. We're just as well to skip
-      // this while iterating later.
-      endpoints[i] = null;
     }
   }
 

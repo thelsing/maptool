@@ -288,11 +288,8 @@ public class AssetLoader {
           MD5Key sum = new MD5Key(data);
           if (!sum.equals(id)) {
             // Bad file
-            // TODO: Does this mean it's time to update our cache of the index.gz?
             // (See hasCurrentIndexFile() for the comment there.)
-            String msg = "Downloaded invalid file from: " + path;
-            log.warn(msg);
-            System.err.println(msg);
+            log.warn("Downloaded invalid file from: {}", path);
 
             // Try a different repo
             continue;
@@ -303,33 +300,23 @@ public class AssetLoader {
           if (split >= 0) {
             ref = ref.substring(split + 1);
           }
-          // System.out.println("Got " + id + " from " + repo);
           ref = FileUtil.getNameWithoutExtension(ref);
           AssetManager.putAsset(Asset.createAssetDetectType(ref, data));
 
           completeRequest(id);
           return;
         } catch (IOException ioe) {
-          // Well, try a different repo
-          // ioe.printStackTrace();
+          log.error("Error while reading bytes", ioe);
           continue;
         } catch (Throwable t) {
-          t.printStackTrace();
+          log.error("Unexpected error while reading bytes", t);
         }
       }
 
-      // System.out.println("Got " + id + " from MT");
       // Last resort, ask the MT server
-      final var serverCommand = MapTool.serverCommand();
-      if (serverCommand != null) {
-        // We can drop off the end of this runnable because it'll background load the
-        // image from the server
-        serverCommand.getAsset(id);
-      } else {
-        // This could be too early in the loading process for a server command to be set.
-        AssetManager.putAsset(Asset.createBrokenImageAsset(id));
-        completeRequest(id);
-      }
+      // We can drop off the end of this runnable because it'll background load the
+      // image from the server
+      MapTool.serverCommand().getAsset(id);
     }
   }
 }

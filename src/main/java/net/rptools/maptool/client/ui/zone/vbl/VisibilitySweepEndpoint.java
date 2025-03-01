@@ -15,6 +15,8 @@
 package net.rptools.maptool.client.ui.zone.vbl;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
 
@@ -38,12 +40,12 @@ public final class VisibilitySweepEndpoint {
     return point;
   }
 
-  public Iterable<VisibilitySweepEndpoint> getStartsWalls() {
-    return startsWalls;
+  public Collection<VisibilitySweepEndpoint> getStartsWalls() {
+    return Collections.unmodifiableCollection(startsWalls);
   }
 
-  public Iterable<VisibilitySweepEndpoint> getEndsWalls() {
-    return endsWalls;
+  public Collection<VisibilitySweepEndpoint> getEndsWalls() {
+    return Collections.unmodifiableCollection(endsWalls);
   }
 
   public void startsWall(VisibilitySweepEndpoint end) {

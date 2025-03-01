@@ -29,7 +29,6 @@ import net.rptools.maptool.client.tool.PointerTool;
 import net.rptools.maptool.client.walker.WalkerMetric;
 import net.rptools.maptool.server.proto.GridDto;
 import net.rptools.maptool.server.proto.GridlessGridDto;
-import net.rptools.maptool.util.GraphicsUtil;
 
 public class GridlessGrid extends Grid {
   private static List<TokenFootprint> footprintList;
@@ -57,9 +56,8 @@ public class GridlessGrid extends Grid {
           return false;
         }
       };
-  // @formatter:on
 
-  private static final int[] FACING_ANGLES = new int[] {-135, -90, -45, 0, 45, 90, 135, 180};
+  // @formatter:on
 
   @Override
   public List<TokenFootprint> getFootprints() {
@@ -74,8 +72,20 @@ public class GridlessGrid extends Grid {
   }
 
   @Override
-  public int[] getFacingAngles() {
-    return FACING_ANGLES;
+  protected int snapFacingInternal(
+      int facing, boolean faceEdges, boolean faceVertices, int addedSteps) {
+    // Work in range (0, 360], it's easier. Will convert back to (-180,180] at the end.
+    facing = Math.floorMod(facing - 1, 360) + 1;
+
+    /* The number of degrees between each standard facing. */
+    int step = 45;
+    /* The position of the first standard facing CCW from zero. */
+    int base = 0;
+    /* A modification applied to facing to get the nearest answer, not a modulo/int div answer. */
+    int diff = (step - 1) / 2;
+
+    int stepsFromBase = Math.floorDiv(facing + diff - base, step) + addedSteps;
+    return stepsFromBase * step + base;
   }
 
   @Override
@@ -109,8 +119,6 @@ public class GridlessGrid extends Grid {
           new MovementKey(callback, r.width, -r.height));
       movementKeys.put(
           KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD4, 0), new MovementKey(callback, -r.width, 0));
-      // movementKeys.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD5, 0), new MovementKey(callback,
-      // 0, 0));
       movementKeys.put(
           KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD6, 0), new MovementKey(callback, r.width, 0));
       movementKeys.put(
@@ -158,7 +166,7 @@ public class GridlessGrid extends Grid {
   }
 
   @Override
-  protected Area createCellShape(int size) {
+  protected Area createCellShape() {
     // Doesn't do this
     return null;
   }
@@ -187,8 +195,7 @@ public class GridlessGrid extends Grid {
   protected Area getGridArea(
       Token token, double range, boolean scaleWithToken, double visionRange) {
     // A grid area isn't well-defined when there is no grid, so fall back to a circle.
-    return GraphicsUtil.createLineSegmentEllipse(
-        -visionRange, -visionRange, visionRange, visionRange, CIRCLE_SEGMENTS);
+    return super.getGridArea(token, 0, scaleWithToken, visionRange);
   }
 
   @Override

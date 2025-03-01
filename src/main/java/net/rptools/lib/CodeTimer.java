@@ -41,8 +41,11 @@ public class CodeTimer {
 
     stack.addLast(timer);
     try {
+      timer.start("<root>");
       callback.call(timer);
     } finally {
+      timer.stop("<root>");
+
       final var lastTimer = stack.removeLast();
       assert lastTimer == timer : "Timer stack is corrupted";
 

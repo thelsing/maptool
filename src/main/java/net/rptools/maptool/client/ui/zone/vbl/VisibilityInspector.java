@@ -30,13 +30,18 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import net.rptools.maptool.client.ui.zone.FogUtil;
 import net.rptools.maptool.model.Zone;
+import net.rptools.maptool.model.topology.MaskTopology;
+import net.rptools.maptool.model.topology.VisibilityType;
+import net.rptools.maptool.model.topology.WallTopology;
 import net.rptools.maptool.util.GraphicsUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,7 +52,7 @@ public class VisibilityInspector extends JPanel {
 
   private Map<Zone.TopologyType, Color> palette = new EnumMap<>(Zone.TopologyType.class);
   private Map<Zone.TopologyType, Area> toplogyAreas = new EnumMap<>(Zone.TopologyType.class);
-  private Map<Zone.TopologyType, AreaTree> toplogyTrees = new EnumMap<>(Zone.TopologyType.class);
+  private List<MaskTopology> masks = new ArrayList<>();
   private AffineTransform affineTransform;
   private Point2D point;
   private double visionRange;
@@ -98,14 +103,14 @@ public class VisibilityInspector extends JPanel {
     this.toplogyAreas.put(Zone.TopologyType.PIT_VBL, pitVbl);
     this.toplogyAreas.put(Zone.TopologyType.COVER_VBL, coverVbl);
 
-    this.toplogyTrees.clear();
-    var bounds = new Rectangle();
-    for (final var entry : this.toplogyAreas.entrySet()) {
-      var type = entry.getKey();
-      var area = entry.getValue();
+    this.masks = new ArrayList<>();
+    this.masks.addAll(MaskTopology.createFromLegacy(Zone.TopologyType.WALL_VBL, wallVbl));
+    this.masks.addAll(MaskTopology.createFromLegacy(Zone.TopologyType.HILL_VBL, hillVbl));
+    this.masks.addAll(MaskTopology.createFromLegacy(Zone.TopologyType.PIT_VBL, pitVbl));
+    this.masks.addAll(MaskTopology.createFromLegacy(Zone.TopologyType.COVER_VBL, coverVbl));
 
-      var tree = new AreaTree(area);
-      this.toplogyTrees.put(type, tree);
+    var bounds = new Rectangle();
+    for (final var area : this.toplogyAreas.values()) {
       bounds.add(area.getBounds());
     }
 
@@ -150,15 +155,12 @@ public class VisibilityInspector extends JPanel {
     unobstructedVision.transform(AffineTransform.getTranslateInstance(point.getX(), point.getY()));
     final var visionBounds = new Area(unobstructedVision.getBounds());
 
-    Area vision;
-    vision =
+    Area vision =
         FogUtil.calculateVisibility(
+            VisibilityType.Light,
             new Point((int) point.getX(), (int) point.getY()),
             unobstructedVision,
-            toplogyTrees.get(Zone.TopologyType.WALL_VBL),
-            toplogyTrees.get(Zone.TopologyType.HILL_VBL),
-            toplogyTrees.get(Zone.TopologyType.PIT_VBL),
-            toplogyTrees.get(Zone.TopologyType.COVER_VBL));
+            NodedTopology.prepare(new WallTopology(), masks));
 
     final var obstructedVision = new Area(unobstructedVision);
 

@@ -83,6 +83,10 @@ public class MacroButtonHotKeyManager {
       new HashMap<KeyStroke, MacroButton>();
   private MacroButton macroButton;
 
+  public static boolean isHotkeyAssigned(String hotkey) {
+    return buttonsByKeyStroke.containsKey(hotkey);
+  }
+
   public MacroButtonHotKeyManager(MacroButton macroButton) {
     this.macroButton = macroButton;
   }
@@ -121,8 +125,6 @@ public class MacroButtonHotKeyManager {
 
       // keep macrotabbedpane's keystrokes in sync
       if (MapTool.getFrame() != null) {
-        // MapTool.getFrame().getMacroTabbedPane().updateKeyStrokes();
-        // TODO: change this later to use the hub
         MapTool.getFrame().updateKeyStrokes();
       }
     }

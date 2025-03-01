@@ -36,7 +36,7 @@ import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.library.LibraryManager;
 import net.rptools.parser.ParserException;
 import net.rptools.parser.function.Function;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -141,7 +141,6 @@ public class MapToolLineParser {
       if (function instanceof AdditionalFunctionDescription) {
         for (String alias : function.getAliases()) {
           functionList.put(alias, function.getClass().getName());
-          //          log.info(alias + " : " + function.getClass().getName());
         }
       } else {
         for (String alias : function.getAliases())
@@ -304,14 +303,15 @@ public class MapToolLineParser {
             for (OptionInfo option : optionList) {
               String error;
               /*
-               * TODO: If you're adding a new option, add a new case here to collect info from the parameters. If your option uses parameters, use the option.getXxxParam() methods to get
+               * If you're adding a new option, add a new case here to collect info from the
+               * parameters. If your option uses parameters, use the option.getXxxParam() methods to get
                * the text or parsed values of the parameters.
                */
               switch (option.getOptionType()) {
 
-                  ///////////////////////////////////////////////////
-                  // OUTPUT FORMAT OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // OUTPUT FORMAT OPTIONS
+                ///////////////////////////////////////////////////
                 case HIDDEN:
                   output = Output.NONE;
                   break;
@@ -331,9 +331,9 @@ public class MapToolLineParser {
                   text = option.getStringParam(0);
                   break;
 
-                  ///////////////////////////////////////////////////
-                  // VISIBILITY OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // VISIBILITY OPTIONS
+                ///////////////////////////////////////////////////
                 case GM:
                   outputOpts.add("g");
                   break;
@@ -360,9 +360,9 @@ public class MapToolLineParser {
                   }
                   break;
 
-                  ///////////////////////////////////////////////////
-                  // TOOLTIP VISIBILITY OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // TOOLTIP VISIBILITY OPTIONS
+                ///////////////////////////////////////////////////
                 case GMTT:
                   outputOpts.add("gt");
                   break;
@@ -370,9 +370,9 @@ public class MapToolLineParser {
                   outputOpts.add("st");
                   break;
 
-                  ///////////////////////////////////////////////////
-                  // LOOP OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // LOOP OPTIONS
+                ///////////////////////////////////////////////////
                 case COUNT:
                   // COUNT(num [, sep])
                   loopType = LoopType.COUNT;
@@ -485,9 +485,9 @@ public class MapToolLineParser {
                   loopSep = option.getStringParam(1);
                   break;
 
-                  ///////////////////////////////////////////////////
-                  // BRANCH OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // BRANCH OPTIONS
+                ///////////////////////////////////////////////////
                 case IF:
                   // IF(condition)
                   branchType = BranchType.IF;
@@ -499,9 +499,9 @@ public class MapToolLineParser {
                   branchCondition = option.getObjectParam(0);
                   break;
 
-                  ///////////////////////////////////////////////////
-                  // DIALOG AND FRAME OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // DIALOG AND FRAME OPTIONS
+                ///////////////////////////////////////////////////
                 case FRAME:
                   codeType = CodeType.CODEBLOCK;
                   frameName = option.getParsedParam(0, resolver, tokenInContext, this).toString();
@@ -532,9 +532,9 @@ public class MapToolLineParser {
                   frameOpts = option.getParsedParam(1, resolver, tokenInContext, this).toString();
                   outputTo = OutputLoc.OVERLAY;
                   break;
-                  ///////////////////////////////////////////////////
-                  // CODE OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // CODE OPTIONS
+                ///////////////////////////////////////////////////
                 case MACRO:
                   // MACRO("macroName@location")
                   codeType = CodeType.MACRO;
@@ -543,9 +543,9 @@ public class MapToolLineParser {
                 case CODE:
                   codeType = CodeType.CODEBLOCK;
                   break;
-                  ///////////////////////////////////////////////////
-                  // MISC OPTIONS
-                  ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                // MISC OPTIONS
+                ///////////////////////////////////////////////////
                 case TOKEN:
                   if (!isMacroTrusted()) {
                     throw new ParserException(I18N.getText("macro.function.roll.noPerm"));
@@ -591,9 +591,9 @@ public class MapToolLineParser {
             }
 
             switch (loopType) {
-                /*
-                 * TODO: If you're adding a new looping option, add a new case to handle the iteration
-                 */
+              /*
+               * If you're adding a new looping option, add a new case to handle the iteration
+               */
               case NO_LOOP:
                 if (iteration > 0) { // stop after first iteration
                   doLoop = false;
@@ -710,9 +710,9 @@ public class MapToolLineParser {
 
             // Extract the branch to use
             switch (branchType) {
-                /*
-                 * TODO: If you're adding a new branching option, add a new case to extract the branch text
-                 */
+              /*
+               * If you're adding a new branching option, add a new case to extract the branch text
+               */
               case NO_BRANCH:
                 {
                   // There's only one branch, so our regex is very simple
@@ -814,9 +814,9 @@ public class MapToolLineParser {
                 // If none of the code options are active, any of the formatting options can be
                 // used.
                 switch (output) {
-                    /*
-                     * TODO: If you're adding a new formatting option, add a new case to build the output
-                     */
+                  /*
+                   * If you're adding a new formatting option, add a new case to build the output
+                   */
                   case NONE:
                     parseExpression(resolver, tokenInContext, rollBranch, false);
                     break;
@@ -874,9 +874,9 @@ public class MapToolLineParser {
                     expressionBuilder.append(rollString(outputOpts, output_text));
                 } // end of switch(output) statement
                 break; // end of case NO_CODE in switch(codeType) statement
-                /*
-                 * TODO: If you're adding a new code option, add a new case to execute the code
-                 */
+              /*
+               * If you're adding a new code option, add a new case to execute the code
+               */
               case MACRO:
                 // [MACRO("macroName@location"): args]
                 result = parseExpression(resolver, tokenInContext, macroName, false);
@@ -1001,7 +1001,6 @@ public class MapToolLineParser {
       return builder.toString();
     } catch (ParserException e) {
       // do nothing; this exception will never generate any output
-      // throw doError("macroExecutionAbort", opts == null ? "" : opts, roll == null ? line : roll);
       throw e;
     } catch (Exception e) {
       log.info(line, e);
@@ -1303,7 +1302,6 @@ public class MapToolLineParser {
       }
       return macroOutput;
     } finally {
-      // exitContext();
       macroRecurseDepth--;
     }
   }

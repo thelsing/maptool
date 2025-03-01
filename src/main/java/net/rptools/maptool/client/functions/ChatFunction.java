@@ -150,7 +150,7 @@ public class ChatFunction extends AbstractFunction {
             I18N.getText("macro.function.general.notEnoughParam", "broadcast", 1, 0));
       case 3:
         delim = param.get(2).toString();
-        // FALLTHRU
+      // FALLTHRU
       case 2:
         String temp = param.get(1).toString().trim();
         if ("json".equals(delim) || temp.charAt(0) == '[') {
@@ -165,7 +165,7 @@ public class ChatFunction extends AbstractFunction {
           return ""; // dont send to empty lists
         }
 
-        // FALLTHRU
+      // FALLTHRU
       case 1:
         message = checkForCheating(param.get(0).toString());
         if (message != null) {

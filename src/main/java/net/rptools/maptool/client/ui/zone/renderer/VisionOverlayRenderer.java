@@ -68,7 +68,6 @@ public class VisionOverlayRenderer {
 
   private void renderWorld(Graphics2D worldG, PlayerView view, Token token) {
     // The vision of the token is not necessarily related to the current view.
-    // final var tokenView = view.derive(Collections.singleton(token));
     final var tokenView = new PlayerView(view.getRole(), List.of(token));
 
     Area currentTokenVisionArea = zoneView.getVisibleArea(token, tokenView);
@@ -87,7 +86,7 @@ public class VisionOverlayRenderer {
     worldG.draw(currentTokenVisionArea);
 
     Color visionColor = token.getVisionOverlayColor();
-    if (visionColor == null && AppPreferences.getUseHaloColorOnVisionOverlay()) {
+    if (visionColor == null && AppPreferences.useHaloColorOnVisionOverlay.get()) {
       visionColor = token.getHaloColor();
     }
     if (visionColor != null) {
@@ -96,7 +95,7 @@ public class VisionOverlayRenderer {
               visionColor.getRed(),
               visionColor.getGreen(),
               visionColor.getBlue(),
-              AppPreferences.getHaloOverlayOpacity()));
+              AppPreferences.haloOverlayOpacity.get()));
       worldG.fill(currentTokenVisionArea);
     }
   }

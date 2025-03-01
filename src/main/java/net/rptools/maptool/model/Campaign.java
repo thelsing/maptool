@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import net.rptools.lib.MD5Key;
 import net.rptools.lib.net.Location;
 import net.rptools.maptool.client.MapTool;
@@ -58,7 +59,7 @@ public class Campaign {
   // Static data isn't written to the campaign file when saved; these two fields hold the output
   // location and type, and the
   // settings of all JToggleButton objects (JRadioButtons and JCheckBoxes).
-  private Location exportLocation; // FJE 2011-01-14
+  private Location exportLocation;
   private Map<String, Boolean> exportSettings =
       new HashMap<>(); // the state of each checkbox/radiobutton for the Export>ScreenshotAs dialog
 
@@ -86,17 +87,6 @@ public class Campaign {
   private Map<String, Map<GUID, LightSource>> lightSourcesMap;
   private Map<String, LookupTable> lookupTableMap;
 
-  // DEPRECATED: as of 1.3b19 here to support old serialized versions
-  // private Map<GUID, LightSource> lightSourceMap;
-
-  /**
-   * Record to hold the arguments for rename token type functionality.
-   *
-   * @param from the name to rename from.
-   * @param to the name to rename to.
-   */
-  public record RenamePropertyType(@Nonnull String from, @Nonnull String to) {}
-
   /**
    * This flag indicates whether the manual fog tools have been used in this campaign while a server
    * is not running. See {@link ToolbarPanel} for details.
@@ -111,12 +101,24 @@ public class Campaign {
    */
   private Boolean hasUsedFogToolbar = null;
 
+  /** When a player connects to a server, this will be the map they are sent to at first. */
+  private @Nullable GUID landingMapId = null;
+
   public Campaign() {
     name = "Default";
     macroButtonLastIndex = 0;
     gmMacroButtonLastIndex = 0;
     macroButtonProperties = new ArrayList<MacroButtonProperties>();
     gmMacroButtonProperties = new ArrayList<MacroButtonProperties>();
+  }
+
+  public void setLandingMapId(@Nullable GUID zoneId) {
+    // Doesn't really matter if it belongs to {@link #zones}, that can be checked at lookup time.
+    this.landingMapId = zoneId;
+  }
+
+  public @Nullable GUID getLandingMapId() {
+    return this.landingMapId;
   }
 
   private Object readResolve() {
@@ -150,7 +152,7 @@ public class Campaign {
   }
 
   public List<String> getRemoteRepositoryList() {
-    checkCampaignPropertyConversion(); // TODO: Remove, for compatibility 1.3b19-1.3b20
+    checkCampaignPropertyConversion();
     return campaignProperties.getRemoteRepositoryList();
   }
 
@@ -162,6 +164,7 @@ public class Campaign {
   public Campaign(Campaign campaign) {
     id = campaign.getId();
     name = campaign.getName();
+    landingMapId = campaign.landingMapId;
 
     /*
      * Don't forget that since these are new zones AND new tokens created here from the old one,
@@ -283,7 +286,7 @@ public class Campaign {
    * @return the {@link Map} of token types
    */
   public Map<String, List<TokenProperty>> getTokenTypeMap() {
-    checkCampaignPropertyConversion(); // TODO: Remove, for compatibility 1.3b19-1.3b20
+    checkCampaignPropertyConversion();
     return campaignProperties.getTokenTypeMap();
   }
 
@@ -318,7 +321,7 @@ public class Campaign {
    * @return the {@link Map} of {@link LookupTable}s types
    */
   public Map<String, LookupTable> getLookupTableMap() {
-    checkCampaignPropertyConversion(); // TODO: Remove, for compatibility 1.3b19-1.3b20
+    checkCampaignPropertyConversion();
     return campaignProperties.getLookupTableMap();
   }
 
@@ -334,7 +337,7 @@ public class Campaign {
    * @return the {@link Map} of between lightSourceIds and {@link LightSource}s
    */
   public Map<String, Map<GUID, LightSource>> getLightSourcesMap() {
-    checkCampaignPropertyConversion(); // TODO: Remove, for compatibility 1.3b19-1.3b20
+    checkCampaignPropertyConversion();
     return campaignProperties.getLightSourcesMap();
   }
 
@@ -387,9 +390,9 @@ public class Campaign {
    * Return the <code>Zone</code> with the given GUID.
    *
    * @param id the id to look for
-   * @return the Zone for the id
+   * @return the Zone for the id, or {@code null} if there is no such zone.
    */
-  public Zone getZone(GUID id) {
+  public @Nullable Zone getZone(GUID id) {
     return zones.get(id);
   }
 
@@ -715,11 +718,6 @@ public class Campaign {
   }
 
   public ExportDialog getExportDialog() {
-    // TODO: Ugh, what a kludge. This needs to be refactored so that the settings are separate from
-    // the dialog
-    // and easily accessible from elsewhere. I want separate XML files in the .cmpgn file eventually
-    // so that
-    // will be a good time to do this.
     exportDialog.setExportSettings(exportSettings);
     exportDialog.setExportLocation(exportLocation);
     return exportDialog;
@@ -739,6 +737,7 @@ public class Campaign {
     var campaign = new Campaign();
     campaign.id = GUID.valueOf(dto.getId());
     campaign.name = dto.getName();
+    campaign.landingMapId = dto.hasLandingMapId() ? GUID.valueOf(dto.getLandingMapId()) : null;
     campaign.hasUsedFogToolbar =
         dto.hasHasUsedFogToolbar() ? dto.getHasUsedFogToolbar().getValue() : null;
     campaign.campaignProperties = CampaignProperties.fromDto(dto.getProperties());
@@ -764,6 +763,9 @@ public class Campaign {
     var dto = CampaignDto.newBuilder();
     dto.setId(id.toString());
     dto.setName(name);
+    if (landingMapId != null) {
+      dto.setLandingMapId(landingMapId.toString());
+    }
     if (hasUsedFogToolbar != null) {
       dto.setHasUsedFogToolbar(BoolValue.of(hasUsedFogToolbar));
     }
@@ -787,42 +789,6 @@ public class Campaign {
               .collect(Collectors.toList()));
     }
     return dto.build();
-  }
-
-  /**
-   * Perform a series of rename operations on the token types.
-   *
-   * @param rename List of rename operations to perform in order.
-   */
-  public void renameTokenTypes(@Nonnull List<RenamePropertyType> rename) {
-    var working = new ArrayList<>(rename);
-    rename.forEach(
-        r -> {
-          compressRenames(r, working);
-        });
-    rename.forEach(
-        r -> {
-          renameTokenTypes(r.from, r.to);
-        });
-  }
-
-  /**
-   * This method ensures that only a single rename occurs, e.g. if we have the renames A -> B B -> C
-   *
-   * <p>We transform this into A -> C B -> C
-   *
-   * @param rename the renaming operation to apply.
-   * @param working the queued renaming operations.
-   */
-  private void compressRenames(RenamePropertyType rename, ArrayList<RenamePropertyType> working) {
-    for (int i = 0; i < working.size(); i++) {
-      var w = working.get(i);
-      if (w.to.equals(rename.from)) {
-        working.set(i, new RenamePropertyType(w.from, rename.to));
-      }
-    }
-    // Finally, add the rename operation to the end of the list
-    working.add(rename);
   }
 
   /**

@@ -14,15 +14,18 @@
  */
 package net.rptools.clientserver;
 
-import java.io.IOException;
-import net.rptools.clientserver.simple.MessageHandler;
+import java.awt.EventQueue;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import net.rptools.clientserver.simple.connection.Connection;
 import net.rptools.clientserver.simple.connection.SocketConnection;
 import net.rptools.clientserver.simple.connection.WebRTCConnection;
-import net.rptools.clientserver.simple.server.HandshakeProvider;
+import net.rptools.clientserver.simple.server.NilServer;
 import net.rptools.clientserver.simple.server.Server;
 import net.rptools.clientserver.simple.server.SocketServer;
 import net.rptools.clientserver.simple.server.WebRTCServer;
+import net.rptools.maptool.client.MapTool;
+import net.rptools.maptool.client.RemoteServerConfig;
 import net.rptools.maptool.server.ServerConfig;
 
 public class ConnectionFactory {
@@ -32,20 +35,49 @@ public class ConnectionFactory {
     return instance;
   }
 
-  public Connection createConnection(String id, ServerConfig config) throws IOException {
-    if (!config.getUseWebRTC() || config.isPersonalServer())
-      return new SocketConnection(id, config.getHostName(), config.getPort());
-
-    return new WebRTCConnection(id, config);
+  @Nonnull
+  public Connection createConnection(@Nonnull String id, @Nonnull RemoteServerConfig config) {
+    return switch (config) {
+      case RemoteServerConfig.Socket(String hostName, int port) ->
+          new SocketConnection(id, hostName, port);
+      case RemoteServerConfig.WebRTC(String serverName) ->
+          new WebRTCConnection(
+              id,
+              serverName,
+              new WebRTCConnection.Listener() {
+                @Override
+                public void onLoginError() {
+                  MapTool.showError("Handshake.msg.playerAlreadyConnected");
+                }
+              });
+    };
   }
 
-  public Server createServer(
-      ServerConfig config, HandshakeProvider handshake, MessageHandler messageHandler)
-      throws IOException {
-    if (!config.getUseWebRTC() || config.isPersonalServer()) {
-      return new SocketServer(config.getPort(), handshake, messageHandler);
+  @Nonnull
+  public Server createServer(@Nullable ServerConfig config) {
+    if (config == null) {
+      return new NilServer();
     }
 
-    return new WebRTCServer(config, handshake, messageHandler);
+    if (!config.getUseWebRTC()) {
+      return new SocketServer(config.getPort());
+    }
+
+    return new WebRTCServer(
+        config.getServerName(),
+        new WebRTCServer.Listener() {
+          @Override
+          public void onLoginError() {
+            EventQueue.invokeLater(
+                () -> {
+                  MapTool.showError("ServerDialog.error.serverAlreadyExists");
+                });
+          }
+
+          @Override
+          public void onUnexpectedClose() {
+            MapTool.stopServer();
+          }
+        });
   }
 }

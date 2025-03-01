@@ -78,10 +78,11 @@ public class CampaignProperties {
   private Map<String, String> characterSheets = new HashMap<>();
 
   /** Flag indicating that owners have special permissions */
-  private boolean initiativeOwnerPermissions = AppPreferences.getInitOwnerPermissions();
+  private boolean initiativeOwnerPermissions =
+      AppPreferences.initiativePanelAllowsOwnerPermissions.get();
 
   /** Flag indicating that owners can only move tokens when they have initiative */
-  private boolean initiativeMovementLock = AppPreferences.getInitLockMovement();
+  private boolean initiativeMovementLock = AppPreferences.initiativeMovementLocked.get();
 
   /** Whether the default initiative sort order is reversed */
   private boolean initiativeUseReverseSort = false;
@@ -122,7 +123,6 @@ public class CampaignProperties {
     lookupTableMap.putAll(properties.lookupTableMap);
     defaultSightType = properties.defaultSightType;
     sightTypeMap.putAll(properties.sightTypeMap);
-    // TODO: This doesn't feel right, should we deep copy, or does this do that automatically ?
     lightSourcesMap.putAll(properties.lightSourcesMap);
 
     for (BooleanTokenOverlay overlay : properties.tokenStates.values()) {
@@ -208,7 +208,6 @@ public class CampaignProperties {
     }
   }
 
-  // TODO: This is for conversion from 1.3b19-1.3b20
   public void setTokenTypeMap(Map<String, List<TokenProperty>> map) {
     tokenTypeMap.clear();
     tokenTypeMap.putAll(map);
@@ -240,7 +239,6 @@ public class CampaignProperties {
     return lookupTableMap;
   }
 
-  // TODO: This is for conversion from 1.3b19-1.3b20
   public void setLookupTableMap(Map<String, LookupTable> map) {
     lookupTableMap.clear();
     lookupTableMap.putAll(map);

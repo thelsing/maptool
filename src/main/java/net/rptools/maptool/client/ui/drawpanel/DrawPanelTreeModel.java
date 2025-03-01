@@ -29,7 +29,6 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.events.MapToolEventBus;
-import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.Zone;
 import net.rptools.maptool.model.drawing.AbstractTemplate;
 import net.rptools.maptool.model.drawing.DrawablesGroup;
@@ -56,16 +55,10 @@ public class DrawPanelTreeModel implements TreeModel {
       return byLayer.get(layer);
     }
 
-    private final String displayName;
     private final Zone.Layer layer;
 
     private View(Zone.Layer layer) {
-      this.displayName = I18N.getText("panel.DrawExplorer.View." + layer.name());
       this.layer = layer;
-    }
-
-    public String getDisplayName() {
-      return displayName;
     }
 
     public Zone.Layer getLayer() {
@@ -214,17 +207,16 @@ public class DrawPanelTreeModel implements TreeModel {
         }
 
         View v = View.getByLayer(layer);
-        var drawableList = zone.getDrawnElements(layer);
-        if (drawableList.size() > 0) {
-          // Reverse the list so that the element drawn last, is shown at the top of the tree
-          // Be careful to clone the list so you don't damage the map
-          List<DrawnElement> reverseList = new ArrayList<DrawnElement>(drawableList);
-          // Players can only see _templates_ on player layers.
-          if (!MapTool.getPlayer().isGM()) {
-            reverseList.removeIf(de -> !(de.getDrawable() instanceof AbstractTemplate));
-          }
-          Collections.reverse(reverseList);
-          viewMap.put(v, reverseList);
+
+        var drawableList = new ArrayList<DrawnElement>(zone.getDrawnElements(layer));
+        // Players can only see _templates_ on player layers.
+        if (!MapTool.getPlayer().isGM()) {
+          drawableList.removeIf(de -> !(de.getDrawable() instanceof AbstractTemplate));
+        }
+        if (!drawableList.isEmpty()) {
+          // Reverse the list so that the element drawn last is shown at the top of the tree.
+          Collections.reverse(drawableList);
+          viewMap.put(v, drawableList);
           currentViewList.add(v);
         }
       }

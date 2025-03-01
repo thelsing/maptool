@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import net.rptools.lib.CodeTimer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -73,7 +72,7 @@ public class VisibilityProblem {
    *     areas.
    */
   public VisibilityProblem(Coordinate origin, Envelope visionBounds) {
-    this.origin = origin;
+    this.origin = new Coordinate(origin);
     this.endpointSet = new EndpointSet(origin);
     this.bounds = new Envelope(visionBounds);
     this.bounds.expandToInclude(origin);
@@ -108,15 +107,32 @@ public class VisibilityProblem {
 
       final VisibilitySweepEndpoint start;
       final VisibilitySweepEndpoint end;
-      if (Orientation.COUNTERCLOCKWISE
-          == Orientation.index(origin, previous.getPoint(), current.getPoint())) {
-        // Caller is well-behaved passing us correctly oriented segments.
-        start = previous;
-        end = current;
-      } else {
-        // Tsk tsk. Caller gave it to us the wrong-way round.
-        start = current;
-        end = previous;
+      var orientation = Orientation.index(origin, previous.getPoint(), current.getPoint());
+      switch (orientation) {
+        case Orientation.COLLINEAR -> {
+          // Wall straight on with vision react poorly with the algorithm. As much as I'd like to
+          // support it one day, even just for the visuals, the reality is it make no practical
+          // difference to the result and isn't worth the effort. So just ignore them.
+          // It's okay that the endpoints are in the result, even though they might be empty.
+          previous = current;
+          continue;
+        }
+        case Orientation.COUNTERCLOCKWISE -> {
+          // Caller is well-behaved passing us correctly oriented segments.
+          start = previous;
+          end = current;
+        }
+        case Orientation.CLOCKWISE -> {
+          // Tsk tsk. Caller gave it to us the wrong-way round.
+          start = current;
+          end = previous;
+        }
+        default -> {
+          // Uh... this should be possible. But Java complains because it doesn't know that.
+          log.error("Found invalid orientation: {}", orientation);
+          previous = current;
+          continue;
+        }
       }
 
       start.startsWall(end);
@@ -132,6 +148,10 @@ public class VisibilityProblem {
     }
   }
 
+  public boolean isEmpty() {
+    return endpointSet.size() == 0;
+  }
+
   /**
    * Solve the visibility polygon problem.
    *
@@ -140,17 +160,11 @@ public class VisibilityProblem {
    * open walls. As the algorithm progresses, open walls are maintained as an ordered set to enable
    * efficient polling of the closest wall at any given point in time.
    *
-   * @return A visibility polygon, represented as a ring of coordinates. A {@code null} result
-   *     indicates that no vision blocking needed to be applied.
+   * @return A visibility polygon, represented as a ring of coordinates.
    * @see <a href="https://arxiv.org/abs/1403.3905">Efficient Computation of Visibility Polygons,
    *     arXiv:1403.3905</a>
    */
-  public @Nullable Coordinate[] solve() {
-    if (endpointSet.size() == 0) {
-      // No topology, apparently.
-      return null;
-    }
-
+  public Coordinate[] solve() {
     final var timer = CodeTimer.get();
 
     timer.start("add bounds");
@@ -174,7 +188,6 @@ public class VisibilityProblem {
     timer.start("initialize");
     endpointSet.simplify();
     final var endpoints = endpointSet.getEndpoints();
-    // verifyEndpoints(endpoints);
     timer.stop("initialize");
 
     // Now for the real sweep.

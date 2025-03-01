@@ -14,6 +14,7 @@
  */
 package net.rptools.maptool.client.script.javascript.api;
 
+import java.math.BigDecimal;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -120,13 +121,79 @@ public class JSAPIToken implements MapToolJSAPIInterface {
   }
 
   @HostAccess.Export
-  public String getProperty(String name) {
+  public String getRawProperty(String name) {
     boolean trusted = JSScriptEngine.inTrustedContext();
     String playerId = MapTool.getPlayer().getName();
     if (trusted || token.isOwner(playerId)) {
-      return "" + this.token.getProperty(name);
+      Object val = this.token.getProperty(name);
+      // Short-circuit to returning null so we don't return "null"
+      if (val == null) {
+        return null;
+      }
+      return "" + val;
+    }
+    return null;
+  }
+
+  @HostAccess.Export
+  public String getProperty(String name) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (!trusted && !token.isOwner(playerId)) {
+      return null;
+    }
+
+    Object val = this.token.getProperty(name);
+    // Fall back to the property type's default value
+    // since it's not useful to return nulls and require
+    // javascript to have to handle defaults when getInfo isn't even bound,
+    // especially when the value gets unset if it matches the default.
+    // Evaluation is not performed automatically, use getEvaluatedProperty for that.
+    if (val == null) {
+      val = this.token.getPropertyDefault(name);
+    }
+    if (val == null) {
+      return null;
+    }
+    return "" + val;
+  }
+
+  @HostAccess.Export
+  public String getPropertyDefault(String name) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (!trusted && !token.isOwner(playerId)) {
+      return null;
+    }
+
+    return this.token.getPropertyDefault(name);
+  }
+
+  @HostAccess.Export
+  public String getEvaluatedProperty(String name) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      Object val = this.token.getEvaluatedProperty(name);
+      return "" + val;
     }
     return "";
+  }
+
+  @HostAccess.Export
+  public String getEvaluatedPropertyDefault(String name) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (!trusted && !token.isOwner(playerId)) {
+      return null;
+    }
+
+    var res = this.token.getPropertyDefault(name);
+    if (res == null) {
+      return null;
+    }
+
+    return "" + this.token.evaluateProperty(null, name, res);
   }
 
   @HostAccess.Export
@@ -138,6 +205,19 @@ public class JSAPIToken implements MapToolJSAPIInterface {
       MapTool.serverCommand()
           .updateTokenProperty(token, Token.Update.setProperty, name, value.toString());
     }
+  }
+
+  @HostAccess.Export
+  public boolean resetProperty(String name) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (!trusted && !token.isOwner(playerId)) {
+      return false;
+    }
+
+    this.token.resetProperty(name);
+    MapTool.serverCommand().updateTokenProperty(token, Token.Update.resetProperty, name);
+    return true;
   }
 
   @HostAccess.Export
@@ -230,6 +310,39 @@ public class JSAPIToken implements MapToolJSAPIInterface {
   @HostAccess.Export
   public List<String> getActiveStates() {
     return this.token.getSetStates();
+  }
+
+  @HostAccess.Export
+  public BigDecimal getBar(String barName) {
+    Object currentBar = this.token.getState(barName);
+    return currentBar == null ? BigDecimal.ZERO : (BigDecimal) currentBar;
+  }
+
+  @HostAccess.Export
+  public void setBar(String barName, double aValue) {
+    BigDecimal value = BigDecimal.valueOf(aValue);
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      this.token.setState(barName, value);
+      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setState, barName, value);
+    }
+  }
+
+  @HostAccess.Export
+  public boolean isBarVisible(String barName) {
+    Object currentBar = this.token.getState(barName);
+    return currentBar != null;
+  }
+
+  @HostAccess.Export
+  public void setBarVisible(String barName, boolean show) {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      this.token.setState(barName, show);
+      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setState, barName, show);
+    }
   }
 
   @HostAccess.Export

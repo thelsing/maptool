@@ -33,6 +33,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import net.rptools.lib.CodeTimer;
@@ -43,13 +44,11 @@ import net.rptools.maptool.client.functions.TokenMoveFunctions;
 import net.rptools.maptool.client.swing.ImageBorder;
 import net.rptools.maptool.client.swing.ImageLabel;
 import net.rptools.maptool.client.swing.SwingUtil;
+import net.rptools.maptool.client.swing.label.FlatImageLabelFactory;
 import net.rptools.maptool.client.tool.PointerTool;
 import net.rptools.maptool.client.tool.StampTool;
 import net.rptools.maptool.client.tool.Tool;
-import net.rptools.maptool.client.tool.drawing.FreehandExposeTool;
-import net.rptools.maptool.client.tool.drawing.OvalExposeTool;
-import net.rptools.maptool.client.tool.drawing.PolygonExposeTool;
-import net.rptools.maptool.client.tool.drawing.RectangleExposeTool;
+import net.rptools.maptool.client.tool.drawing.ExposeTool;
 import net.rptools.maptool.client.ui.Scale;
 import net.rptools.maptool.client.ui.theme.Borders;
 import net.rptools.maptool.client.ui.theme.Images;
@@ -76,11 +75,9 @@ import net.rptools.maptool.util.StringUtil;
 import net.rptools.parser.ParserException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 
 /** */
-public class ZoneRenderer extends JComponent
-    implements DropTargetListener, Comparable<ZoneRenderer> {
+public class ZoneRenderer extends JComponent implements DropTargetListener {
 
   private static final long serialVersionUID = 3832897780066104884L;
   private static final Logger log = LogManager.getLogger(ZoneRenderer.class);
@@ -106,8 +103,7 @@ public class ZoneRenderer extends JComponent
   private final SelectionModel selectionModel;
 
   private Scale zoneScale;
-  private final Map<Zone.Layer, DrawableRenderer> drawableRenderers =
-      CollectionUtil.newFilledEnumMap(Zone.Layer.class, layer -> new PartitionedDrawableRenderer());
+  private final Map<Zone.Layer, DrawableRenderer> drawableRenderers;
   private final List<ZoneOverlay> overlayList = new ArrayList<ZoneOverlay>();
   private final Map<Zone.Layer, List<TokenLocation>> tokenLocationMap =
       new HashMap<Zone.Layer, List<TokenLocation>>();
@@ -172,6 +168,10 @@ public class ZoneRenderer extends JComponent
     zoneView = new ZoneView(zone);
     setZoneScale(new Scale());
 
+    drawableRenderers =
+        CollectionUtil.newFilledEnumMap(
+            Zone.Layer.class, layer -> new PartitionedDrawableRenderer(zone));
+
     var renderHelper = new RenderHelper(this, tempBufferPool);
     this.compositor = new ZoneCompositor();
     this.gridRenderer = new GridRenderer();
@@ -182,7 +182,8 @@ public class ZoneRenderer extends JComponent
     this.fogRenderer = new FogRenderer(renderHelper, zone, zoneView);
     this.visionOverlayRenderer = new VisionOverlayRenderer(renderHelper, zone, zoneView);
     this.debugRenderer = new DebugRenderer(renderHelper);
-    repaintDebouncer = new DebounceExecutor(1000 / AppPreferences.getFrameRateCap(), this::repaint);
+    repaintDebouncer =
+        new DebounceExecutor(1000 / AppPreferences.frameRateCap.get(), this::repaint);
 
     setFocusable(true);
     selectionModel = new SelectionModel(zone);
@@ -220,7 +221,6 @@ public class ZoneRenderer extends JComponent
             pointUnderMouse = new ScreenPoint(e.getX(), e.getY());
           }
         });
-    // fps.start();
 
     new MapToolEventBus().getMainEventBus().register(this);
   }
@@ -286,19 +286,11 @@ public class ZoneRenderer extends JComponent
           if (Scale.PROPERTY_SCALE.equals(evt.getPropertyName())) {
             tokenLocationCache.clear();
           }
-          if (Scale.PROPERTY_OFFSET.equals(evt.getPropertyName())) {
-            // flushFog = true;
-          }
           visibleScreenArea = null;
           repaintDebouncer.dispatch();
         });
   }
 
-  /**
-   * I _hate_ this method. But couldn't think of a better way to tell the drawable renderer that a
-   * new image had arrived TODO: FIX THIS ! Perhaps add a new app listener for when new images show
-   * up, add the drawable renderer as a listener
-   */
   public void flushDrawableRenderer() {
     for (final var renderer : drawableRenderers.values()) {
       renderer.flush();
@@ -328,25 +320,29 @@ public class ZoneRenderer extends JComponent
     repaintDebouncer.dispatch(); // Jamz: Seems to have no affect?
   }
 
-  public boolean hasMoveSelectionSetMoved(GUID keyToken, ZonePoint point) {
+  public @Nullable ZonePoint getKeyTokenDragAnchorPosition(GUID keyToken) {
+    SelectionSet set = selectionSetMap.get(keyToken);
+    if (set == null) {
+      return null;
+    }
+    return set.getKeyTokenDragAnchorPosition();
+  }
+
+  public boolean hasMoveSelectionSetMoved(GUID keyToken, ZonePoint dragAnchorPosition) {
     SelectionSet set = selectionSetMap.get(keyToken);
     if (set == null) {
       return false;
     }
-    Token token = zone.getToken(keyToken);
-    int x = point.x - token.getX();
-    int y = point.y - token.getY();
 
-    return set.offsetX != x || set.offsetY != y;
+    return !set.getKeyTokenDragAnchorPosition().equals(dragAnchorPosition);
   }
 
-  public void updateMoveSelectionSet(GUID keyToken, ZonePoint offset) {
+  public void updateMoveSelectionSet(GUID keyToken, ZonePoint latestPoint) {
     SelectionSet set = selectionSetMap.get(keyToken);
     if (set == null) {
       return;
     }
-    Token token = zone.getToken(keyToken);
-    set.setOffset(offset.x - token.getX(), offset.y - token.getY());
+    set.update(latestPoint);
     repaintDebouncer.dispatch(); // Jamz: may cause flicker when using AI
   }
 
@@ -372,6 +368,7 @@ public class ZoneRenderer extends JComponent
     if (set == null) {
       return;
     }
+    set.cancel();
     repaintDebouncer.dispatch();
   }
 
@@ -381,19 +378,15 @@ public class ZoneRenderer extends JComponent
    * @param keyTokenId the token ID of the key token
    */
   public void commitMoveSelectionSet(GUID keyTokenId) {
-    // TODO: Quick hack to handle updating server state
-    SelectionSet set = selectionSetMap.get(keyTokenId);
-
+    SelectionSet set = selectionSetMap.remove(keyTokenId);
     if (set == null) {
       return;
     }
-
     // Let the last thread finish rendering the path if A* Pathfinding is on
     set.renderFinalPath();
 
-    removeMoveSelectionSet(keyTokenId);
     MapTool.serverCommand().stopTokenMove(getZone().getId(), keyTokenId);
-    Token keyToken = zone.getToken(keyTokenId);
+    Token keyToken = new Token(zone.getToken(keyTokenId), true);
 
     /*
      * Lee: if the lead token is snapped-to-grid and has not moved, every follower should return to where they were. Flag set at PointerTool and StampTool's stopTokenDrag() Handling the rest here.
@@ -418,25 +411,14 @@ public class ZoneRenderer extends JComponent
 
             moveTimer.start("setup");
 
-            boolean topologyTokenMoved = false; // If any token has topology we need to reset FoW
-
-            // Lee: the 1st of evils. changing it to handle proper computation
-            // for a key token's snapped state
-            AbstractPoint originPoint, tokenCell;
-            if (keyToken.isSnapToGrid()) {
-              originPoint = zone.getGrid().convert(new ZonePoint(keyToken.getX(), keyToken.getY()));
-            } else {
-              originPoint = new ZonePoint(keyToken.getX(), keyToken.getY());
-            }
+            var changedMaskTopologyTypes = EnumSet.noneOf(Zone.TopologyType.class);
 
             Path<? extends AbstractPoint> path =
-                set.getWalker() != null ? set.getWalker().getPath() : set.gridlessPath;
+                set.getWalker() != null ? set.getWalker().getPath() : set.getGridlessPath();
             // Jamz: add final path render here?
 
             List<GUID> filteredTokens = new ArrayList<GUID>();
             moveTimer.stop("setup");
-
-            int offsetX, offsetY;
 
             moveTimer.start("eachtoken");
             for (GUID tokenGUID : selectionSet) {
@@ -447,53 +429,21 @@ public class ZoneRenderer extends JComponent
                 continue;
               }
 
-              // Lee: get offsets based on key token's snapped state
-              if (token.isSnapToGrid()) {
-                tokenCell = zone.getGrid().convert(new ZonePoint(token.getX(), token.getY()));
-              } else {
-                tokenCell = new ZonePoint(token.getX(), token.getY());
-              }
+              var tokenPath = path.derive(zone.getGrid(), keyToken, token);
+              token.setLastPath(tokenPath);
 
-              int cellOffX, cellOffY;
-              if (token.isSnapToGrid() == keyToken.isSnapToGrid()) {
-                cellOffX = originPoint.x - tokenCell.x;
-                cellOffY = originPoint.y - tokenCell.y;
-              } else {
-                cellOffX = cellOffY = 0; // not used unless both are of same SnapToGrid
-              }
-
-              if (token.isSnapToGrid()
-                  && (!AppPreferences.getTokensSnapWhileDragging() || !keyToken.isSnapToGrid())) {
-                // convert to Cellpoint and back to ensure token ends up at correct X and Y
-                CellPoint cellEnd =
-                    zone.getGrid()
-                        .convert(
-                            new ZonePoint(
-                                token.getX() + set.getOffsetX(), token.getY() + set.getOffsetY()));
-                ZonePoint pointEnd = cellEnd.convertToZonePoint(zone.getGrid());
-                offsetX = pointEnd.x - token.getX();
-                offsetY = pointEnd.y - token.getY();
-              } else {
-                offsetX = set.getOffsetX();
-                offsetY = set.getOffsetY();
-              }
-
-              /*
-               * Lee: the problem now is to keep the precise coordinate computations for unsnapped tokens following a snapped key token. The derived path in the following section contains rounded
-               * down values because the integer cell values were passed. If these were double in nature, the precision would be kept, but that would be too difficult to change at this stage...
-               */
-
-              token.applyMove(set, path, offsetX, offsetY, keyToken, cellOffX, cellOffY);
-
-              // Lee: setting originPoint to landing point
-              token.setOriginPoint(new ZonePoint(token.getX(), token.getY()));
+              // This is the last *anchor* point.
+              var lastPoint = tokenPath.getWayPointList().getLast();
+              var endPoint =
+                  switch (lastPoint) {
+                    case CellPoint cp -> token.getDragAnchorAsIfLocatedInCell(zone, cp);
+                    case ZonePoint zp -> zp;
+                  };
+              token.moveDragAnchorTo(zone, endPoint);
+              log.info("Token end pos: {}, {}", token.getX(), token.getY());
 
               flush(token);
               MapTool.serverCommand().putToken(zone.getId(), token);
-
-              // No longer need this version
-              // Lee: redundant flush() already did this above
-              // replacementImageMap.remove(token);
 
               // Only add certain tokens to the list to process in the move
               // Macro function(s).
@@ -501,9 +451,7 @@ public class ZoneRenderer extends JComponent
                 filteredTokens.add(tokenGUID);
               }
 
-              if (token.hasAnyTopology()) {
-                topologyTokenMoved = true;
-              }
+              changedMaskTopologyTypes.addAll(token.getMaskTopologyTypes());
             }
             moveTimer.stop("eachtoken");
 
@@ -542,8 +490,8 @@ public class ZoneRenderer extends JComponent
             MapTool.getFrame().updateTokenTree();
             moveTimer.stop("updateTokenTree");
 
-            if (topologyTokenMoved) {
-              zone.tokenTopologyChanged();
+            if (!changedMaskTopologyTypes.isEmpty()) {
+              zone.tokenMaskTopologyChanged(changedMaskTopologyTypes);
             }
           });
     } else {
@@ -656,10 +604,6 @@ public class ZoneRenderer extends JComponent
     }
     ImageManager.flushImage(zone.getMapAssetId());
 
-    // MCL: I think these should be added, but I'm not sure so I'm not doing it.
-    // tokenLocationMap.clear();
-    // tokenLocationCache.clear();
-
     flushDrawableRenderer();
     flipImageMap.clear();
     flipIsoImageMap.clear();
@@ -689,10 +633,12 @@ public class ZoneRenderer extends JComponent
 
   public void addOverlay(ZoneOverlay overlay) {
     overlayList.add(overlay);
+    repaintDebouncer.dispatch();
   }
 
   public void removeOverlay(ZoneOverlay overlay) {
     overlayList.remove(overlay);
+    repaintDebouncer.dispatch();
   }
 
   public void moveViewBy(int dx, int dy) {
@@ -776,15 +722,6 @@ public class ZoneRenderer extends JComponent
   }
 
   public BufferedImage getMiniImage(int size) {
-    // if (miniImage == null && getTileImage() !=
-    // ImageManager.UNKNOWN_IMAGE) {
-    // miniImage = new BufferedImage(size, size, Transparency.OPAQUE);
-    // Graphics2D g = miniImage.createGraphics();
-    // g.setPaint(new TexturePaint(getTileImage(), new Rectangle(0, 0,
-    // miniImage.getWidth(), miniImage.getHeight())));
-    // g.fillRect(0, 0, size, size);
-    // g.dispose();
-    // }
     return miniImage;
   }
 
@@ -822,7 +759,8 @@ public class ZoneRenderer extends JComponent
             if (MapTool.getFrame().areFullScreenToolsShown()) {
               noteVPos += 40;
             }
-            if (!AppPreferences.getMapVisibilityWarning() && (!zone.isVisible() && pl.isGMView())) {
+            if (!AppPreferences.mapVisibilityWarning.get()
+                && (!zone.isVisible() && pl.isGMView())) {
               GraphicsUtil.drawBoxedString(
                   bufferG2d, I18N.getText("zone.map_not_visible"), getSize().width / 2, noteVPos);
               noteVPos += 20;
@@ -928,9 +866,15 @@ public class ZoneRenderer extends JComponent
     markerLocationList.clear();
     itemRenderList.clear();
 
-    if (!compositor.isInitialised()) compositor.setRenderer(this);
-    if (!gridRenderer.isInitialised()) gridRenderer.setRenderer(this);
-    if (!haloRenderer.isInitialised()) haloRenderer.setRenderer(this);
+    if (!compositor.isInitialised()) {
+      compositor.setRenderer(this);
+    }
+    if (!gridRenderer.isInitialised()) {
+      gridRenderer.setRenderer(this);
+    }
+    if (!haloRenderer.isInitialised()) {
+      haloRenderer.setRenderer(this);
+    }
 
     Rectangle viewRect = new Rectangle(getSize().width, getSize().height);
 
@@ -970,10 +914,6 @@ public class ZoneRenderer extends JComponent
 
     // Calculations
     timer.start("calcs-1");
-    AffineTransform af = new AffineTransform();
-    af.translate(zoneScale.getOffsetX(), zoneScale.getOffsetY());
-    af.scale(getScale(), getScale());
-
     if (visibleScreenArea == null) {
       timer.start("ZoneRenderer-getVisibleArea");
       Area a = zoneView.getVisibleArea(view);
@@ -981,6 +921,9 @@ public class ZoneRenderer extends JComponent
 
       timer.start("createTransformedArea");
       if (!a.isEmpty()) {
+        AffineTransform af = new AffineTransform();
+        af.translate(zoneScale.getOffsetX(), zoneScale.getOffsetY());
+        af.scale(getScale(), getScale());
         visibleScreenArea = a.createTransformedArea(af);
       }
       timer.stop("createTransformedArea");
@@ -1091,31 +1034,8 @@ public class ZoneRenderer extends JComponent
       timer.start("unowned movement");
       showBlockedMoves(g2d, view, getUnOwnedMovementSet(view));
       timer.stop("unowned movement");
-
-      // Moved below, after the renderFog() call...
-      // timer.start("owned movement");
-      // renderMoveSelectionSets(g2d, view, getOwnedMovementSet(view));
-      // timer.stop("owned movement");
-
-      // Text associated with tokens being moved is added to a list to be drawn after, i.e. on top
-      // of, the tokens
-      // themselves.
-      // So if one moving token is on top of another moving token, at least the textual identifiers
-      // will be
-      // visible.
-      // timer.start("token name/labels");
-      // renderRenderables(g2d);
-      // timer.stop("token name/labels");
     }
 
-    /**
-     * FJE It's probably not appropriate for labels to be above everything, including tokens. Above
-     * drawables, yes. Above tokens, no. (Although in that case labels could be completely obscured.
-     * Hm.)
-     */
-    // Drawing labels is slooooow. :(
-    // Perhaps we should draw the fog first and use hard fog to determine whether labels need to be
-    // drawn?
     // (This method has it's own 'timer' calls)
     if (AppState.getShowTextLabels()) {
       renderLabels(g2d, view);
@@ -1171,7 +1091,9 @@ public class ZoneRenderer extends JComponent
     timer.stop("overlays");
 
     timer.start("renderCoordinates");
-    if (!gridRenderer.isInitialised()) gridRenderer.setRenderer(this);
+    if (!gridRenderer.isInitialised()) {
+      gridRenderer.setRenderer(this);
+    }
     gridRenderer.renderCoordinates(g2d, view);
     timer.stop("renderCoordinates");
 
@@ -1183,7 +1105,7 @@ public class ZoneRenderer extends JComponent
     }
     timer.stop("lightSourceIconOverlay.paintOverlay");
 
-    debugRenderer.renderShapes(g2d, Arrays.asList(shape, shape2));
+    debugRenderer.renderShapes(g2d, Arrays.asList(shape, shape2, shape3, shape4));
   }
 
   private void delayRendering(ItemRenderer renderer) {
@@ -1208,37 +1130,20 @@ public class ZoneRenderer extends JComponent
     final var timer = CodeTimer.get();
 
     timer.start("labels-1");
+    var labelRenderFactory = new FlatImageLabelFactory();
     labelLocationList.clear();
     for (Label label : zone.getLabels()) {
+      var flabel = labelRenderFactory.getMapImageLabel(label);
       ZonePoint zp = new ZonePoint(label.getX(), label.getY());
       if (!zone.isPointVisible(zp, view)) {
         continue;
       }
       timer.start("labels-1.1");
       ScreenPoint sp = ScreenPoint.fromZonePointRnd(this, zp.x, zp.y);
-      Rectangle bounds = null;
-      if (label.isShowBackground()) {
-        bounds =
-            GraphicsUtil.drawBoxedString(
-                g,
-                label.getLabel(),
-                (int) sp.x,
-                (int) sp.y,
-                SwingUtilities.CENTER,
-                GraphicsUtil.GREY_LABEL,
-                label.getForegroundColor());
-      } else {
-        FontMetrics fm = g.getFontMetrics();
-        int strWidth = SwingUtilities.computeStringWidth(fm, label.getLabel());
-
-        int x = (int) (sp.x - strWidth / 2);
-        int y = (int) (sp.y - fm.getAscent());
-
-        g.setColor(label.getForegroundColor());
-        g.drawString(label.getLabel(), x, (int) sp.y);
-
-        bounds = new Rectangle(x, y, strWidth, fm.getHeight());
-      }
+      var dim = flabel.getDimensions(g, label.getLabel());
+      Rectangle bounds =
+          flabel.render(
+              g, (int) (sp.x - dim.width / 2), (int) (sp.y - dim.height / 2), label.getLabel());
       labelLocationList.add(new LabelLocation(bounds, label));
       timer.stop("labels-1.1");
     }
@@ -1295,8 +1200,6 @@ public class ZoneRenderer extends JComponent
     Rectangle viewport =
         new Rectangle(
             zoneScale.getOffsetX(), zoneScale.getOffsetY(), getSize().width, getSize().height);
-    // List<DrawnElement> list = new ArrayList<DrawnElement>();
-    // list.addAll(drawnElements);
 
     renderer.renderDrawables(g, drawnElements, viewport, getScale());
   }
@@ -1321,7 +1224,7 @@ public class ZoneRenderer extends JComponent
     }
     if (drawBackground) {
       Graphics2D bbg = backbuffer.createGraphics();
-      AppPreferences.getRenderQuality().setRenderingHints(bbg);
+      AppPreferences.renderQuality.get().setRenderingHints(bbg);
 
       // Background texture
       Paint paint =
@@ -1343,8 +1246,8 @@ public class ZoneRenderer extends JComponent
             mapImage,
             getViewOffsetX() + (int) (zone.getBoardX() * scaleFactor),
             getViewOffsetY() + (int) (zone.getBoardY() * scaleFactor),
-            (int) (mapImage.getWidth() * scaleFactor),
-            (int) (mapImage.getHeight() * scaleFactor),
+            (int) (mapImage.getWidth() * scaleFactor * zone.getImageScaleX()),
+            (int) (mapImage.getHeight() * scaleFactor * zone.getImageScaleY()),
             null);
       }
       bbg.dispose();
@@ -1465,14 +1368,13 @@ public class ZoneRenderer extends JComponent
         if (token == keyToken && token.getLayer().supportsWalker()) {
           renderPath(
               g,
-              walker != null ? walker.getPath() : set.gridlessPath,
+              walker != null ? walker.getPath() : set.getGridlessPath(),
               token.getFootprint(zone.getGrid()));
         }
 
         // Show current Blocked Movement directions for A*
         if (walker != null && DeveloperOptions.Toggle.ShowAiDebugging.isEnabled()) {
           Map<CellPoint, Set<CellPoint>> blockedMovesByTarget = walker.getBlockedMoves();
-          // Color currentColor = g.getColor();
           for (var entry : blockedMovesByTarget.entrySet()) {
             var position = entry.getKey();
             var blockedMoves = entry.getValue();
@@ -1549,7 +1451,7 @@ public class ZoneRenderer extends JComponent
 
         if (token.hasFacing() && token.getShape() == Token.TokenShape.TOP_DOWN) {
           at.rotate(
-              Math.toRadians(-token.getFacing() - 90),
+              Math.toRadians(token.getFacingInDegrees()),
               scaledWidth / 2 - token.getAnchor().x * scale - offsetx,
               scaledHeight / 2
                   - token.getAnchor().y * scale
@@ -1609,7 +1511,7 @@ public class ZoneRenderer extends JComponent
       final var grid = zone.getGrid();
       tokenRectangle = token.getFootprint(grid).getBounds(grid, lastPoint);
     } else {
-      final var path = set.gridlessPath;
+      final var path = set.getGridlessPath();
       if (path.getCellPath().isEmpty()) {
         return false;
       }
@@ -1632,7 +1534,7 @@ public class ZoneRenderer extends JComponent
 
     double distanceTraveled = 0;
     ZonePoint lastPoint = null;
-    for (ZonePoint zp : set.gridlessPath.getCellPath()) {
+    for (ZonePoint zp : set.getGridlessPath().getCellPath()) {
       if (lastPoint == null) {
         lastPoint = zp;
         continue;
@@ -1673,8 +1575,6 @@ public class ZoneRenderer extends JComponent
     Grid grid = zone.getGrid();
     double scale = getScale();
 
-    // log.info("Rendering path..." + System.currentTimeMillis());
-
     Rectangle footprintBounds = footprint.getBounds(grid);
     if (path.getCellPath().get(0) instanceof CellPoint) {
       timer.start("renderPath-1");
@@ -1703,7 +1603,6 @@ public class ZoneRenderer extends JComponent
         waypointList.remove(waypointList.size() - 1);
       }
       timer.stop("renderPath-1");
-      // log.info("pathSet size: " + pathSet.size());
 
       timer.start("renderPath-2");
       Dimension cellOffset = zone.getGrid().getCellOffset();
@@ -1887,6 +1786,8 @@ public class ZoneRenderer extends JComponent
 
   private Shape shape;
   private Shape shape2;
+  private Shape shape3;
+  private Shape shape4;
 
   public void setShape(Shape shape) {
     if (shape == null) {
@@ -1894,6 +1795,7 @@ public class ZoneRenderer extends JComponent
     }
 
     this.shape = shape;
+    this.repaintDebouncer.dispatch();
   }
 
   public void setShape2(Shape shape) {
@@ -1902,6 +1804,25 @@ public class ZoneRenderer extends JComponent
     }
 
     this.shape2 = shape;
+    this.repaintDebouncer.dispatch();
+  }
+
+  public void setShape3(Shape shape) {
+    if (shape == null) {
+      return;
+    }
+
+    this.shape3 = shape;
+    this.repaintDebouncer.dispatch();
+  }
+
+  public void setShape4(Shape shape) {
+    if (shape == null) {
+      return;
+    }
+
+    this.shape4 = shape;
+    this.repaintDebouncer.dispatch();
   }
 
   public void showBlockedMoves(
@@ -1987,9 +1908,6 @@ public class ZoneRenderer extends JComponent
     g.setFont(font);
     g.setColor(Color.BLACK);
 
-    // log.info("Text: [" + distanceText + "], width: " + textWidth + ", font size: " + fontSize +
-    // ", offset: " + textOffset + ", fontScale: " + fontScale+ ", getScale(): " + getScale());
-
     g.drawString(
         distanceText,
         (int) (cellX + cwidth - textWidth - textOffset),
@@ -2050,7 +1968,6 @@ public class ZoneRenderer extends JComponent
     return tokenLocationMap.computeIfAbsent(layer, k -> new LinkedList<>());
   }
 
-  // TODO: I don't like this hardwiring
   protected Shape getFigureFacingArrow(int angle, int size) {
     int base = (int) (size * .75);
     int width = (int) (size * .35);
@@ -2068,7 +1985,6 @@ public class ZoneRenderer extends JComponent
     return gp.createTransformedShape(AffineTransform.getScaleInstance(getScale(), getScale() / 2));
   }
 
-  // TODO: I don't like this hardwiring
   protected Shape getCircleFacingArrow(int angle, int size) {
     int base = (int) (size * .75);
     int width = (int) (size * .35);
@@ -2086,7 +2002,6 @@ public class ZoneRenderer extends JComponent
     return gp.createTransformedShape(AffineTransform.getScaleInstance(getScale(), getScale()));
   }
 
-  // TODO: I don't like this hardwiring
   protected Shape getSquareFacingArrow(int angle, int size) {
     int base = (int) (size * .75);
     int width = (int) (size * .35);
@@ -2113,12 +2028,12 @@ public class ZoneRenderer extends JComponent
     final var timer = CodeTimer.get();
 
     Graphics2D clippedG = g;
+    var imageLabelFactory = new FlatImageLabelFactory();
 
     boolean isGMView = view.isGMView(); // speed things up
 
     timer.start("createClip");
     if (!isGMView
-        // TODO Should we actually check zoneView.isUsingVision() for parity with later checks?
         && visibleScreenArea != null
         && !tokenList.isEmpty()
         && tokenList.get(0).getLayer().supportsVision()) {
@@ -2127,7 +2042,7 @@ public class ZoneRenderer extends JComponent
       Area visibleArea = new Area(g.getClipBounds());
       visibleArea.intersect(visibleScreenArea);
       clippedG.setClip(new GeneralPath(visibleArea));
-      AppPreferences.getRenderQuality().setRenderingHints(clippedG);
+      AppPreferences.renderQuality.get().setRenderingHints(clippedG);
     }
     timer.stop("createClip");
 
@@ -2144,15 +2059,6 @@ public class ZoneRenderer extends JComponent
     if (calculateStacks) {
       tokenStackMap = new HashMap<Token, Set<Token>>();
     }
-
-    // TODO: I (Craig) have commented out the clearing of the tokenLocationCache.clear() for now as
-    // it introduced a more serious bug with resizing.
-
-    // Clearing the cache here removes a bug in which campaigns are not initially drawn. Why?
-    // Is that because the rendering pipeline thinks they've already been drawn so isn't forced to
-    // re-render them? So how does this cache get filled then? It's not part of the campaign
-    // state...
-    // tokenLocationCache.clear();
 
     List<Token> tokenPostProcessing = new ArrayList<Token>(tokenList.size());
     for (Token token : tokenList) {
@@ -2199,12 +2105,6 @@ public class ZoneRenderer extends JComponent
       double scaledWidth = (footprintBounds.width * scale);
       double scaledHeight = (footprintBounds.height * scale);
 
-      // if (!token.isStamp()) {
-      // // Fit inside the grid
-      // scaledWidth --;
-      // scaledHeight --;
-      // }
-
       ScreenPoint tokenScreenLocation =
           ScreenPoint.fromZonePoint(this, footprintBounds.x, footprintBounds.y);
       timer.stop("tokenlist-1c");
@@ -2221,7 +2121,7 @@ public class ZoneRenderer extends JComponent
         double sy = scaledHeight / 2 + y - (token.getAnchor().y * scale);
         tokenBounds.transform(
             AffineTransform.getRotateInstance(
-                Math.toRadians(-token.getFacing() - 90), sx, sy)); // facing
+                Math.toRadians(token.getFacingInDegrees()), sx, sy)); // facing
         // defaults
         // to
         // down,
@@ -2262,7 +2162,6 @@ public class ZoneRenderer extends JComponent
       }
       // Markers
       timer.start("renderTokens:Markers");
-      // System.out.println("Token " + token.getName() + " is a marker? " + token.isMarker());
       if (token.isMarker() && canSeeMarker(token)) {
         markerLocationList.add(location);
       }
@@ -2271,13 +2170,9 @@ public class ZoneRenderer extends JComponent
       // Stacking check
       if (calculateStacks) {
         timer.start("tokenStack");
-        // System.out.println(token.getName() + " - " + location.boundsCache);
-
         Set<Token> tokenStackSet = null;
         for (TokenLocation currLocation : getTokenLocations(Zone.Layer.TOKEN)) {
           // Are we covering anyone ?
-          // System.out.println("\t" + currLocation.token.getName() + " - " +
-          // location.boundsCache.contains(currLocation.boundsCache));
           if (location.boundsCache.contains(currLocation.boundsCache)) {
             if (tokenStackSet == null) {
               tokenStackSet = new HashSet<Token>();
@@ -2330,7 +2225,7 @@ public class ZoneRenderer extends JComponent
         tokenG = (Graphics2D) clippedG.create();
       } else {
         tokenG = (Graphics2D) g.create();
-        AppPreferences.getRenderQuality().setRenderingHints(tokenG);
+        AppPreferences.renderQuality.get().setRenderingHints(tokenG);
       }
 
       // Previous path
@@ -2418,13 +2313,8 @@ public class ZoneRenderer extends JComponent
 
       // Rotated
       if (token.hasFacing() && token.getShape() == Token.TokenShape.TOP_DOWN) {
-        // Jamz: Test, rotate on NW corner
-        // at.rotate(Math.toRadians(token.getFacingInDegrees()), (token.getAnchor().x * scale) -
-        // offsetx,
-        // (token.getAnchor().y * scale) - offsety);
-
         at.rotate(
-            Math.toRadians(-token.getFacing() - 90),
+            Math.toRadians(token.getFacingInDegrees()),
             location.scaledWidth / 2 - (token.getAnchor().x * scale) - offsetx,
             location.scaledHeight / 2 - (token.getAnchor().y * scale) - offsety);
         // facing defaults to down, or -90 degrees
@@ -2449,7 +2339,9 @@ public class ZoneRenderer extends JComponent
 
       // Calculate alpha Transparency from token and use opacity for indicating that token is moving
       float opacity = token.getTokenOpacity();
-      if (isTokenMoving(token)) opacity = opacity / 2.0f;
+      if (isTokenMoving(token)) {
+        opacity = opacity / 2.0f;
+      }
 
       // Finally render the token image
       timer.start("tokenlist-7");
@@ -2465,7 +2357,6 @@ public class ZoneRenderer extends JComponent
             }
             tokenG.drawImage(workImage, at, this);
             tokenG.setComposite(oldComposite);
-            // g.draw(cb); // debugging
           } else {
             // else draw the clipped token
             Area cellArea = new Area(visibleScreenArea);
@@ -2519,22 +2410,12 @@ public class ZoneRenderer extends JComponent
       timer.stop("tokenlist-7");
 
       timer.start("tokenlist-8");
-      // Halo (SQUARE)
-      // XXX Why are square halos drawn separately?!
-      /*
-       * if (token.hasHalo() && token.getShape() == Token.TokenShape.SQUARE) { Stroke oldStroke = g.getStroke(); clippedG.setStroke(new BasicStroke(AppPreferences.getHaloLineWidth()));
-       * clippedG.setColor(token.getHaloColor()); clippedG.draw(new Rectangle2D.Double(location.x, location.y, location.scaledWidth, location.scaledHeight)); clippedG.setStroke(oldStroke); }
-       */
 
-      // Facing ?
-      // TODO: Optimize this by doing it once per token per facing
       if (token.hasFacing()) {
         Token.TokenShape tokenType = token.getShape();
         switch (tokenType) {
           case FIGURE:
-            if (token.getHasImageTable()
-                && token.hasFacing()
-                && AppPreferences.getForceFacingArrow() == false) {
+            if (token.getHasImageTable() && !AppPreferences.forceFacingArrow.get()) {
               break;
             }
             Shape arrow = getFigureFacingArrow(token.getFacing(), footprintBounds.width / 2);
@@ -2558,7 +2439,7 @@ public class ZoneRenderer extends JComponent
             tokenG.translate(-fx, -fy);
             break;
           case TOP_DOWN:
-            if (AppPreferences.getForceFacingArrow() == false) {
+            if (!AppPreferences.forceFacingArrow.get()) {
               break;
             }
           case CIRCLE:
@@ -2586,7 +2467,7 @@ public class ZoneRenderer extends JComponent
               int facing = token.getFacing();
               while (facing < 0) {
                 facing += 360;
-              } // TODO: this should really be done in Token.setFacing() but I didn't want to take
+              }
               // the chance
               // of breaking something, so change this when it's safe to break stuff
               facing %= 360;
@@ -2596,7 +2477,6 @@ public class ZoneRenderer extends JComponent
               cy = location.y + location.scaledHeight / 2;
 
               // Find the edge of the image
-              // TODO: Man, this is horrible, there's gotta be a better way to do this
               double xp = location.scaledWidth / 2;
               double yp = location.scaledHeight / 2;
               if (facing >= 45 && facing <= 135 || facing >= 225 && facing <= 315) {
@@ -2682,13 +2562,6 @@ public class ZoneRenderer extends JComponent
         tokenPostProcessing.add(token);
       }
       timer.stop("tokenlist-11");
-
-      // DEBUGGING
-      // ScreenPoint tmpsp = ScreenPoint.fromZonePoint(this, new ZonePoint(token.getX(),
-      // token.getY()));
-      // g.setColor(Color.red);
-      // g.drawLine(tmpsp.x, 0, tmpsp.x, getSize().height);
-      // g.drawLine(0, tmpsp.y, getSize().width, tmpsp.y);
     }
     timer.start("tokenlist-12");
     boolean useIF = MapTool.getServerPolicy().isUseIndividualFOW();
@@ -2706,8 +2579,6 @@ public class ZoneRenderer extends JComponent
       }
       Area bounds = location.bounds;
 
-      // TODO: This isn't entirely accurate as it doesn't account for the actual text
-      // to be in the clipping bounds, but I'll fix that later
       if (!bounds.getBounds().intersects(clipBounds)) {
         continue;
       }
@@ -2733,12 +2604,7 @@ public class ZoneRenderer extends JComponent
         }
         if (useIF && token.getLayer().supportsVision() && zoneView.isUsingVision()) {
           Tool tool = MapTool.getFrame().getToolbox().getSelectedTool();
-          if (tool
-                  instanceof
-                  RectangleExposeTool // XXX Change to use marker interface such as ExposeTool?
-              || tool instanceof OvalExposeTool
-              || tool instanceof FreehandExposeTool
-              || tool instanceof PolygonExposeTool) {
+          if (tool instanceof ExposeTool<?>) {
             selectedBorder = RessourceManager.getBorder(Borders.FOW_TOOLS);
           }
         }
@@ -2749,7 +2615,7 @@ public class ZoneRenderer extends JComponent
           // Rotated
           clippedG.translate(sp.x, sp.y);
           clippedG.rotate(
-              Math.toRadians(-token.getFacing() - 90),
+              Math.toRadians(token.getFacingInDegrees()),
               width / 2 - (token.getAnchor().x * scale),
               height / 2 - (token.getAnchor().y * scale)); // facing defaults to down, or -90
           // degrees
@@ -2797,54 +2663,32 @@ public class ZoneRenderer extends JComponent
           name += " (" + token.getGMName() + ")";
         }
         if (!view.equals(lastView) || !labelRenderingCache.containsKey(tokId)) {
-          // if ((lastView != null && !lastView.equals(view)) ||
-          // !labelRenderingCache.containsKey(tokId)) {
           boolean hasLabel = false;
 
-          // Calculate image dimensions
-          FontMetrics fm = g.getFontMetrics();
-          Font f = g.getFont();
-          int strWidth = SwingUtilities.computeStringWidth(fm, name);
+          var flatImgLabel = imageLabelFactory.getMapImageLabel(token);
 
-          int width = strWidth + GraphicsUtil.BOX_PADDINGX * 2;
-          int height = fm.getHeight() + GraphicsUtil.BOX_PADDINGY * 2;
-          int labelHeight = height;
-
+          var nameDimension = flatImgLabel.getDimensions(g, name);
+          var labelDimension = new Dimension(0, 0);
           // If token has a label (in addition to name).
-          if (token.getLabel() != null && token.getLabel().trim().length() > 0) {
+          if (token.getLabel() != null && !token.getLabel().trim().isEmpty()) {
             hasLabel = true;
-            height = height * 2; // Double the image height for two boxed strings.
-            int labelWidth =
-                SwingUtilities.computeStringWidth(fm, token.getLabel())
-                    + GraphicsUtil.BOX_PADDINGX * 2;
-            width = Math.max(width, labelWidth);
+            labelDimension = flatImgLabel.getDimensions(g, token.getLabel());
           }
-
-          // Set up the image
-          BufferedImage labelRender = new BufferedImage(width, height, Transparency.TRANSLUCENT);
+          int width = (int) Math.max(nameDimension.getWidth(), labelDimension.getWidth());
+          int height = (int) (nameDimension.getHeight() + labelDimension.getHeight()) + 4;
+          var labelRender = new BufferedImage(width, height, Transparency.TRANSLUCENT);
           Graphics2D gLabelRender = labelRender.createGraphics();
-          gLabelRender.setFont(f); // Match font used in the main graphics context.
-          gLabelRender.setRenderingHints(g.getRenderingHints()); // Match rendering style.
+          gLabelRender.setRenderingHints(g.getRenderingHints());
 
           // Draw name and label to image
           if (hasLabel) {
-            GraphicsUtil.drawBoxedString(
+            flatImgLabel.render(
                 gLabelRender,
-                token.getLabel(),
-                width / 2,
-                height - (labelHeight / 2),
-                SwingUtilities.CENTER,
-                background,
-                foreground);
+                (width - labelDimension.width) / 2,
+                nameDimension.height + 4,
+                token.getLabel());
           }
-          GraphicsUtil.drawBoxedString(
-              gLabelRender,
-              name,
-              width / 2,
-              labelHeight / 2,
-              SwingUtilities.CENTER,
-              background,
-              foreground);
+          flatImgLabel.render(gLabelRender, (width - nameDimension.width) / 2, 0, name);
 
           // Add image to cache
           labelRenderingCache.put(tokId, labelRender);
@@ -2867,11 +2711,9 @@ public class ZoneRenderer extends JComponent
 
     timer.start("tokenlist-13");
     // Stacks
-    // TODO: find a cleaner way to indicate token layer
     if (!tokenList.isEmpty() && tokenList.get(0).getLayer().isTokenLayer()) {
-      boolean hideTSI = AppPreferences.getHideTokenStackIndicator();
-      if (tokenStackMap != null
-          && !hideTSI) { // FIXME Needed to prevent NPE but how can it be null?
+      boolean hideTSI = AppPreferences.hideTokenStackIndicator.get();
+      if (tokenStackMap != null && !hideTSI) {
         for (Token token : tokenStackMap.keySet()) {
           Area bounds = getTokenBounds(token);
           if (bounds == null) {
@@ -2887,12 +2729,6 @@ public class ZoneRenderer extends JComponent
         }
       }
     }
-
-    // Markers
-    // for (TokenLocation location : getMarkerLocations()) {
-    // BufferedImage stackImage = AppStyle.markerImage;
-    // g.drawImage(stackImage, location.bounds.getBounds().x, location.bounds.getBounds().y, null);
-    // }
 
     if (clippedG != g) {
       clippedG.dispose();
@@ -2918,7 +2754,9 @@ public class ZoneRenderer extends JComponent
   private boolean isTokenInNeedOfClipping(Token token, Area tokenCellArea, boolean isGMView) {
 
     // can view everything or zone is not using vision = no clipping needed
-    if (isGMView || !zoneView.isUsingVision()) return false;
+    if (isGMView || !zoneView.isUsingVision()) {
+      return false;
+    }
 
     // no clipping if there is no visible screen area
     if (visibleScreenArea == null) {
@@ -2986,9 +2824,6 @@ public class ZoneRenderer extends JComponent
         tokenList.add(token);
       }
     }
-    // Commented out to preserve selection order
-    // Collections.sort(tokenList, Token.NAME_COMPARATOR);
-
     return tokenList;
   }
 
@@ -3090,8 +2925,6 @@ public class ZoneRenderer extends JComponent
 
   /**
    * Returns the token at screen location x, y (not cell location).
-   *
-   * <p>TODO: Add a check so that tokens owned by the current player are given priority.
    *
    * @param x screen location x
    * @param y screen location y
@@ -3260,7 +3093,7 @@ public class ZoneRenderer extends JComponent
 
       // Get the snap to grid value for the current prefs and abilities
       token.setSnapToGrid(
-          gridCaps.isSnapToGridSupported() && AppPreferences.getTokensStartSnapToGrid());
+          gridCaps.isSnapToGridSupported() && AppPreferences.tokensStartSnapToGrid.get());
       if (token.isSnapToGrid()) {
         zp = zone.getGrid().convert(zone.getGrid().convert(zp));
       }
@@ -3293,17 +3126,17 @@ public class ZoneRenderer extends JComponent
       switch (getActiveLayer()) {
         case TOKEN:
           // Players can't drop invisible tokens
-          token.setVisible(!isGM || AppPreferences.getNewTokensVisible());
-          if (AppPreferences.getTokensStartFreesize()) {
+          token.setVisible(!isGM || AppPreferences.newTokensVisible.get());
+          if (AppPreferences.tokensStartFreesize.get()) {
             token.setSnapToScale(false);
           }
           break;
         case BACKGROUND:
           token.setShape(Token.TokenShape.TOP_DOWN);
 
-          token.setSnapToScale(!AppPreferences.getBackgroundsStartFreesize());
-          token.setSnapToGrid(AppPreferences.getBackgroundsStartSnapToGrid());
-          token.setVisible(AppPreferences.getNewBackgroundsVisible());
+          token.setSnapToScale(!AppPreferences.backgroundsStartFreesize.get());
+          token.setSnapToGrid(AppPreferences.backgroundsStartSnapToGrid.get());
+          token.setVisible(AppPreferences.newBackgroundsVisible.get());
 
           // Center on drop point
           if (!token.isSnapToScale() && !token.isSnapToGrid()) {
@@ -3314,9 +3147,9 @@ public class ZoneRenderer extends JComponent
         case OBJECT:
           token.setShape(Token.TokenShape.TOP_DOWN);
 
-          token.setSnapToScale(!AppPreferences.getObjectsStartFreesize());
-          token.setSnapToGrid(AppPreferences.getObjectsStartSnapToGrid());
-          token.setVisible(AppPreferences.getNewObjectsVisible());
+          token.setSnapToScale(!AppPreferences.objectsStartFreesize.get());
+          token.setSnapToGrid(AppPreferences.objectsStartSnapToGrid.get());
+          token.setVisible(AppPreferences.newObjectsVisible.get());
 
           // Center on drop point
           if (!token.isSnapToScale() && !token.isSnapToGrid()) {
@@ -3326,7 +3159,7 @@ public class ZoneRenderer extends JComponent
           break;
       }
 
-      // FJE Yes, this looks redundant. But calling getType() retrieves the type of
+      // This looks redundant. But calling getType() retrieves the type of
       // the Token and returns NPC if the type can't be determined (raw image,
       // corrupted token file, etc). So retrieving it and then turning around and
       // setting it ensures it has a valid value without necessarily changing what
@@ -3341,7 +3174,7 @@ public class ZoneRenderer extends JComponent
         token.setName(MapToolUtil.nextTokenId(zone, token, tokenNameUsed != null));
 
         if (getActiveLayer() == Zone.Layer.TOKEN) {
-          if (AppPreferences.getShowDialogOnNewToken() || showDialog) {
+          if (AppPreferences.showDialogOnNewToken.get() || showDialog) {
             NewTokenDialog dialog = new NewTokenDialog(token, dropPoint.x, dropPoint.y);
             dialog.showDialog();
             if (!dialog.isSuccess()) {
@@ -3428,7 +3261,7 @@ public class ZoneRenderer extends JComponent
           MapTool.getCampaign().getLookupTableMap().get(token.getImageTableName());
       if (lookupTable != null) {
         try {
-          LookupEntry result = lookupTable.getLookup(token.getFacing().toString());
+          LookupEntry result = lookupTable.getLookup(Integer.toString(token.getFacing()));
           if (result != null) {
             image = ImageManager.getImage(result.getImageId(), this);
           }
@@ -3544,16 +3377,27 @@ public class ZoneRenderer extends JComponent
     repaintDebouncer.dispatch();
   }
 
-  @Subscribe
-  private void onTopologyChanged(TopologyChanged event) {
-    if (event.zone() != this.zone) {
-      return;
-    }
-
+  private void onTopologyChanged() {
     flushFog();
     flushLight();
     MapTool.getFrame().updateTokenTree(); // for any event
     repaintDebouncer.dispatch();
+  }
+
+  @Subscribe
+  private void onTopologyChanged(WallTopologyChanged event) {
+    if (event.zone() != this.zone) {
+      return;
+    }
+    onTopologyChanged();
+  }
+
+  @Subscribe
+  private void onTopologyChanged(MaskTopologyChanged event) {
+    if (event.zone() != this.zone) {
+      return;
+    }
+    onTopologyChanged();
   }
 
   private void markDrawableLayerDirty(Layer layer) {
@@ -3594,16 +3438,10 @@ public class ZoneRenderer extends JComponent
     if (event.zone() != this.zone) {
       return;
     }
-    repaintDebouncer.dispatch();
-  }
 
-  //
-  // COMPARABLE
-  public int compareTo(@NotNull ZoneRenderer o) {
-    if (o != this) {
-      return (int) (zone.getCreationTime() - o.zone.getCreationTime());
-    }
-    return 0;
+    // A change in grid can change the size of templates.
+    flushDrawableRenderer();
+    repaintDebouncer.dispatch();
   }
 
   // Begin token common macro identification
@@ -3618,18 +3456,6 @@ public class ZoneRenderer extends JComponent
     repaintDebouncer.dispatch();
   }
 
-  // End token common macro identification
-
-  //
-  // IMAGE OBSERVER
-  // private final ImageObserver drawableObserver = new ImageObserver() {
-  // public boolean imageUpdate(Image img, int infoflags, int x, int y, int width, int height) {
-  // ZoneRenderer.this.flushDrawableRenderer();
-  // MapTool.getFrame().refresh();
-  // return true;
-  // }
-  // };
-
   /**
    * Our goal with this method (which overrides the parent's method) is to create a custom mouse
    * pointer that represents a group of tokens selected on the map. The idea is to provide some
@@ -3638,8 +3464,6 @@ public class ZoneRenderer extends JComponent
    * <p>Unfortunately, while our custom cursor appears to be created correctly, it is never properly
    * applied as the mouse pointer so there is no visual effect. Hence it's currently commented out
    * by using an "if (false)" around the code block.
-   *
-   * <p>Merudo: applied correctly now? TODO: replace false by proper condition.
    *
    * @param cursor the cursor to set.
    * @see java.awt.Component#setCursor(java.awt.Cursor)
@@ -3668,11 +3492,6 @@ public class ZoneRenderer extends JComponent
   public Cursor createCustomCursor(String resource, String tokenName) {
     Cursor c = null;
     try {
-      // Dimension d = Toolkit.getDefaultToolkit().getBestCursorSize(16, 16); // On OSX returns any
-      // size up to 1/2
-      // of (screen width, screen height)
-      // System.out.println("Best cursor size: " + d);
-
       BufferedImage img = ImageIO.read(MapTool.class.getResourceAsStream(resource));
       Font font = AppStyle.labelFont;
       Graphics2D z = (Graphics2D) this.getGraphics();
@@ -3684,8 +3503,7 @@ public class ZoneRenderer extends JComponent
       // Now create a larger BufferedImage that will hold both the existing cursor and a token name
 
       // Use the larger of the image width or string width, and the height of the image + the height
-      // of the string
-      // to represent the bounding box of the 'arrow+tokenName'
+      // of the string to represent the bounding box of the 'arrow+tokenName'
       Rectangle bounds =
           new Rectangle(Math.max(img.getWidth(), textbox.width), img.getHeight() + textbox.height);
       BufferedImage cursor =
@@ -3698,22 +3516,13 @@ public class ZoneRenderer extends JComponent
       z.dispose();
 
       Object oldAA = SwingUtil.useAntiAliasing(g2d);
-      // g2d.setTransform( ((Graphics2D)this.getGraphics()).getTransform() );
-      // g2d.drawImage(img, null, 0, 0);
       g2d.drawImage(
           img, new AffineTransform(1f, 0f, 0f, 1f, 0, 0), null); // Draw the arrow at 1:1 resolution
       g2d.translate(0, img.getHeight() + textbox.height / 2);
-      // g2d.transform(new AffineTransform(0.5f, 0f, 0f, 0.5f, 0, 0)); // Why do I need this to
-      // scale down the
-      // text??
       g2d.setColor(Color.BLACK);
       GraphicsUtil.drawBoxedString(
           g2d, tokenName, 0, 0, SwingUtilities.LEFT); // The text draw here is not nearly
       // as nice looking as normal
-      // g2d.setBackground(Color.BLACK);
-      // g2d.setColor(Color.WHITE);
-      // g2d.fillRect(0, bounds.height-textbox.height, textbox.width, textbox.height);
-      // g2d.drawString(tokenName, 0F, bounds.height - descent);
       g2d.dispose();
       c = Toolkit.getDefaultToolkit().createCustomCursor(cursor, new Point(0, 0), tokenName);
       SwingUtil.restoreAntiAliasing(g2d, oldAA);
