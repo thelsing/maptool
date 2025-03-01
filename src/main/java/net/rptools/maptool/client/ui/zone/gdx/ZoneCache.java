@@ -20,7 +20,6 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.video.VideoPlayer;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -84,8 +83,7 @@ public class ZoneCache implements Disposable {
 
   public void setSharedAtlas(TextureAtlas atlas) {
     sharedAtlas = atlas;
-    if(atlas == null)
-      return;
+    if (atlas == null) return;
     TRANSFERING_SPRITE = new Sprite(sharedAtlas.findRegion("unknown"));
     BROKEN_SPRITE = new Sprite(sharedAtlas.findRegion("broken"));
   }
@@ -237,14 +235,14 @@ public class ZoneCache implements Disposable {
       region = fetch(name);
     }
 
-    if(region == null) {
+    if (region == null) {
       sprite = bigSprites.get(name);
     } else {
       sprite = new Sprite(region);
       sprite.setSize(region.getRegionWidth(), region.getRegionHeight());
     }
 
-    if(sprite == null) {
+    if (sprite == null) {
       return BROKEN_SPRITE;
     }
 

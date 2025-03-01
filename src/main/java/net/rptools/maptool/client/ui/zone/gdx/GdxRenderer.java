@@ -281,9 +281,9 @@ public class GdxRenderer extends ApplicationAdapter {
     ScreenUtils.clear(Color.BLACK);
     try {
       doRendering();
-    } catch(Exception ex) {
+    } catch (Exception ex) {
       log.warn(ex);
-      }
+    }
   }
 
   private void ensureTtfFont() {
@@ -357,7 +357,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
     hudTextRenderer.drawString(
         "FPS:   " + Gdx.graphics.getFramesPerSecond(), width - 30, height - 32);
-    hudTextRenderer.drawString("Draws: " + batch.renderCalls, width- 30, height - 16);
+    hudTextRenderer.drawString("Draws: " + batch.renderCalls, width - 30, height - 16);
 
     batch.end();
     collectTimerResults();
