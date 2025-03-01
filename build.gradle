@@ -425,6 +425,7 @@ dependencies {
 
     // libgdx
     implementation 'com.github.thelsing:libgdx-jogl-backend:becdde406e'
+    implementation 'com.badlogicgames.gdx:gdx-backend-lwjgl:1.13.1'
     implementation 'com.badlogicgames.gdx:gdx:1.13.1'
     implementation 'com.badlogicgames.gdx:gdx-platform:1.13.1:natives-desktop'
     implementation "space.earlygrey:shapedrawer:2.6.0"

@@ -261,6 +261,7 @@ public class GdxRenderer extends ApplicationAdapter {
 
   @Override
   public void render() {
+    // System.out.println("FPS:   " + Gdx.graphics.getFramesPerSecond());
     var delta = Gdx.graphics.getDeltaTime();
     stateTime += delta;
     manager.finishLoading();
@@ -278,8 +279,11 @@ public class GdxRenderer extends ApplicationAdapter {
 
     ensureTtfFont();
     ScreenUtils.clear(Color.BLACK);
-
-    doRendering();
+    try {
+      doRendering();
+    } catch(Exception ex) {
+      log.warn(ex);
+      }
   }
 
   private void ensureTtfFont() {
@@ -290,7 +294,6 @@ public class GdxRenderer extends ApplicationAdapter {
             / 50; // Font size of 12 at grid size 50 is default
 
     if (fontScale == this.boldFontScale && boldFont != null) return;
-
 
     var fontParams = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
     fontParams.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Bold.ttf";
@@ -333,11 +336,6 @@ public class GdxRenderer extends ApplicationAdapter {
 
     renderZone(playerView);
 
-    // this is here because otherwise drawing the fps counter create strange boxes becase of the
-    // rayhandler.
-    batch.end();
-    batch.begin();
-
     setProjectionMatrix(hudCam.combined);
 
     if (zoneCache.getZoneRenderer().isLoading())
@@ -354,11 +352,12 @@ public class GdxRenderer extends ApplicationAdapter {
     }
     if (AppState.isShowAsPlayer()) {
       hudTextRenderer.drawBoxedString(
-          I18N.getText("zone.player_view"), width / 2, height - noteVPos);
+          I18N.getText("zone.player_view"), width / 2f, height - noteVPos);
     }
 
-    hudTextRenderer.drawString(String.valueOf(Gdx.graphics.getFramesPerSecond()), 10, 10);
-    hudTextRenderer.drawString(String.valueOf(batch.renderCalls), width - 10, 10);
+    hudTextRenderer.drawString(
+        "FPS:   " + Gdx.graphics.getFramesPerSecond(), width - 30, height - 32);
+    hudTextRenderer.drawString("Draws: " + batch.renderCalls, width- 30, height - 16);
 
     batch.end();
     collectTimerResults();
@@ -461,27 +460,30 @@ public class GdxRenderer extends ApplicationAdapter {
       timer.stop("auras");
     }
     renderPlayerDarkness(view);
-    /*
-     * The following sections used to handle rendering of the Hidden (i.e. "GM") layer followed by
-     * the Token layer. The problem was that we want all drawables to appear below all tokens, and
-     * the old configuration performed the rendering in the following order:
-     *
-     * <ol>
-     *   <li>Render Hidden-layer tokens
-     *   <li>Render Hidden-layer drawables
-     *   <li>Render Token-layer drawables
-     *   <li>Render Token-layer tokens
-     * </ol>
-     *
-     * That's fine for players, but clearly wrong if the view is for the GM. We now use:
-     *
-     * <ol>
-     *   <li>Render Token-layer drawables // Player-drawn images shouldn't obscure GM's images?
-     *   <li>Render Hidden-layer drawables // GM could always use "View As Player" if needed?
-     *   <li>Render Hidden-layer tokens
-     *   <li>Render Token-layer tokens
-     * </ol>
-     */
+    //    *
+    //     * The following sections used to handle rendering of the Hidden (i.e. "GM") layer
+    // followed by
+    //     * the Token layer. The problem was that we want all drawables to appear below all tokens,
+    // and
+    //     * the old configuration performed the rendering in the following order:
+    //     *
+    //     * <ol>
+    //     *   <li>Render Hidden-layer tokens
+    //     *   <li>Render Hidden-layer drawables
+    //     *   <li>Render Token-layer drawables
+    //     *   <li>Render Token-layer tokens
+    //     * </ol>
+    //     *
+    //     * That's fine for players, but clearly wrong if the view is for the GM. We now use:
+    //     *
+    //     * <ol>
+    //     *   <li>Render Token-layer drawables // Player-drawn images shouldn't obscure GM's
+    // images?
+    //     *   <li>Render Hidden-layer drawables // GM could always use "View As Player" if needed?
+    //     *   <li>Render Hidden-layer tokens
+    //     *   <li>Render Token-layer tokens
+    //     * </ol>
+    //     *
     if (zoneCache.getZoneRenderer().shouldRenderLayer(Zone.Layer.TOKEN, view)) {
       List<DrawnElement> drawables = zoneCache.getZone().getDrawnElements(Zone.Layer.TOKEN);
       // if (!drawables.isEmpty()) {
@@ -515,11 +517,13 @@ public class GdxRenderer extends ApplicationAdapter {
       timer.stop("unowned movement");
     }
 
-    /*
-     * FJE It's probably not appropriate for labels to be above everything, including tokens. Above
-     * drawables, yes. Above tokens, no. (Although in that case labels could be completely obscured.
-     * Hm.)
-     */
+    // *
+    // * FJE It's probably not appropriate for labels to be above everything, including tokens.
+    // Above
+    // * drawables, yes. Above tokens, no. (Although in that case labels could be completely
+    // obscured.
+    // * Hm.)
+    // *
     // Drawing labels is slooooow. :(
     // Perhaps we should draw the fog first and use hard fog to determine whether labels need to be
     // drawn?
@@ -535,8 +539,8 @@ public class GdxRenderer extends ApplicationAdapter {
     } else {
       // rayHandler.setAmbientLight(1.0f);
     }
-    //rayHandler.setCombinedMatrix(cam);
-    //rayHandler.updateAndRender();
+    // rayHandler.setCombinedMatrix(cam);
+    // rayHandler.updateAndRender();
     //  }
 
     // (This method has it's own 'timer' calls)

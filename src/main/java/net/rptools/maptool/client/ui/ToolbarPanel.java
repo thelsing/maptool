@@ -544,7 +544,7 @@ public class ToolbarPanel extends JToolBar {
     final JToggleButton button = new JToggleButton();
     button.addActionListener(
         e -> {
-          MapTool.getFrame().addGdx();
+          MapTool.getFrame().switchRenderers();
         });
 
     button.setIcon(RessourceManager.getBigIcon(icon));

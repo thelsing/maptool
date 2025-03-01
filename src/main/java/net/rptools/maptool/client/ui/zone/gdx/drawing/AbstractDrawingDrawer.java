@@ -56,8 +56,8 @@ public abstract class AbstractDrawingDrawer {
     }
 
     areaRenderer.setColor(c2);
-    //areaRenderer.setColor(gdxPaint.color());
-    if(gdxPaint.textureRegion() != null) {
+    // areaRenderer.setColor(gdxPaint.color());
+    if (gdxPaint.textureRegion() != null) {
       areaRenderer.setTextureRegion(gdxPaint.textureRegion());
     }
   }

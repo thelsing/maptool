@@ -22,21 +22,18 @@ import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.video.VideoPlayer;
-import com.badlogic.gdx.video.VideoPlayerCreator;
+import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import net.rptools.lib.MD5Key;
-import net.rptools.lib.gdx.GifDecoder;
 import net.rptools.lib.image.ImageUtil;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.ui.zone.ZoneView;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRenderer;
-import net.rptools.maptool.model.AssetAvailableListener;
 import net.rptools.maptool.model.AssetManager;
 import net.rptools.maptool.model.IsometricGrid;
 import net.rptools.maptool.model.Zone;
@@ -47,7 +44,7 @@ import net.rptools.maptool.util.ImageManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class ZoneCache implements Disposable, AssetAvailableListener {
+public class ZoneCache implements Disposable {
 
   public record GdxPaint(Color color, TextureRegion textureRegion) {}
 
@@ -82,18 +79,21 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
     return zoneRenderer.getZoneView();
   }
 
+  private Sprite TRANSFERING_SPRITE;
+  private Sprite BROKEN_SPRITE;
+
   public void setSharedAtlas(TextureAtlas atlas) {
     sharedAtlas = atlas;
+    if(atlas == null)
+      return;
+    TRANSFERING_SPRITE = new Sprite(sharedAtlas.findRegion("unknown"));
+    BROKEN_SPRITE = new Sprite(sharedAtlas.findRegion("broken"));
   }
 
   public ZoneCache(@Nonnull Zone zone, @Nonnull TextureAtlas sharedAtlas) {
     this.zone = zone;
-    this.sharedAtlas = sharedAtlas;
+    setSharedAtlas(sharedAtlas);
     zoneRenderer = MapTool.getFrame().getZoneRenderer(zone);
-
-    for (var assetId : zone.getAllAssetIds()) {
-      AssetManager.getAssetAsynchronously(assetId, this);
-    }
 
     Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
     pixmap.setColor(Color.WHITE);
@@ -103,71 +103,111 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
     whitePixelRegion = new TextureRegion(whitePixel, 0, 0, 1, 1);
   }
 
-  @Override
-  public void assetAvailable(MD5Key key) {
-    var asset = AssetManager.getAsset(key);
-    if (asset.getExtension().equals("gif")) {
+  /*
+    @Override
+    public void assetAvailable(MD5Key key) {
+      var asset = AssetManager.getAsset(key);
+      if (asset.getExtension().equals("gif")) {
 
+        Gdx.app.postRunnable(
+            () -> {
+              // var ass = AssetManager.getAsset(key);
+              var is = new ByteArrayInputStream(asset.getData());
+              var animation = GifDecoder.loadGIFAnimation(Animation.PlayMode.LOOP, is);
+              animationMap.put(key, animation);
+            });
+        return;
+      }
+      if (asset.getExtension().equals("data")) {
+        var videoPlayer = VideoPlayerCreator.createVideoPlayer();
+        videoPlayerMap.put(key, videoPlayer);
+        return;
+      }
+      BufferedImage img;
+      byte[] bytes;
+      try {
+        img =
+            ImageUtil.createCompatibleImage(
+                ImageUtil.bytesToImage(asset.getData(), asset.getName()), null);
+        bytes = ImageUtil.imageToBytes(img, "png");
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      // without ImageUtil there seem to be some issues with transparency  for some images.
+      // (black background instead of transparent)
+      var pix = new Pixmap(bytes, 0, bytes.length);
+
+      try {
+        var name = key.toString();
+        synchronized (packer) {
+          if (packer.getRect(name) == null) packer.pack(name, pix);
+
+          pix.dispose();
+        }
+      } catch (GdxRuntimeException x) {
+        // this means that the pixmap is too big for the atlas.
+        Gdx.app.postRunnable(
+            () -> {
+              synchronized (bigSprites) {
+                if (!bigSprites.containsKey(key)) bigSprites.put(key, new Sprite(new Texture(pix)));
+              }
+              pix.dispose();
+            });
+      }
       Gdx.app.postRunnable(
           () -> {
-            // var ass = AssetManager.getAsset(key);
-            var is = new ByteArrayInputStream(asset.getData());
-            var animation = GifDecoder.loadGIFAnimation(Animation.PlayMode.LOOP, is);
-            animationMap.put(key, animation);
+            packer.updateTextureAtlas(
+                tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
           });
-      return;
     }
-    if (asset.getExtension().equals("data")) {
-      var videoPlayer = VideoPlayerCreator.createVideoPlayer();
-      videoPlayerMap.put(key, videoPlayer);
-      return;
-    }
-    BufferedImage img;
+  */
+
+  private void imageToSprite(MD5Key key, BufferedImage image) {
     byte[] bytes;
+
     try {
-      img =
-          ImageUtil.createCompatibleImage(
-              ImageUtil.bytesToImage(asset.getData(), asset.getName()), null);
-      bytes = ImageUtil.imageToBytes(img, "png");
+      bytes = ImageUtil.imageToBytes(image, "png");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    // without ImageUtil there seem to be some issues with transparency  for some images.
-    // (black background instead of transparent)
-    var pix = new Pixmap(bytes, 0, bytes.length);
 
+    var name = key.toString();
+    var pixmap = new Pixmap(bytes, 0, bytes.length);
     try {
-      var name = key.toString();
       synchronized (packer) {
-        if (packer.getRect(name) == null) packer.pack(name, pix);
-
-        pix.dispose();
+        if (packer.getRect(name) == null) {
+          packer.pack(name, pixmap);
+        }
+        pixmap.dispose();
       }
-    } catch (GdxRuntimeException x) {
+    } catch (Exception x) {
       // this means that the pixmap is too big for the atlas.
-      Gdx.app.postRunnable(
-          () -> {
-            synchronized (bigSprites) {
-              if (!bigSprites.containsKey(key)) bigSprites.put(key, new Sprite(new Texture(pix)));
-            }
-            pix.dispose();
-          });
+
+      synchronized (bigSprites) {
+        if (!bigSprites.containsKey(key)) {
+          bigSprites.put(key, new Sprite(new Texture(pixmap)));
+        }
+      }
+      pixmap.dispose();
     }
-    Gdx.app.postRunnable(
-        () -> {
-          packer.updateTextureAtlas(
-              tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
-        });
+    packer.updateTextureAtlas(
+        tokenAtlas, Texture.TextureFilter.Linear, Texture.TextureFilter.Linear, false);
   }
 
   public TextureRegion fetch(String regionName) {
     var region = fetchedRegions.get(regionName);
-    if (region != null) return region;
+    if (region != null) {
+      return region;
+    }
 
     region = tokenAtlas.findRegion(regionName);
-    if (region == null) region = sharedAtlas.findRegion(regionName);
+    if (region == null) {
+      region = sharedAtlas.findRegion(regionName);
+    }
 
-    fetchedRegions.put(regionName, region);
+    if (region != null) {
+      fetchedRegions.put(regionName, region);
+    }
     return region;
   }
 
@@ -181,13 +221,32 @@ public class ZoneCache implements Disposable, AssetAvailableListener {
 
     var region = fetch(name);
 
-    if (!"unknown".equals(name) && region == null) {
-      AssetManager.getAssetAsynchronously(new MD5Key(name), this);
-      return getSprite("unknown");
+    if (region == null) {
+      var key = new MD5Key(name);
+      var image = ImageManager.getImage(key);
+      if (image == ImageManager.TRANSFERING_IMAGE) {
+        return TRANSFERING_SPRITE;
+      }
+
+      if (image == ImageManager.BROKEN_IMAGE) {
+        return BROKEN_SPRITE;
+      }
+
+      imageToSprite(key, image);
+
+      region = fetch(name);
     }
 
-    sprite = new Sprite(region);
-    sprite.setSize(region.getRegionWidth(), region.getRegionHeight());
+    if(region == null) {
+      sprite = bigSprites.get(name);
+    } else {
+      sprite = new Sprite(region);
+      sprite.setSize(region.getRegionWidth(), region.getRegionHeight());
+    }
+
+    if(sprite == null) {
+      return BROKEN_SPRITE;
+    }
 
     fetchedSprites.put(name, sprite);
     return sprite;

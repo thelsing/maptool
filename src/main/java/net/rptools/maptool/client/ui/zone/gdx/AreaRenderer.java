@@ -19,13 +19,12 @@ import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.ShortArray;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
-import com.badlogic.gdx.utils.ShortArray;
 import net.rptools.lib.gdx.Earcut;
 import net.rptools.lib.gdx.Joiner;
 import space.earlygrey.shapedrawer.DefaultSideEstimator;
@@ -98,7 +97,7 @@ public class AreaRenderer {
     // So we draw polygons that contains others, those others are the holes.
     var floats = tmpFloat.toArray();
     for (int i = 1; i <= segmentIndicies.size; i++) {
-      var idx = i == segmentIndicies.size ? floats.length/2 :  segmentIndicies.get(i);
+      var idx = i == segmentIndicies.size ? floats.length / 2 : segmentIndicies.get(i);
       var vertexCount = idx - lastSegmentIndex;
       var currentPolyVertices = new float[2 * vertexCount];
       System.arraycopy(floats, 2 * lastSegmentIndex, currentPolyVertices, 0, 2 * vertexCount);
@@ -157,22 +156,25 @@ public class AreaRenderer {
     pathToFloatArray(area.getPathIterator(null));
 
     if (segmentIndicies.size == 1) {
-      removeStartFromEnd(); //start and end vertices are equal. we don't want this
-      var polygon = drawPathWithJoin(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+      removeStartFromEnd(); // start and end vertices are equal. we don't want this
+      var polygon =
+          drawPathWithJoin(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
       paintPolygon(batch, polygon);
     } else {
       var floats = tmpFloat.toArray();
       var lastSegmentIndex = 0;
       for (int i = 1; i <= segmentIndicies.size; i++) {
-        var idx = i == segmentIndicies.size ? floats.length/2 :  segmentIndicies.get(i);
+        var idx = i == segmentIndicies.size ? floats.length / 2 : segmentIndicies.get(i);
         var vertexCount = (idx - lastSegmentIndex);
 
-        tmpFloat.ensureCapacity(2*vertexCount);
+        tmpFloat.ensureCapacity(2 * vertexCount);
         System.arraycopy(floats, 2 * lastSegmentIndex, tmpFloat.items, 0, 2 * vertexCount);
-        tmpFloat.setSize(2*vertexCount);
+        tmpFloat.setSize(2 * vertexCount);
         removeStartFromEnd();
-        var polygon = drawPathWithJoin(tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
-          paintPolygon(batch, polygon);
+        var polygon =
+            drawPathWithJoin(
+                tmpFloat, thickness, rounded ? JoinType.Round : JoinType.Pointy, false);
+        paintPolygon(batch, polygon);
         lastSegmentIndex = idx;
       }
     }
@@ -201,7 +203,7 @@ public class AreaRenderer {
   protected void paintRegion(PolygonSpriteBatch batch, PolygonRegion polygonRegion) {
     var oldColor = batch.getColor();
     batch.setColor(color);
-    batch.draw(polygonRegion, 0,  0);
+    batch.draw(polygonRegion, 0, 0);
     batch.setColor(oldColor);
   }
 
@@ -230,7 +232,8 @@ public class AreaRenderer {
           //                  System.out.println("Line to: ( " + floatsFromArea[0] + ", " +
           // floatsFromArea[1] + ")");
 
-          if(tmpFloat.get(tmpFloat.size -2) != floatsFromArea[0] || tmpFloat.get(tmpFloat.size -1) != -floatsFromArea[1]) {
+          if (tmpFloat.get(tmpFloat.size - 2) != floatsFromArea[0]
+              || tmpFloat.get(tmpFloat.size - 1) != -floatsFromArea[1]) {
             tmpFloat.add(floatsFromArea[0], -floatsFromArea[1]);
             index += 1;
           }
@@ -309,7 +312,6 @@ public class AreaRenderer {
   private final Vector2 vert3 = new Vector2();
   private final Vector2 vert4 = new Vector2();
 
-
   private void pushQuad(FloatArray vertices, ShortArray indices) {
     var index = vertices.size / 2;
     vertices.add(vert1.x);
@@ -341,8 +343,8 @@ public class AreaRenderer {
     indices.add(index + 2);
   }
 
-
-  public TriangledPolygon drawPathWithJoin(FloatArray path, float lineWidth, JoinType joinType, boolean open) {
+  public TriangledPolygon drawPathWithJoin(
+      FloatArray path, float lineWidth, JoinType joinType, boolean open) {
     // this code was adapted from shapedrawer
     float halfWidth = lineWidth / 2f;
     boolean pointyJoin = joinType == JoinType.Pointy;
@@ -370,7 +372,6 @@ public class AreaRenderer {
     if (path.size == 4) {
       A.set(path.get(0), path.get(1));
       B.set(path.get(2), path.get(3));
-
 
       if (joinType == JoinType.Round) {
         Joiner.prepareFlatEndpoint(B, A, D, E, halfWidth);
@@ -478,9 +479,8 @@ public class AreaRenderer {
       vert2.set(x3, y3);
     }
 
-
     if (open) {
-      //draw last link on path
+      // draw last link on path
       Joiner.prepareFlatEndpoint(B, C, D, E, halfWidth);
       if (joinType == JoinType.Round) {
 
@@ -502,21 +502,21 @@ public class AreaRenderer {
       pushQuad(vertices, indices);
     } else {
       if (pointyJoin) {
-        //draw last link on path
+        // draw last link on path
         A.set(path.get(0), path.get(1));
         Joiner.preparePointyJoin(B, C, A, D, E, halfWidth);
         vert3.set(D);
         vert4.set(E);
         pushQuad(vertices, indices);
 
-        //draw connection back to first vertex
+        // draw connection back to first vertex
         vert1.set(D);
         vert2.set(E);
         vert3.set(E0);
         vert4.set(D0);
         pushQuad(vertices, indices);
       } else {
-        //draw last link on path
+        // draw last link on path
         A.set(B);
         B.set(C);
         C.set(path.get(0), path.get(1));
@@ -524,9 +524,9 @@ public class AreaRenderer {
         vert3.set(D);
         vert4.set(E);
         pushQuad(vertices, indices);
-        drawSmoothJoinFill(vertices, indices,A, B, C, D, E, halfWidth, joinType);
+        drawSmoothJoinFill(vertices, indices, A, B, C, D, E, halfWidth, joinType);
 
-        //draw connection back to first vertex
+        // draw connection back to first vertex
         Joiner.prepareSmoothJoin(A, B, C, D, E, halfWidth, true);
         vert3.set(E);
         vert4.set(D);
@@ -535,13 +535,22 @@ public class AreaRenderer {
         vert1.set(D);
         vert2.set(E);
         pushQuad(vertices, indices);
-        drawSmoothJoinFill(vertices, indices,B, C, A, D, E, halfWidth, joinType);
+        drawSmoothJoinFill(vertices, indices, B, C, A, D, E, halfWidth, joinType);
       }
     }
     return new TriangledPolygon(vertices.toArray(), indices.toArray());
   }
 
-  private void drawSmoothJoinFill(FloatArray vertices, ShortArray indices, Vector2 A, Vector2 B, Vector2 C, Vector2 D, Vector2 E, float halfLineWidth, JoinType joinType) {
+  private void drawSmoothJoinFill(
+      FloatArray vertices,
+      ShortArray indices,
+      Vector2 A,
+      Vector2 B,
+      Vector2 C,
+      Vector2 D,
+      Vector2 E,
+      float halfLineWidth,
+      JoinType joinType) {
     boolean bendsLeft = Joiner.prepareSmoothJoin(A, B, C, D, E, halfLineWidth, false);
     vert1.set(bendsLeft ? E : D);
     vert2.set(bendsLeft ? D : E);
@@ -556,7 +565,7 @@ public class AreaRenderer {
     pushTriangle(vertices, indices);
 
     if (joinType == JoinType.Round) {
-      if(bendsLeft) {
+      if (bendsLeft) {
         AB.set(B).sub(A);
         BC.set(C).sub(B);
         vec1.add(-B.x, -B.y);
@@ -575,14 +584,22 @@ public class AreaRenderer {
         var angleDiff = MathUtils.PI2 - ShapeUtils.angleRad(AB, BC);
         vertices.add(vert1.x);
         vertices.add(vert1.y);
-        addArc(vertices,indices, B.x, B.y, halfLineWidth, angle, angle + angleDiff, true);
+        addArc(vertices, indices, B.x, B.y, halfLineWidth, angle, angle + angleDiff, true);
         vertices.add(vert3.x);
         vertices.add(vert3.y);
       }
     }
   }
 
-  private void addArc(FloatArray vertices, ShortArray indices, float centreX, float centreY, float radius, float startAngle, float endAngle, boolean clockwise) {
+  private void addArc(
+      FloatArray vertices,
+      ShortArray indices,
+      float centreX,
+      float centreY,
+      float radius,
+      float startAngle,
+      float endAngle,
+      boolean clockwise) {
     var oldSize = vertices.size;
     var oldVertexCount = oldSize / 2;
 
@@ -608,7 +625,6 @@ public class AreaRenderer {
     if (clockwise) {
       dAnglePerSide *= -1;
       angle += 2 * dAnglePerSide;
-
     }
 
     for (var i = 1; i <= sides; i++) {
