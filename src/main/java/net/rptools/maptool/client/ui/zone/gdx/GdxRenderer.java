@@ -355,9 +355,8 @@ public class GdxRenderer extends ApplicationAdapter {
           I18N.getText("zone.player_view"), width / 2f, height - noteVPos);
     }
 
-    hudTextRenderer.drawString(
-        "FPS:   " + Gdx.graphics.getFramesPerSecond(), width - 30, height - 32);
-    hudTextRenderer.drawString("Draws: " + batch.renderCalls, width - 30, height - 16);
+    hudTextRenderer.drawString("FPS:   " + Gdx.graphics.getFramesPerSecond(), width - 30, 30);
+    hudTextRenderer.drawString("Draws: " + batch.renderCalls, width - 30, 16);
 
     batch.end();
     collectTimerResults();

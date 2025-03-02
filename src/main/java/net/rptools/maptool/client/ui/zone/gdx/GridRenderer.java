@@ -17,11 +17,13 @@ package net.rptools.maptool.client.ui.zone.gdx;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Pools;
 import java.awt.*;
 import net.rptools.maptool.client.AppState;
 import net.rptools.maptool.client.ui.zone.renderer.ZoneRendererConstants;
 import net.rptools.maptool.model.*;
+import space.earlygrey.shapedrawer.JoinType;
 import space.earlygrey.shapedrawer.ShapeDrawer;
 
 public class GridRenderer {
@@ -62,10 +64,9 @@ public class GridRenderer {
   }
 
   private void renderGrid(HexGrid grid) {
-    /*
     var renderer = zoneCache.getZoneRenderer();
     var scale = renderer.getScale();
-    var scaledMinorRadius = grid.getVRadius() * scale;
+    var scaledMinorRadius = grid.getMinorRadius() * scale;
     var scaledEdgeLength = grid.getEdgeLength() * scale;
     var scaledEdgeProjection = grid.getEdgeProjection() * scale;
     var scaledHex = grid.createHalfShape(scaledMinorRadius, scaledEdgeProjection, scaledEdgeLength);
@@ -74,62 +75,25 @@ public class GridRenderer {
     int offV = grid.getOffV(renderer);
     int count = 0;
 
-    Object oldAntiAlias = SwingUtil.useAntiAliasing(g);
-    g.setColor(new java.awt.Color(getZone().getGridColor()));
-    g.setStroke(new BasicStroke(AppState.getGridSize()));
+    var tmpColor = Pools.obtain(Color.class);
+    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
+    drawer.setColor(tmpColor);
+    var floats = areaRenderer.pathToFloatArray(scaledHex.getPathIterator(null));
+    var lineWidth = AppState.getGridSize();
 
     for (double v = offV % (scaledMinorRadius * 2) - (scaledMinorRadius * 2);
-         v < getRendererSizeV(renderer);
-         v += scaledMinorRadius) {
+        v < grid.getRendererSizeV(renderer);
+        v += scaledMinorRadius) {
       double offsetU = (int) ((count & 1) == 0 ? 0 : -(scaledEdgeProjection + scaledEdgeLength));
       count++;
 
       double start =
-              offU % (2 * scaledEdgeLength + 2 * scaledEdgeProjection)
-                      - (2 * scaledEdgeLength + 2 * scaledEdgeProjection);
-      double end = getRendererSizeU(renderer) + 2 * scaledEdgeLength + 2 * scaledEdgeProjection;
+          offU % (2 * scaledEdgeLength + 2 * scaledEdgeProjection)
+              - (2 * scaledEdgeLength + 2 * scaledEdgeProjection);
+      double end =
+          grid.getRendererSizeU(renderer) + 2 * scaledEdgeLength + 2 * scaledEdgeProjection;
       double incr = 2 * scaledEdgeLength + 2 * scaledEdgeProjection;
       for (double u = start; u < end; u += incr) {
-        setGridDrawTranslation(g, u + offsetU, v);
-        g.draw(scaledHex);
-        setGridDrawTranslation(g, -(u + offsetU), -v);
-      }
-    }
-    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntiAlias);
-
-    var tmpColor = Pools.obtain(Color.class);
-    Color.argb8888ToColor(tmpColor, zoneCache.getZone().getGridColor());
-
-    drawer.setColor(tmpColor);
-    var path = grid.createShape(zoneCache.getZoneRenderer().getScale());
-    var floats = areaRenderer.pathToFloatArray(path.getPathIterator(null));
-
-    int offU = grid.getOffU(zoneCache.getZoneRenderer());
-    int offV = grid.getOffV(zoneCache.getZoneRenderer());
-
-    int count = 0;
-
-    var lineWidth = AppState.getGridSize();
-
-    for (double v = offV % (grid.getScaledMinorRadius() * 2) - (grid.getScaledMinorRadius() * 2);
-        v < grid.getRendererSizeV(zoneCache.getZoneRenderer());
-        v += grid.getScaledMinorRadius()) {
-      double offsetU =
-          (int)
-              ((count & 1) == 0
-                  ? 0
-                  : -(grid.getScaledEdgeProjection() + grid.getScaledEdgeLength()));
-      count++;
-
-      double start =
-          offU % (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection())
-              - (2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection());
-      double end =
-          grid.getRendererSizeU(zoneCache.getZoneRenderer())
-              + 2 * grid.getScaledEdgeLength()
-              + 2 * grid.getScaledEdgeProjection();
-      double increment = 2 * grid.getScaledEdgeLength() + 2 * grid.getScaledEdgeProjection();
-      for (double u = start; u < end; u += increment) {
         float transX;
         float transY;
         if (grid instanceof HexGridVertical) {
@@ -153,7 +117,6 @@ public class GridRenderer {
       }
     }
     Pools.free(tmpColor);
-    */
   }
 
   private void renderGrid(IsometricGrid grid) {

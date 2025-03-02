@@ -92,6 +92,10 @@ public abstract class HexGrid extends Grid {
   /** Distance from centerpoint to middle of a face. Set to gridSize/2. */
   private transient double minorRadius;
 
+  public double getMinorRadius() {
+    return minorRadius;
+  }
+
   /**
    * The projection of a sloped edge onto the diameter.
    *
@@ -334,9 +338,9 @@ public abstract class HexGrid extends Grid {
 
   protected abstract void setGridDrawTranslation(Graphics2D g, double u, double v);
 
-  protected abstract double getRendererSizeU(ZoneRenderer renderer);
+  public abstract double getRendererSizeU(ZoneRenderer renderer);
 
-  protected abstract double getRendererSizeV(ZoneRenderer renderer);
+  public abstract double getRendererSizeV(ZoneRenderer renderer);
 
   public abstract int getOffV(ZoneRenderer renderer);
 

@@ -784,13 +784,9 @@ public class ZoneRenderer extends JComponent implements DropTargetListener {
             PlayerView pl = getPlayerView();
             timer.stop("paintComponent:createView");
 
-            // we still need to render the different overlays
-            var g2dForRendering = bufferG2d;
-            if (skipDrawing) {
-              g2dForRendering = g2d;
+            if (!skipDrawing) {
+              renderZone(bufferG2d, pl);
             }
-            renderZone(g2dForRendering, pl);
-
             int noteVPos = 20;
             bufferG2d.setFont(AppStyle.labelFont);
             if (MapTool.getFrame().areFullScreenToolsShown()) {
