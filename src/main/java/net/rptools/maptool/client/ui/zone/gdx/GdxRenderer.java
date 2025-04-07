@@ -44,7 +44,6 @@ import net.rptools.maptool.client.*;
 import net.rptools.maptool.client.events.ZoneActivated;
 import net.rptools.maptool.client.swing.ImageBorder;
 import net.rptools.maptool.client.swing.SwingUtil;
-import net.rptools.maptool.client.swing.label.FlatImageLabelFactory;
 import net.rptools.maptool.client.tool.Tool;
 import net.rptools.maptool.client.tool.WallTopologyTool;
 import net.rptools.maptool.client.ui.Scale;
@@ -299,8 +298,9 @@ public class GdxRenderer extends ApplicationAdapter {
     if (fontScale == this.boldFontScale && boldFont != null) return;
 
     var fontParams = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
-//    fontParams.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Bold.ttf";
-    fontParams.fontFileName = String.format("net/rptools/maptool/client/fonts/%s/%s-Bold.ttf", font, font);
+    //    fontParams.fontFileName = "net/rptools/maptool/client/fonts/OpenSans-Bold.ttf";
+    fontParams.fontFileName =
+        String.format("net/rptools/maptool/client/fonts/%s/%s-Bold.ttf", font, font);
     fontParams.fontParameters.size = (int) (12 * fontScale);
     manager.load(FONT_BOLD, BitmapFont.class, fontParams);
     manager.finishLoading();
@@ -311,7 +311,8 @@ public class GdxRenderer extends ApplicationAdapter {
   private void loadAssets() {
     manager.load(ATLAS, TextureAtlas.class);
     var fontParams = new FreetypeFontLoader.FreeTypeFontLoaderParameter();
-    fontParams.fontFileName = String.format("net/rptools/maptool/client/fonts/%s/%s-Regular.ttf", font, font);
+    fontParams.fontFileName =
+        String.format("net/rptools/maptool/client/fonts/%s/%s-Regular.ttf", font, font);
     fontParams.fontParameters.size = 12;
     manager.load(FONT_NORMAL, BitmapFont.class, fontParams);
   }
