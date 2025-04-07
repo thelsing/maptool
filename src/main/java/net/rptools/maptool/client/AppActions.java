@@ -302,17 +302,19 @@ public class AppActions {
 
             StringBuilder builder = new StringBuilder();
             for (Asset asset : assetSet) {
+              if (asset != null) {
 
-              // Index it
-              builder
-                  .append(asset.getMD5Key())
-                  .append(" assets/")
-                  .append(asset.getMD5Key())
-                  .append("\n");
-              // Save it
-              ZipEntry entry = new ZipEntry("assets/" + asset.getMD5Key().toString());
-              out.putNextEntry(entry);
-              out.write(asset.getData());
+                // Index it
+                builder
+                    .append(asset.getMD5Key())
+                    .append(" assets/")
+                    .append(asset.getMD5Key())
+                    .append("\n");
+                // Save it
+                ZipEntry entry = new ZipEntry("assets/" + asset.getMD5Key().toString());
+                out.putNextEntry(entry);
+                out.write(asset.getData());
+              }
             }
 
             // Handle the index
@@ -396,7 +398,8 @@ public class AppActions {
         @Override
         protected void executeAction() {
           /*
-           * 1. Ask the user to select repositories which should be considered. 2. Ask the user for FTP upload information.
+           * 1. Ask the user to select repositories which should be considered. 2. Ask the
+           * user for FTP upload information.
            */
           UpdateRepoDialog urd;
 
@@ -416,21 +419,27 @@ public class AppActions {
           MapTool.getCampaign().getExportDialog().setExportLocation(urd.getFTPLocation());
 
           /*
-           * 3. Check all assets against the repository indices and build a new list from those that are not found.
+           * 3. Check all assets against the repository indices and build a new list from
+           * those that are not found.
            */
           Map<MD5Key, Asset> missing =
               AssetManager.findAllAssetsNotInRepositories(urd.getSelectedRepositories());
 
           /*
-           * 4. Give the user a summary and ask for permission to begin the upload. I'm going to display a listbox and let the user click on elements of the list in order to see a preview to the
-           * right. But there's no plan to make it a CheckBoxList. (Wouldn't be _that_ tough, however.)
+           * 4. Give the user a summary and ask for permission to begin the upload. I'm
+           * going to display a listbox and let the user click on elements of the list in
+           * order to see a preview to the
+           * right. But there's no plan to make it a CheckBoxList. (Wouldn't be _that_
+           * tough, however.)
            */
           if (!MapTool.confirm(I18N.getText("msg.confirm.aboutToBeginFTP", missing.size() + 1))) {
             return;
           }
 
           /*
-           * 5. Build the index as we go, but add the images to FTP to a queue handled by another thread. Add a progress bar of some type or use the Transfer Status window.
+           * 5. Build the index as we go, but add the images to FTP to a queue handled by
+           * another thread. Add a progress bar of some type or use the Transfer Status
+           * window.
            */
           try {
             File topdir = urd.getDirectory();
@@ -456,11 +465,14 @@ public class AppActions {
             // Handle the index
             ByteArrayOutputStream bout = new ByteArrayOutputStream();
             String saveTo = urd.getSaveToRepository();
-            // When this runs our local 'repoindx' is updated. If the FTP upload later fails,
+            // When this runs our local 'repoindx' is updated. If the FTP upload later
+            // fails,
             // it doesn't really matter much because the assets are already there. However,
-            // if our local cache is ever downloaded again, we'll "forget" that the assets are
+            // if our local cache is ever downloaded again, we'll "forget" that the assets
+            // are
             // on the server. It sounds like it might be nice to have some way to resync
-            // the local system with the FTP server. But it's probably better to let the user
+            // the local system with the FTP server. But it's probably better to let the
+            // user
             // do it manually.
             byte[] index = AssetManager.updateRepositoryMap(saveTo, repoEntries);
             repoEntries.clear();
@@ -476,7 +488,8 @@ public class AppActions {
         }
 
         private String getFormattedDate(Date d) {
-          // Use today's date as the directory on the FTP server. This doesn't affect players'
+          // Use today's date as the directory on the FTP server. This doesn't affect
+          // players'
           // ability to download it and might help the user determine what was uploaded to
           // their site and why. It can't hurt. :)
           SimpleDateFormat df = (SimpleDateFormat) DateFormat.getDateInstance();
@@ -987,8 +1000,12 @@ public class AppActions {
         tokenCopySet.add(newToken);
       }
       /*
-       * Normalize. For gridless maps, keep relative pixel distances. For gridded maps, keep relative cell spacing. Since we're going to keep relative positions, we can just modify the (x,y)
-       * coordinates of all tokens by subtracting the position of the one in 'topLeft'. On paste we can use the saved 'gridCopiedFrom' to determine whether to use pixel distances or convert to
+       * Normalize. For gridless maps, keep relative pixel distances. For gridded
+       * maps, keep relative cell spacing. Since we're going to keep relative
+       * positions, we can just modify the (x,y)
+       * coordinates of all tokens by subtracting the position of the one in
+       * 'topLeft'. On paste we can use the saved 'gridCopiedFrom' to determine
+       * whether to use pixel distances or convert to
        * cell distances.
        */
       Zone zone = MapTool.getFrame().getCurrentZoneRenderer().getZone();
@@ -1000,7 +1017,8 @@ public class AppActions {
       int x = topLeft.getX();
       int y = topLeft.getY();
       for (Token token : tokenCopySet) {
-        // Save all token locations as relative pixel offsets. They'll be made absolute when pasting
+        // Save all token locations as relative pixel offsets. They'll be made absolute
+        // when pasting
         // them back in.
         token.setX(token.getX() - x);
         token.setY(token.getY() - y);
@@ -1071,7 +1089,8 @@ public class AppActions {
       CellPoint cellPoint = grid.convert(destination);
       destination = grid.convert(cellPoint);
     }
-    // Create a set of all tokenExposedAreaGUID's to make searching by GUID much faster.
+    // Create a set of all tokenExposedAreaGUID's to make searching by GUID much
+    // faster.
     Set<GUID> allTokensSet = null;
     {
       List<Token> allTokensList = zone.getAllTokens();
@@ -1095,7 +1114,8 @@ public class AppActions {
         GUID guid = new GUID();
         token.setExposedAreaGUID(guid);
         ExposedAreaMetaData meta = zone.getExposedAreaMetaData(guid);
-        // 'meta' references the object already stored in the zone's HashMap (it was created if
+        // 'meta' references the object already stored in the zone's HashMap (it was
+        // created if
         // necessary).
         meta.addToExposedAreaHistory(meta.getExposedAreaHistory());
         MapTool.serverCommand()
@@ -1104,9 +1124,12 @@ public class AppActions {
 
       ZonePoint tokenOffset;
       if (newZoneSupportsSnapToGrid && gridCopiedFromSupportsSnapToGrid && token.isSnapToGrid()) {
-        // Convert (x,y) offset to a cell offset using the grid from the zone where the tokens were
-        // copied from. Note that the token coordinates are relative to the "top-left" token's
-        // position, so they can't be used as a ZonePoint without first adding back the grid offset.
+        // Convert (x,y) offset to a cell offset using the grid from the zone where the
+        // tokens were
+        // copied from. Note that the token coordinates are relative to the "top-left"
+        // token's
+        // position, so they can't be used as a ZonePoint without first adding back the
+        // grid offset.
         CellPoint cp =
             gridCopiedFrom.convert(
                 new ZonePoint(
@@ -1115,7 +1138,8 @@ public class AppActions {
         ZonePoint zp = grid.convert(cp);
         tokenOffset = new ZonePoint(zp.x - grid.getOffsetX(), zp.y - grid.getOffsetY());
       } else {
-        // For gridless sources, gridless destinations, or tokens that are not SnapToGrid: just use
+        // For gridless sources, gridless destinations, or tokens that are not
+        // SnapToGrid: just use
         // the pixel offsets
         tokenOffset = new ZonePoint(token.getX(), token.getY());
       }
@@ -1128,17 +1152,22 @@ public class AppActions {
       // check the token's name and change it, if necessary
       boolean tokenNeedsNewName = false;
       if (MapTool.getPlayer().isGM()) {
-        // For GMs, only change the name of NPCs. It's possible that we should be changing the name
+        // For GMs, only change the name of NPCs. It's possible that we should be
+        // changing the name
         // of PCs as well
-        // since macros don't work properly when multiple tokens have the same name, but if we
+        // since macros don't work properly when multiple tokens have the same name, but
+        // if we
         // changed it without
-        // asking it could be seriously confusing. Yet we don't want to popup a confirmation every
+        // asking it could be seriously confusing. Yet we don't want to popup a
+        // confirmation every
         // time the GM pastes either. :(
         tokenNeedsNewName = token.getType() != Token.Type.PC;
       } else {
-        // For Players, check to see if the name is already in use. If it is already in use, make
+        // For Players, check to see if the name is already in use. If it is already in
+        // use, make
         // sure the current Player
-        // owns the token being duplicated (to avoid subtle ways of manipulating someone else's
+        // owns the token being duplicated (to avoid subtle ways of manipulating someone
+        // else's
         // token!).
         Token tokenNameUsed = zone.getTokenByName(token.getName());
         if (tokenNameUsed != null) {
@@ -1440,7 +1469,8 @@ public class AppActions {
         @Override
         protected void executeAction() {
           Zone zone = MapTool.getFrame().getCurrentZoneRenderer().getZone();
-          // XXX Perhaps ask the user if the copied map should have its GEA and/or TEA cleared? An
+          // XXX Perhaps ask the user if the copied map should have its GEA and/or TEA
+          // cleared? An
           // imported map would ask...
           String zoneName =
               JOptionPane.showInputDialog(
@@ -2288,11 +2318,17 @@ public class AppActions {
                           (playerType == Role.GM) ? gmPassword : playerPassword);
 
                   /*
-                   * JFJ 2010-10-27 The below creates a NEW campaign with a copy of the existing campaign. However, this is NOT a full copy. In the constructor called below, each zone from the
-                   * previous campaign(ie, the one passed in) is recreated. This means that only some items for that campaign, zone(s), and token's are copied over when you start a new server
+                   * JFJ 2010-10-27 The below creates a NEW campaign with a copy of the existing
+                   * campaign. However, this is NOT a full copy. In the constructor called below,
+                   * each zone from the
+                   * previous campaign(ie, the one passed in) is recreated. This means that only
+                   * some items for that campaign, zone(s), and token's are copied over when you
+                   * start a new server
                    * instance.
                    *
-                   * You need to modify either Campaign(Campaign) or Zone(Zone) to get any data you need to persist from the pre-server campaign to the post server start up campaign.
+                   * You need to modify either Campaign(Campaign) or Zone(Zone) to get any data
+                   * you need to persist from the pre-server campaign to the post server start up
+                   * campaign.
                    */
                   MapTool.startServer(
                       dialog.getUsernameTextField().getText(),
@@ -2345,7 +2381,8 @@ public class AppActions {
     // connecting
     MapTool.getFrame().getConnectionStatusPanel().setStatus(ConnectionStatusPanel.Status.connected);
 
-    // Show the user something interesting while we're connecting. Look below for the corresponding
+    // Show the user something interesting while we're connecting. Look below for
+    // the corresponding
     // hideGlassPane
     StaticMessageDialog progressDialog =
         new StaticMessageDialog(I18N.getText("msg.info.connecting"));
@@ -2906,7 +2943,8 @@ public class AppActions {
         @Override
         public boolean isAvailable() {
           // return MapTool.isHostingServer() || MapTool.isPersonalServer();
-          // I'd like to be able to use this instead as it's less restrictive, but it's safer to
+          // I'd like to be able to use this instead as it's less restrictive, but it's
+          // safer to
           // disallow for now.
           return MapTool.isHostingServer()
               || (MapTool.getPlayer() != null && MapTool.getPlayer().isGM());
@@ -3000,7 +3038,8 @@ public class AppActions {
                 && !map.zone.getExposedAreaMetaData().isEmpty())) {
           boolean ok =
               MapTool.confirm(
-                  "<html>Map contains exposed areas of fog.<br>Do you want to reset all of the fog?");
+                  "<html>Map contains exposed areas of fog.<br>Do you want to reset all of the"
+                      + " fog?");
           if (ok) {
             // This fires a ModelChangeEvent, but that shouldn't matter
             map.zone.clearExposedArea(false);
@@ -3517,8 +3556,10 @@ public class AppActions {
 
     public OpenUrlAction(String key) {
       // The init() method will load the "key", "key.accel", and "key.description".
-      // The value of "key" will be used as the menu text, the accelerator is not used,
-      // and the description will be the destination URL. Only the Help menu uses these objects and
+      // The value of "key" will be used as the menu text, the accelerator is not
+      // used,
+      // and the description will be the destination URL. Only the Help menu uses
+      // these objects and
       // only the Help menu expects that field to be set...
       init(key);
     }
@@ -3576,15 +3617,19 @@ public class AppActions {
         }
         htmlTip = "<html><img src=\"" + url.toExternalForm() + "\"></html>";
         // The above should really be something like:
-        // htmlTip = new Node("html").addChild("img").attr("src", thumbFile.toURI().toURL()).end();
-        // The idea being that each method returns a proper value that allows them to be chained.
+        // htmlTip = new Node("html").addChild("img").attr("src",
+        // thumbFile.toURI().toURL()).end();
+        // The idea being that each method returns a proper value that allows them to be
+        // chained.
       } else {
         htmlTip = I18N.getText("msg.info.noCampaignPreview");
       }
 
       /*
-       * There is some extra space appearing to the right of the images, which sounds similar to what was reported in this bug (bottom half):
-       * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5047379 Removing the mnemonic will remove this extra space.
+       * There is some extra space appearing to the right of the images, which sounds
+       * similar to what was reported in this bug (bottom half):
+       * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5047379 Removing the
+       * mnemonic will remove this extra space.
        */
       putValue(Action.SHORT_DESCRIPTION, htmlTip);
     }

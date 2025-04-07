@@ -1188,23 +1188,8 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
       }
 
       ZonePoint zonePoint = new ScreenPoint(mouseX, mouseY).convertToZone(renderer);
-
-      zonePoint.x = this.dragAnchor.x + zonePoint.x - tokenDragStart.x;
-      zonePoint.y = this.dragAnchor.y + zonePoint.y - tokenDragStart.y;
-
-      var grid = renderer.getZone().getGrid();
-      if (tokenBeingDragged.isSnapToGrid() && grid.getCapabilities().isSnapToGridSupported()) {
-        // Snap to grid point.
-        zonePoint = grid.convert(grid.convert(zonePoint));
-
-        if (debugEnabled) {
-          renderer.setShape(new Rectangle2D.Double(zonePoint.x - 5, zonePoint.y - 5, 10, 10));
-        }
-
-        // Adjust given offet from grid to anchor point.
-        zonePoint.x += this.snapOffsetX;
-        zonePoint.y += this.snapOffsetY;
-      }
+      zonePoint.x += dragAnchor.x - tokenDragStart.x;
+      zonePoint.y += dragAnchor.y - tokenDragStart.y;
 
       if (debugEnabled) {
         renderer.setShape2(new Rectangle2D.Double(zonePoint.x - 5, zonePoint.y - 5, 10, 10));
@@ -1237,11 +1222,21 @@ public class StampTool extends DefaultTool implements ZoneOverlay {
     }
 
     private void doDragTo(ZonePoint newAnchorPoint) {
-      tokenDragCurrent = new ZonePoint(newAnchorPoint);
-
       // Don't bother if there isn't any movement
       if (!renderer.hasMoveSelectionSetMoved(tokenBeingDragged.getId(), newAnchorPoint)) {
         return;
+      }
+
+      tokenDragCurrent = new ZonePoint(newAnchorPoint);
+
+      var grid = renderer.getZone().getGrid();
+      if (tokenBeingDragged.isSnapToGrid() && grid.getCapabilities().isSnapToGridSupported()) {
+        // Snap to grid point.
+        newAnchorPoint = grid.convert(grid.convert(newAnchorPoint));
+
+        // Adjust given offset from grid to anchor point.
+        newAnchorPoint.x += this.snapOffsetX;
+        newAnchorPoint.y += this.snapOffsetY;
       }
 
       renderer.updateMoveSelectionSet(tokenBeingDragged.getId(), newAnchorPoint);

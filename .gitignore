@@ -14,7 +14,7 @@ Thumbs.db
 .gradle
 .gradletasknamecache
 build/
-/bin/
+bin/
 target/
 out/
 /releases/

@@ -432,12 +432,25 @@ public class AppMenuBar extends JMenuBar {
         new RPCheckBoxMenuItem(new AppActions.ToggleOverlayAction(overlayManager), overlayMenu);
     menuItem.setText(overlayManager.getName());
     if (overlayManager.getLocked() && !MapTool.getPlayer().isGM()) {
-      overlayMenu.add(menuItem).setEnabled(false);
-    } else {
-      overlayMenu.add(menuItem);
+      menuItem.setEnabled(false);
     }
+    overlayMenu.add(menuItem);
     overlayMenu.setEnabled(true);
     overlayItems.put(overlayManager.getName(), menuItem);
+  }
+
+  /**
+   * Enables or disables an overlay menu item based on whether the overlay is locked.
+   *
+   * @param overlayManager The overlay being updated.
+   */
+  public static void updateOverlayMenuLocked(HTMLOverlayManager overlayManager) {
+    // Never lock out a GM.
+    boolean enabled = MapTool.getPlayer().isGM() ? true : !overlayManager.getLocked();
+    JCheckBoxMenuItem menuItem = overlayItems.get(overlayManager.getName());
+    if (menuItem != null) {
+      menuItem.setEnabled(enabled);
+    }
   }
 
   /**

@@ -1028,18 +1028,29 @@ public abstract class Grid implements Cloneable {
   }
 
   public static Grid fromDto(GridDto dto) {
-    Grid grid = null;
-    switch (dto.getTypeCase()) {
-      case GRIDLESS_GRID -> grid = new GridlessGrid();
-      case HEX_GRID -> {
-        grid = HexGrid.fromDto(dto.getHexGrid());
-      }
-      case SQUARE_GRID -> grid = new SquareGrid();
-      case ISOMETRIC_GRID -> grid = new IsometricGrid();
-    }
+    Runnable postProcess = () -> {};
+    Grid grid =
+        switch (dto.getTypeCase()) {
+          case GRIDLESS_GRID -> new GridlessGrid();
+          case HEX_GRID -> {
+            var hexDto = dto.getHexGrid();
+            var hexGrid = hexDto.getVertical() ? new HexGridVertical() : new HexGridHorizontal();
+            postProcess = () -> hexGrid.readDto(hexDto);
+            yield hexGrid;
+          }
+          case SQUARE_GRID -> new SquareGrid();
+          case ISOMETRIC_GRID -> new IsometricGrid();
+          default -> {
+            log.error("Unrecognized Grid DTO: {}. Defaulting to square grid", dto.getTypeCase());
+            yield new SquareGrid();
+          }
+        };
+
     grid.offsetX = dto.getOffsetX();
     grid.offsetY = dto.getOffsetY();
     grid.size = dto.getSize();
+    postProcess.run();
+
     grid.cellShape = grid.createCellShape();
 
     return grid;

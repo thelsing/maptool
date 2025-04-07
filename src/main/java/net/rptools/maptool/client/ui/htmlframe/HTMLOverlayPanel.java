@@ -268,6 +268,7 @@ public class HTMLOverlayPanel extends JFXPanel {
                 overlays.add(overlayManager);
               }
               overlayManager.setLocked(locked);
+              AppMenuBar.updateOverlayMenuLocked(overlayManager);
             }
 
           } else {
